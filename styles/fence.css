@@ -1,0 +1,100 @@
+/* VARIABLES */
+:root {
+    --zoom-out-size: 74vh;
+}
+#editpoint {
+    border: 1px dotted black;
+    margin-top: 2em;
+}
+.zoom-vp-in {
+    overflow: hidden;
+    width: var(--zoom-out-size);
+    height: var(--zoom-out-size);
+    border: 2px solid var(--pxm-highlight-grey);
+}
+#routeview {
+	/* space off */
+	margin-left: 10px;
+}
+.zoom-vp-out {
+    overflow: hidden;
+    width: var(--zoom-out-size);
+    height: var(--zoom-out-size);
+    border: 2px solid #6d6875;
+}
+.zoom-vp-content {
+	background: var(--svg-bg-color);
+}
+
+/* SVG STYLES */
+.fence-point {
+	stroke: yellow;
+	fill: black;
+	stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+	cursor: default;
+}
+.route-point {
+	fill: brown;
+	stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+	opacity: 0.25;
+	cursor: default;
+}
+.final-route-point {
+	fill: red;
+	stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+	cursor: default;
+}
+.fence-point.pt-selected {
+    stroke: black;
+    stroke-width: 24; /* not real pixels - hd percentage values (0-10000) */
+    fill: yellow;
+}
+.selectable-point-text {
+    stroke: yellow;
+    fill: yellow;
+    font-size: 200px; /* not real pixels - hd percentage values (0-10000) */
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+.route-point-text {
+    stroke: orange;
+    fill: orange;
+    font-size: 100px; /* not real pixels - hd percentage values (0-10000) */
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+.pt-selected + .selectable-point-text {
+	stroke: black;
+	fill: black;
+}
+.fence-line {
+    stroke: yellow;
+    stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+    stroke-dasharray: 400;
+    fill: none;
+}
+.fence-line-hidden {
+    stroke: white;
+    opacity: 0.2;
+    stroke-linecap: round;
+    fill: none;
+    /* needs width to allow double-clicking */
+    stroke-width: 400; /* not real pixels - hd percentage values (0-10000) */
+    cursor: copy;
+}
+.route-line {
+    stroke: orange;
+    stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+    stroke-dasharray: 400;
+    fill: none;
+}
+.route-line-hidden {
+    stroke: orange;
+    opacity: 0.1;
+    stroke-linecap: round;
+    fill: none;
+}
+
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+}

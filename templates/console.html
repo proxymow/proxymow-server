@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+{% block title %}Robot Console{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel = "stylesheet" href = "/styles/toolpane.css" />
+{% endblock %}
+{% block navheader %}Robot Console{% endblock %}
+{% block header %}
+{% endblock %}
+{% block content %}
+    <main>
+      <figure>
+          <figcaption>Robot Console</figcaption>
+          <div class="figbody" style="min-width: 80vw">
+            <div style="padding: 20px;background-color: pink;border: 1px solid black">
+                <label>Robot Command:</label><br />
+                <div style="position: relative;width: 80%;max-width: 400px" >
+	                <input 
+	                    id="console-cmd-text" 
+	                    type="text" 
+	                    style="width: 95%;padding: 4px;background-color: white" 
+	                    onkeydown = "if (event.keyCode == 13) document.getElementById('execute-cmd').click()" 
+	                    value="sweep(50, 50, 500)" />
+                    <button id="reveal-history" type="button" style="width: 24px;position: absolute;right: -10px;top:3px" onclick="revealHistory()">...</button>&nbsp;
+                    <button id="execute-cmd" type="button" style="position: absolute;right: -60px;top:3px" onclick="processCmd()">Submit</button>
+	                <select id="history" size="5" style="display: none;position: absolute;width: 100%;padding: 3px" onchange="chooseHistItem()">
+	                    <option value="sweep(50, 50, 500)">sweep(50, 50, 500)</option>
+	                    <option value="sweep(-50, -50, 500)">sweep(-50, -50, 500)</option>
+	                    <option value="sweep(-50, 50, 500)">sweep(-50, 50, 500)</option>
+	                    <option value="sweep(50, -50, 500)">sweep(50, -50, 500)</option>
+                        <option value="sweep(0, -50, 250)">sweep(0, -50, 250)</option>
+                        <option value="sweep(50, 0, 250)">sweep(50, 0, 250)</option>
+                        <option value="sweep(-50, 0, 250)">sweep(-50, 0, 250)</option>
+                        <option value="sweep(0, 50, 250)">sweep(0, 50, 250)</option>
+	                    <option value=">get_telemetry()">>get_telemetry()</option>
+                        <option value=">get_pose()">>get_pose()</option>
+                        <option value="set_pose(1.0, 1.5, 180)">set_pose(1.0, 1.5, 180)</option>
+	                </select>
+                </div>
+                <label>Response:</label><br />
+                <textarea 
+                    id="cmd-resp" 
+                    rows="10" 
+                    style="height: 50%;max-height: 500px;width: 100%;max-width: 400px;padding: 4px;background-color: grey" 
+                    readonly>
+                    </textarea>                
+            </div>
+          </div>
+      </figure>
+    </main>    
+{% endblock %}
+{% block foot %}
+  {{ super() }}
+  <script>
+    function processCmd() {
+        const cmdTextElem = document.getElementById('console-cmd-text');
+        const respTextElem = document.getElementById('cmd-resp')
+        const cmdText = cmdTextElem.value;
+        respTextElem.value = '';
+        //Update server
+        sendData('PUT', 'api', 'direct-drive', cmdText, true, function(resp) {
+            respTextElem.value = resp;
+        });
+    }//end process cmd
+    function revealHistory() {
+        const hist = document.getElementById('history');
+        if (hist.style.display == 'block') {
+            hist.style.display = 'none';
+        } else {
+            hist.style.display = 'block';
+        }
+    }//end reveal history
+    function chooseHistItem() {
+        const hist = document.getElementById('history');
+        const cmdTextElem = document.getElementById('console-cmd-text');
+        cmdTextElem.value = hist.value;
+        hist.style.display = 'none';
+    }//end choose history item
+  </script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends "layout.html" %}
+{% block title %}Navigator{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="/styles/toolpane.css" />
+  <link rel="stylesheet" href="/styles/monitor.css" />
+  <link rel = "stylesheet" href = "/styles/navigator.css" />
+  <link rel="stylesheet" href="/styles/formpane.css" />
+{% endblock %}
+{% block header %}
+    {% with toolpane = nav_selection_toolpane %}
+        {% include "toolpane.html" %} 
+    {% endwith %}
+{% endblock %}
+{% block navheader %}Navigator{% endblock %}
+{% block content %} 
+<main>
+    <figure class="terms">
+        <figcaption id="terms-fig-cap">Terms</figcaption>
+        <button id="add-term-btn" class="widget">Add Term</button>
+        <div class="fig-grid-body">
+			<table id="strategy-term-grid" class="strategy-term-grid">
+			    <thead>
+			        <tr>
+			            {% for hdg in terms_hdr %}
+			              <th {% if hdg|first in "_" %}style="display: none"{% endif %}>{{hdg}}</th>    
+			            {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </figure>
+    <figure class="arena">
+        <figcaption>Arena View</figcaption>
+        <div class="fig-img-body">
+	        <div class="marker-wrapper">
+	            <img id="img1" />
+	            <img class="marker" src="../icons/map_marker.png"></img>
+                <div id="online-annotation" class="annotate" style="transform:scale(0);">
+                    Signal Strength
+                </div>
+                <div id="found-annotation" class="annotate" style="transform:scale(0);">
+                    Not Found
+                </div>
+                <div id="meas-annotation" class="annotate" style="transform:scale(0);">
+                    Battery 100%
+                </div>
+   	        </div>
+            <div class="img-caption" id="img1-caption"></div>
+        </div>
+    </figure>    
+    <div class="monitor">
+        {% with toolpane = cockpit_monitor_toolpane %}
+            {% include "toolpane.html" %}
+        {% endwith %}
+    </div>
+    <div class="controls ToolPaneHor">
+        {% with toolpane = cockpit_control %}
+            {% include "toolpane.html" %}
+        {% endwith %}
+    </div>
+    <figure class="rules">
+        <figcaption id="rules-fig-cap">Rules</figcaption>
+        <button id="add-rule-btn" class="widget">Add Rule</button>
+        <div class="fig-grid-body">
+            <table id="strategy-rule-grid" class="strategy-rule-grid">
+                <thead>
+                    <tr>
+                        {% for i in range(rules_hdr|length) %}
+                            {% set hdg = rules_hdr[i] %}
+                            {% set disp_hdg = rules_hdr[i]|replace("_", " ") %}
+                            {% if hdg|first in "_" %}
+                                <th style="display: none">{{hdg}}</th>
+                            {% else %}
+                                <th>{{disp_hdg}}</th>
+                            {% endif %}    
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </figure>
+ 	<div class="settings-form" style="position: absolute;margin: 100px;background-color: yellow;">
+        <div id="animation-wrapper">
+			<div id="settings-form" class="settings-form">
+			    <p class="settings-form-instructions">{{advice}}</p>
+			</div>
+        <div id="animation"></div>
+	    </div>
+	</div>
+</main>
+
+{% endblock %} 
+{% block foot %} 
+{{ super() }}
+<script src="/scripts/form-utils.js"></script>
+<script src="/scripts/http-fetcher.js"></script>
+<script src="/scripts/grid.js"></script>
+<script src="/scripts/monitor-pane.js"></script>
+<script src="/scripts/control-pane.js"></script>
+<script>
+    const autoFreezeMs = {{auto_freeze_ms}};
+    //check selected strategy
+    const stratSelect = document.getElementsByName('strategy-select')[0];
+    let selStrat = null;
+    if (typeof stratSelect !== 'undefined') {
+        selStrat = stratSelect.options[stratSelect.selectedIndex].text;
+    }//end valid select
+
+    //create data fetchers
+    let df1 = new HttpFetcher("/metadata_json?progress=3&strat=" + selStrat, 3000, false); //leading
+    let df2 = new HttpFetcher("/strategy_json", 0, false); //trailing
+    //create image fetcher
+    let if1 = new HttpFetcher("/arena_img?ts=", 0, true, false); //trailing, cache-busting, not free-running
+    //create grids
+    let dt1 = new Grid('strategy-term-grid');
+    let dt2 = new Grid('strategy-rule-grid');
+    df2.addEventListener('no-content', function(event) {
+        df1.reset();
+    });
+    df1.addEventListener('body-available', function(event) {
+        const json = event.detail;
+        const loctr = json.Locator;
+        if (typeof loctr !== 'undefined') {
+	        const ssid = loctr.ssid;
+	        if1.url = `/arena_img?ssid=${ssid}&ts=`;
+	        df2.url = `/strategy_json?ssid=${ssid}`;
+	        if1.refresh();
+	        df2.refresh();
+        }//end located
+    });
+    df2.addEventListener('body-available', function(event) {
+        const json = event.detail;
+        const stratName = json[0];
+        const stratSelect = document.getElementsByName('strategy-select')[0];
+        let selStrat = null;
+        if (typeof stratSelect !== 'undefined') {
+            selStrat = stratSelect.options[stratSelect.selectedIndex].text;
+        }//end valid select
+        if (selStrat == stratName) {
+	        dt1.processBody(json[1]);
+	        const termsCaption = document.getElementById('terms-fig-cap');
+	        if (typeof termsCaption !== 'undefined') {
+	            termsCaption.innerText = `${stratName} Terms`;
+	        }//end terms caption available
+	        dt2.processBody(json[2]);
+	        const rulesCaption = document.getElementById('rules-fig-cap');
+	        if (typeof rulesCaption !== 'undefined') {
+	            rulesCaption.innerText = `${stratName} Rules`;
+	        }//end terms caption available
+	    }//end fetched requested
+    });
+
+    //listen for imgFetcher events        
+    if1.addEventListener('body-available', function(event) {
+        document.getElementById('img1').src = event.detail;
+    });
+    
+    //create toolpane support objects
+    let mp = new MonitorPane('cockpitstate', 'cockpitctrlstrat', df1);
+    let cp = new ControlPane('cockpitctrlstrat', df1);
+    
+    document.getElementById('img1-caption').addEventListener("animationend", (event) => {
+        event.target.classList.remove('img-caption-animate');
+    });
+    
+    //clear driveto coordinates
+    document.querySelector('input[data-key="Driveto.X"]').value = '';
+    document.querySelector('input[data-key="Driveto.Y"]').value = '';
+    
+    document.getElementById("img1").addEventListener("dblclick", planToClickPosition, false);
+    function planToClickPosition(e) {
+        if (cp.driving == false) {
+            updateClickPosition(e);
+        }//end drive not in progress
+    }//end plan to click position 
+    const arenaWidthM = {{arena_width_m}};
+    const arenaLengthM = {{arena_length_m}};
+    function updateClickPosition(e, execDrive) {
+        const tgt = e.currentTarget;
+        const mkr = document.getElementsByClassName("marker")[0];
+        const rRect = getRenderedRect(tgt);
+        const xClickRatio = e.offsetX / rRect.width;
+        const yClickRatio = e.offsetY / rRect.height;
+        mkr.style.left = `${xClickRatio * 100}%`;
+        mkr.style.top = `${yClickRatio * 100}%`;
+        const xm = (xClickRatio * arenaWidthM).toFixed(2);
+        const ym = ((1 - yClickRatio) * arenaLengthM).toFixed(2);
+        document.querySelector('input[data-key="Driveto.X"]').value = xm;
+        document.querySelector('input[data-key="Driveto.Y"]').value = ym; 
+        sendData('PUT', 'api', 'plan', `[${xm}, ${ym}]`);
+    }//end update click position
+    //locate button constants
+    const hdrButtonConstants = window['navsel'].TOOLS;
+    const ctrlButtonConstants = window['cockpitctrlstrat'].TOOLS;
+
+    //add specific actions to toolbar buttons
+    const addTermBtn = document.getElementById("add-term-btn");
+    addTermBtn.addEventListener('click', function () {
+        document.getElementsByClassName("settings-form")[0].style.display="block";
+        renderForm(null, "{{add_term_xpath}}", 'create');
+    }, false);
+    
+    const addRuleBtn = document.getElementById("add-rule-btn");
+    addRuleBtn.addEventListener('click', function () {
+        document.getElementsByClassName("settings-form")[0].style.display="block";
+        renderForm(null, "{{add_rule_xpath}}", 'create');
+    }, false);
+    
+    const driveBtn = getButton('cockpitctrlstrat', ctrlButtonConstants.DRIVE);
+    driveBtn.addEventListener('click', function () {
+	    //clear driveto coordinates
+	    document.querySelector('input[data-key="Driveto.X"]').value = '';
+	    document.querySelector('input[data-key="Driveto.Y"]').value = '';
+    }, false);
+    
+    const freezeBtn = getButton('navsel', hdrButtonConstants.FREEZE);
+    freezeBtn.addEventListener('click', function () {
+        df1.isPaused = !df1.isPaused;
+        if (df1.isPaused) {
+            freezeBtn.classList.add('depressed');
+        } else {
+            freezeBtn.classList.remove('depressed');
+            schedFreeze();
+        }
+    }, false);
+    
+    //add a scheduled event to freeze after delay - reduces server load
+    schedFreeze();
+    
+    function schedFreeze() {
+        setTimeout( function() { autoFreeze(); }, autoFreezeMs);
+    }//end schedule freeze
+    
+    function autoFreeze() {
+        const isRouteDriveMode = cp.driverJson.path == 'Route';
+        if (isRouteDriveMode) {
+	        if (!df1.isPaused) {
+	            freezeBtn.click();
+	        }//end not paused
+	    }//end route drive mode
+	    else {
+	       schedFreeze();
+	    }//re-schedule
+    }//end auto freeze
+</script>
+{% endblock %}

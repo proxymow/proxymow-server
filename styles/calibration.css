@@ -1,0 +1,93 @@
+#calquad {
+	border: 1px dotted black;
+	margin-top: 2em;
+}
+.zoom-vp-in {
+    overflow: hidden;
+    width: 96vh;/* 4:3 */
+    height: 72vh;
+    border: 2px solid var(--pxm-highlight-grey);
+}
+#topview figcaption {
+	/* move across for axis space */
+	margin-left: 6.8vh;
+}
+.zoom-vp-out {
+    overflow: hidden;
+    height: 78vh;/* match vp-in height + axis */
+}
+#tv-svg-image {
+    outline: 48px solid var(--pxm-highlight-grey);
+}
+
+/* SVG STYLES */
+.svg-cursor {
+    stroke: white;	
+    stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+}
+.svg-cursor-text {
+	fill: white;
+	font-size: 400px;
+	padding-left: 100px;
+} 
+.cal-point {
+	stroke: orange;
+	fill: none;
+	stroke-width: 20; /* not real pixels - hd percentage values (0-10000) */
+	cursor: default;
+}
+.cal-point.pt-selected {
+    stroke: white;
+    stroke-width: 24; /* not real pixels - hd percentage values (0-10000) */
+    fill: none;
+}
+.selectable-point-text {
+    transform: translate(-20px, 40px); /* not real pixels - hd percentage values (0-10000) */
+    stroke: orange;
+    fill: orange;
+}
+.visible-point-text {
+    stroke: orange;
+    fill: orange;
+    font-size: 200px; /* not real pixels - hd percentage values (0-10000) */
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+.link-line {
+    stroke: orange;
+    stroke-width: 2; /* real pixels */
+	vector-effect: non-scaling-stroke;
+}
+.major-axis-line {
+    stroke: var(--pxm-highlight-grey);
+    opacity: 1.0;
+    stroke-width: 50;
+    fill: none;
+}
+
+.major-axis-col-label, .major-axis-row-label {
+    fill: var(--pxm-highlight-grey);
+    font-size: 400px;
+}
+.major-axis-col-label {
+    text-anchor: middle;
+    dominant-baseline: mathematical;
+}
+.major-axis-row-label {
+    text-anchor:    middle;
+    dominant-baseline: ideographic;
+}
+.major-axis-row-units, .major-axis-col-units {
+    fill: var(--pxm-highlight-grey);
+    font-size: 400px;
+}
+.major-axis-row-units {
+	text-anchor: start;
+}
+.major-axis-col-units {
+    dominant-baseline: middle;	
+}
+
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+}

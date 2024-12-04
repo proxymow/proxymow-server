@@ -1,0 +1,38 @@
+.content-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+main {
+    flex: 2;
+}
+.left-sidebar {
+    background: dodgerblue;
+    flex: 1;
+}
+.right-sidebar {
+    background: forestgreen;
+    flex: 1;
+}
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+    .content-container {
+        flex-direction: column;
+        flex-wrap: wrap;
+    }
+    .left-sidebar {
+        min-height: 10vh;
+        order: 2;
+        flex: 1;
+    }
+    main {
+        min-height: 60vh;
+        order: 1;
+        flex: 2;
+    }
+    .right-sidebar {
+        min-height: 10vh;
+        order: 3;
+        flex: 1;
+    }
+}

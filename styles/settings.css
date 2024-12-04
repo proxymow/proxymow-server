@@ -1,0 +1,94 @@
+main {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 25% 1fr;
+    grid-template-rows: 1fr;
+}
+.fig-list-body {
+	border: 2px solid var(--pxm-highlight-grey);
+	margin-right: 2px;
+}
+.settings-menu {
+	background-color: pink;
+	padding: 10px;
+	height: 75vh;
+	overflow-y: scroll;
+}
+#settings-form {
+    width: fit-content;
+    height: fit-content;
+    background-color: yellow;	
+    padding: 4px;
+}
+.saving-animate > #settings-form {
+    background-color: LightYellow; 
+    opacity: 0.5;
+    pointer-events: none;  
+}
+/* Remove default bullets */
+#settings-menu-list ul {
+    list-style-type: none;
+    white-space: nowrap;
+}
+/* Remove margins and padding from the parent ul */
+#settings-menu-list {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+ul ul {
+    display: none;
+	margin-left: 10px;
+	border: 0px solid crimson;
+}
+
+li > a {
+   display: inline-block;
+   white-space: nowrap;
+}
+
+/* Style the caret/arrow */
+#settings-menu-list div {
+    cursor: pointer;
+    user-select: none; /* Prevent text selection */
+    display: inline-block;
+}
+
+/* Create the caret/arrow with a unicode, and style it */
+#settings-menu-list div::before {
+    content: "\25B6";
+    color: black;
+    display: inline-block;
+    margin-right: 6px;
+}
+
+/* Rotate the caret/arrow icon when clicked on (using JavaScript) */
+.caret-down::before {
+    transform: rotate(90deg);
+}
+ 
+/* Show the nested list when the user clicks on the caret/arrow (with JavaScript) */
+.active {
+    display: block;
+    margin: 6px 18px;
+}
+.settings-form-instructions {
+	padding: 16px;
+	margin: -4px;
+	background-color: var(--main-bg-color);  
+}
+#settings-menu-list img {
+    cursor: pointer;
+    display: inline-block;
+    height: 0.7em;
+}
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+    main {
+        grid-template-rows: 25vh 1fr;
+        grid-template-columns: 1fr;
+    }
+	.settings-menu {
+	    height: 25vh;
+	}
+}

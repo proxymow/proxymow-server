@@ -1,0 +1,70 @@
+<defs>
+	<!-- Our symbol in % * 100 coordinate system -->
+	<symbol id="sym-cross-hair-cursor" overflow="visible" stroke-width="20" width="200" height="200" viewBox="-100 -100 200 200"><!-- x, y, width, height -->
+			<path d="M-100 0h200M0 -100v200" />
+	</symbol>
+	<symbol id="sym-overlay-point-percent" overflow="visible" stroke-width="20" width="200" height="200" viewBox="-100 -100 200 200"><!-- x, y, width, height -->
+			<circle class="overlay-point" cx="-100" cy="-100" r="80" fill="none" pointer-events="visible" />
+	</symbol>
+	<!-- Our symbol in its own coordinate system -->
+	<symbol id="sym-overlay-point" overflow="visible" stroke-width="1" width="20" height="20" viewBox="-10 -10 20 20"><!-- x, y, width, height -->
+			<circle class="overlay-point" cx="-10" cy="-10" r="8" fill="none" pointer-events="visible" />
+	</symbol>
+	<symbol id="sym-node-point" overflow="visible" stroke-width="1" width="20" height="20" viewBox="-10 -10 20 20"><!-- x, y, width, height -->
+			<circle cx="-10" cy="-10" r="8" fill="black" pointer-events="visible" />
+			<circle class="overlay-point" cx="-10" cy="-10" r="8" fill="none" pointer-events="visible" />
+	</symbol>
+	<symbol id="sym-node-end-point" overflow="visible" stroke-width="1" width="20" height="20" viewBox="-10 -10 20 20"><!-- x, y, width, height -->
+			<circle cx="-10" cy="-10" r="8" fill="red" pointer-events="visible" />
+			<circle class="overlay-point" cx="-10" cy="-10" r="8" fill="none" pointer-events="visible" />
+	</symbol>
+	<symbol id="sym-node-point-percent" overflow="visible" stroke-width="20" width="200" height="200" viewBox="-100 -100 200 200" pointer-events="visible"><!-- x, y, width, height -->
+			<circle cx="-100" cy="-100" r="80" fill="black" pointer-events="visible" />
+			<circle class="overlay-point" cx="-100" cy="-100" r="80" fill="none" pointer-events="visible" />
+	</symbol>
+	<symbol id="sym-node-end-point-percent" overflow="visible" stroke-width="20" width="200" height="200" viewBox="-100 -100 200 200" pointer-events="visible"><!-- x, y, width, height -->
+			<circle cx="-100" cy="-100" r="80" fill="red" pointer-events="visible" />
+			<circle class="overlay-point" cx="-100" cy="-100" r="80" fill="none" pointer-events="visible" />
+	</symbol>
+	<symbol id="sym-calib-point-percent" overflow="visible" width="200" height="200" viewBox="-100 -100 200 200" pointer-events="visible"><!-- x, y, width, height -->
+			<circle cx="-100" cy="-100" r="200" stroke="green" pointer-events="visible" />
+			<circle class="overlay-point" cx="-100" cy="-100" r="200" fill="none" pointer-events="visible" />
+	</symbol>
+    <symbol id="sym-point-hdpc" overflow="visible" width="200" height="200" viewBox="-100 -100 200 200" pointer-events="visible"><!-- x, y, width, height -->
+            <circle cx="-100" cy="-100" r="200" pointer-events="visible" />
+    </symbol>
+    <symbol id="sym-route-point-hdpc" overflow="visible" width="200" height="200" viewBox="-100 -100 200 200" pointer-events="visible"><!-- x, y, width, height -->
+            <circle cx="-100" cy="-100" r="100" pointer-events="visible" />
+    </symbol>
+	
+	<!-- arrowhead marker definition -->
+    <!-- refX is 11 to place arrow point on end of line -->
+    <marker id="mkr-yellow-arrow" viewBox="0 0 10 10" refX="11" refY="5"
+        markerWidth="6" markerHeight="6"
+        orient="auto-start-reverse" fill="yellow">
+      <path d="M 0 0 L 10 5 L 0 10 z" />
+    </marker>
+    <!-- refX is 11 to place arrow on end of line -->
+    <marker id="mkr-green-arrow" viewBox="0 0 10 10" refX="11" refY="5"
+        markerWidth="6" markerHeight="6"
+        orient="auto" fill="green">
+      <path d="M 0 0 L 10 5 L 0 10 z" />
+    </marker>
+    <!-- refX is 11 to place arrow on end of line -->
+    <marker id="mkr-red-arrow" viewBox="0 0 10 10" refX="11" refY="5"
+        markerWidth="6" markerHeight="6"
+        orient="auto" fill="red">
+      <path d="M 0 0 L 10 5 L 0 10 z" />
+    </marker>
+    <!-- refX is 5 to place arrow centre at end of line -->
+    <marker id="mkr-span-arrow" viewBox="0 0 10 10" refX="5" refY="5"
+        markerWidth="6" markerHeight="6"
+        orient="auto" fill="black">
+      <path d="M 0 0 L 10 5 L 0 10 z" />
+    </marker>
+    <marker id="mkr-blank-arrow" viewBox="0 0 10 10" refX="17" refY="5"
+        markerWidth="6" markerHeight="6"
+        orient="auto-start-reverse" fill="none" stroke="yellow">
+      <path d="M 0 0 L 10 5 L 0 10 z" />
+    </marker>
+</defs>

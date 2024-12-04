@@ -1,0 +1,38 @@
+{% extends "layout.html" %} 
+{% block title %}Settings{% endblock %}
+{% block head %} {{ super() }}
+<link rel="stylesheet" href="/styles/formpane.css" />
+<link rel="stylesheet" href="/styles/toolpane.css" />
+<link rel="stylesheet" href="/styles/settings.css" />
+{% endblock %}
+{% block navheader %}Settings{% endblock %}
+{% block content %}
+<main>
+    <figure>
+        <figcaption>Menu</figcaption>
+	    <div id="settings-menu" class="fig-list-body settings-menu">
+	       {% include "settings_menu.html" %}
+	    </div>
+    </figure>
+    <figure>
+        <figcaption>Form</figcaption>
+	    <div id="animation-wrapper" class="fig-list-body" >
+			<div class="settings-form">
+		        {% if url is none %}
+		            {% include "form_shell.html" %}
+		        {% endif %}	
+		    </div>
+	        <div id="animation"></div>
+		</div>
+    </figure>
+</main>
+{% endblock %} 
+{% block foot %} 
+{{ super() }}
+<script src="/scripts/tmplt-utils.js"></script>
+<script src="/scripts/form-utils.js"></script>
+<script defer>
+    prepareMenu();
+    expandMenuTree('sm1.1');
+</script>
+{% endblock %}

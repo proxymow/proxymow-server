@@ -1,0 +1,229 @@
+main {
+    height: 100%;
+	display: grid;
+    grid-template-columns: repeat(2, 50%);
+    grid-template-rows: 0 minmax(100px, 63.8%) 0 minmax(100px, 1fr);
+    grid-template-areas:
+    ". monitor"
+    "terms arena"
+    "controls controls"
+    "rules rules";
+    gap: 4px;
+    padding: 4px;
+}
+.fig-grid-body {
+    height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    overflow-y: auto;
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.fig-img-body {
+    height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    border: 2px solid var(--pxm-highlight-grey);
+}
+#img1 {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    grid-column: 1;/* share space with arena image */
+    grid-row: 1;/* share space with arena image */
+    cursor: url('../cursors/map_marker.png') 10.5 22, auto;
+}
+.marker {
+	position: relative; /* so we can move it to top: 50%, left: 50% */
+	top: -9999px;
+	left: -9999px;
+    grid-column: 1;/* share space with arena image */
+    grid-row: 1;/* share space with arena image */
+    transform: translate(-50%, -100%);
+}
+.terms {
+  grid-area: terms;
+}
+#add-term-btn, #add-rule-btn {
+	vertical-align: top;
+}
+.rules {
+  grid-area: rules;
+}
+.arena {
+  grid-area: arena;
+}
+.monitor {
+	grid-area: monitor;
+	justify-self: center;
+	margin-top: 36px;
+}
+.controls {
+	grid-area: controls;
+	justify-self: right;
+	position: relative;
+	margin-top: -4px;
+}
+.row-term {
+   cursor: pointer;
+}
+.row-hybrid {
+   cursor: pointer;
+   background-color: #F0F0B8;
+}
+.row-systerm {
+   background-color: #e9edc9;
+}
+.strategy-term-grid {
+    border-collapse: collapse;
+    border: 1px solid #777;
+    background-color: #fefae0;
+}
+.strategy-term-grid tbody tr:nth-child(even):not(.row-systerm):not(.row-term):not(.row-hybrid) {
+   background-color: #faedcd;
+}
+.strategy-term-grid th, td {
+	border: 1px solid #777;
+    padding: 4px;
+}
+.strategy-term-grid thead tr {
+    text-align: center;
+	position: sticky;
+    top: 0;
+    z-index: 9999;
+    background-color: #ccd5ae;
+}
+.strategy-rule-grid {
+    border-collapse: collapse;
+    border: 1px solid #777;
+    background-color: #fefae0;
+}
+.strategy-rule-grid thead tr {
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    background-color: #ccd5ae;
+}
+.strategy-rule-grid tbody tr {
+   cursor: pointer;
+}
+.strategy-rule-grid tbody, .strategy-term-grid tbody {
+}
+.strategy-rule-grid tbody tr:nth-child(even):not(.row-disabled) {
+   background-color: #faedcd;
+}
+.row-disabled {
+   background-color: #DDD;
+}
+.row-auxiliary {
+   background-color: #FAEDA8;
+}
+.strategy-rule-grid th, td {
+    border: 1px solid #777;
+    padding: 4px;
+    height: 1px;/* required to expand child div */
+}
+.strategy-rule-grid td:has(div) {
+    padding: 0px;
+}
+.strategy-rule-grid tbody tr td div {
+	display: table-cell; 
+	vertical-align: middle;
+}
+.up-arrow, .down-arrow, .up-down-arrow {
+    background-repeat: no-repeat;/* applies to multiples */
+    background-origin: border-box;
+}
+.up-arrow {
+    background-position: left top;
+    background-image: url('../icons/upArrow.png');
+}
+.down-arrow {
+    background-position: left bottom;
+    background-image: url('../icons/downArrow.png');
+}
+.up-down-arrow {
+    background-position: left -4px, left calc(100% + 4px);
+    background-image: url('../icons/upArrow.png'), url('../icons/downArrow.png');
+}
+.cell-error {
+	background-color: crimson;
+}
+.cell-matched {
+    background-color: #588157;
+}
+.cell-aux {
+    background-color: #CCC;
+}
+.saving-animate > #settings-form {
+    background-color: LightYellow; 
+    opacity: 0.5;
+    pointer-events: none;  
+}
+@keyframes fade-out {
+  from {
+    color: white;
+  }
+  to {
+    color: black;
+  }
+}
+.img-caption {
+	margin: -39px auto;
+    display: table;
+    font-size: small;
+    color: black;
+}
+.img-caption-animate {
+    color: white;
+    animation-name: fade-out;
+    animation-duration: 5s;
+    animation-timing-function: ease-in;
+}
+
+/* ADDITIONAL rules for smaller footprints */
+@media all and (max-width: 1500px) {
+    .ToolPaneHor label {
+        visibility: hidden;
+        width: 0;
+    }
+    header {
+        grid-template-columns: 20% 10% 1fr 15% 2%;
+    }
+}    
+@media all and (max-width: 1200px) {
+    #comp-name, #feat-name {
+        visibility: hidden;
+    }
+    header {
+        grid-template-columns: 20% 0% 1fr 0% 2%;
+    }
+}      
+@media all and (max-width: 1000px) {
+    header {
+        grid-template-columns: 0% 0% 1fr 0% 2%;
+    }
+    .ToolPaneHor label {
+        visibility: hidden;
+        width: 0;
+    }
+}
+@media all and (max-width: 768px) {
+    figure {
+        width: 100%;
+    }
+    .figbody {
+        min-height: 50%;
+        padding: 1px;
+    }
+	main {
+	    grid-template-rows: max-content;
+	    grid-template-columns: auto;
+	    grid-template-areas:
+	    "arena"
+	    "terms" 
+	    "rules";
+	    gap: 0px;
+	    padding: 0px;
+	}
+
+    .monitor {
+        margin-top: 0px; 
+    }
+}

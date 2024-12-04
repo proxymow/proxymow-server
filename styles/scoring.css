@@ -1,0 +1,76 @@
+main {
+    height: 100%;
+    display: grid;
+    grid-template-rows: 55% 29% 18%;
+    gap: 4px;
+    padding: 4px;
+}
+.fig-img-body {
+    text-align: center;
+	height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.fig-img-body img {
+	height: 100%;
+    object-fit: contain;
+}
+.figbody {
+    text-align: center;
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.fig-grid-body {
+	height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    overflow-y: auto;
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.measures-grid > #t1 {
+	display: grid;
+    /*                    label | lower |   | setpoint |   | upper |   | max score */	
+    grid-template-columns: 3fr   5fr 2fr 1fr 1fr         1fr 5fr 2fr 3fr 5fr 1fr;   
+    gap: 4px;
+    padding: 4px;
+}
+.measures-grid > #t1 .tpt-label {
+	font-weight: bold;
+}
+.score-grid {
+    border-collapse: collapse;
+    border: 1px solid #777;
+    width: 100%;
+    font-size: medium;
+    padding: 4px;
+}
+.score-grid thead tr {
+    text-align: center;
+}
+.score-grid thead {
+   font-size: small;
+   font-weight: bold;
+   text-transform: capitalize;
+}
+.score-grid tbody tr:nth-child(even):not(.row-disabled) {
+   background-color: #F0F0D0;
+}
+.score-grid th, td {
+    border: 1px solid #777;
+    padding: 4px;
+}
+.contour-thumbnail-widget {
+    width: 48px;
+    height: 48px;
+    background-repeat: no-repeat;
+}
+.contour-bar-widget {
+    border: 1px solid black;
+    text-align: center;
+}
+.contour-bar-widget > div {
+    background-color: green;
+    height: 100%;
+}
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+    .figbody {
+        height: 100vw;
+    }
+}

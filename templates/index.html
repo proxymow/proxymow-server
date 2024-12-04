@@ -1,0 +1,14 @@
+{% if debug  %}
+	{% extends "layout.html" %}
+	{% block title %}Home{% endblock %}
+	{% block header %}Home{% endblock %}
+	{% block head %}
+	  {{ super() }}
+	  <link rel = "stylesheet" href = "/styles/index.css" />
+	 {% endblock %}
+	{% block content %}
+	   <main><p>Welcome to the Proxymow-Server home page</p></main>
+	{% endblock %}
+{% else %}
+    {% include "supervisor.html" %}
+{% endif %}

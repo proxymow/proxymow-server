@@ -1,0 +1,12 @@
+<div id="settings-form">
+	<div class="form-pane" style="border: 0px dotted blue;padding: 4px;">
+	    <!-- h4>This is the formpane</h4 -->
+	    {% with formpane = selected_formpane %}
+	        {% include "nestedformpane.html" %}
+	    {% endwith %}
+	</div>
+	<div id="stgs-btn-pane">
+	   <button type="button" class="widget" onclick="cancel('{{menu_option_id}}', false, this)">Cancel</button>&nbsp;
+       <button type="button" class="widget" onclick="save('{{menu_option_id}}', '{{ url | urlencode }}', '{{ mode }}', this)" {{ "disabled" if mode == "view" else "" }} >Save</button>
+    </div>
+</div>

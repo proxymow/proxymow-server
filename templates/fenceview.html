@@ -1,0 +1,10 @@
+<figure id="fenceview">
+    <figcaption>Fence View</figcaption>
+    <div class="figbody zoom-vp-in">
+      <svg id="arena-svg" class="zoom-vp-content zoomable" viewBox="0 0 10000 10000" preserveAspectRatio="none" tabindex="0">
+          {% include "defs.svg" %}
+          <image href="/fence_img?ts={{cur_secs}}" height="10000" width="10000" preserveAspectRatio="none" />
+          {% include "fencesvg.html" %}  
+      </svg>
+  </div>
+</figure>

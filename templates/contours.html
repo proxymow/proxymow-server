@@ -1,0 +1,127 @@
+{% extends "layout.html" %} 
+{% block title %}Contours{% endblock %}
+{% block head %} {{ super() }}
+<link rel="stylesheet" href="/styles/toolpane.css" />
+<link rel="stylesheet" href="/styles/monitor.css" />
+<link rel="stylesheet" href="/styles/contours.css" />
+{% endblock %}
+{% block header %}
+    {% with toolpane = contour_control_toolpane %}
+        {% include "toolpane.html" %} 
+    {% endwith %}
+{% endblock %}
+{% block navheader %}Contours{% endblock %}
+{% block content %}
+<main>
+    <div class="monitor">
+        {% with toolpane = cockpit_monitor_toolpane %}
+            {% include "toolpane.html" %}
+        {% endwith %}
+    </div>
+	<figure>
+    	<figcaption>Contour View</figcaption>
+        <div class="fig-img-body">
+            <div class="marker-wrapper">
+	    		<img id="img1" class="zoomable" />
+				<div id="online-annotation" class="annotate" style="transform:scale(0);">
+	    			Signal Strength
+				</div>
+				<div id="found-annotation" class="annotate" style="transform:scale(0);">
+		       		Not Found
+				</div>
+				<div id="meas-annotation" class="annotate" style="transform:scale(0);">
+	                Battery 100%
+				</div>
+            </div>
+        </div>
+	</figure>
+	<figure>
+        <figcaption>Scorecard</figcaption>
+        <div class="fig-grid-body">
+            <table id="cont-grid" class="cont-grid">
+                <thead>
+                    <tr>
+                        {% for hdg in contour_target_hdr %}
+                          <th {% if hdg|first in "_" %}style="display: none"{% endif %}>{{hdg}}</th>    
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <th colspan="{{ contour_target_hdr|length }}">{{contour_target_subhdr}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+
+            <div id="targets-table" class="cont-data-table">
+            </div>
+        </div>
+	</figure>
+</main>
+{% endblock %} 
+{% block foot %} 
+{{ super() }}
+<script src="/scripts/pan-zoom.js"></script>
+<script src="/scripts/tmplt-utils.js"></script>
+<script src="/scripts/http-fetcher.js"></script>
+<script src="/scripts/monitor-pane.js"></script>
+<script src="/scripts/grid.js"></script>
+<script>
+    const autoFreezeMs = {{auto_freeze_ms}};
+    //create data fetcher
+    let df1 = new HttpFetcher("/metadata_json", 3000, false); //leading
+    let df2 = new HttpFetcher("/contours_json", 0, false); //trailing
+    //create image fetcher
+    let if1 = new HttpFetcher("/contour_img&ts=", 0, true, false); //trailing
+    //create toolpane support objects
+    let dt = new Grid('cont-grid');
+    df1.addEventListener('body-available', function(event) {
+        const json = event.detail;
+        if (typeof json.Locator !== 'undefined') {
+            const ssid = json.Locator.ssid;
+            if1.url = `/contour_img?ssid=${ssid}&ts=`;
+            df2.url = `/contours_json?ssid=${ssid}`;
+            if1.refresh();
+            df2.refresh();
+        }//end ssid available
+    });
+    df2.addEventListener('body-available', function(event) {
+        const json = event.detail;
+        dt.processBody(json);
+        if1.refresh();
+    });
+    //listen for imgFetcher events        
+    if1.addEventListener('body-available', function(event) {
+        document.getElementById('img1').src = event.detail;
+    });
+    let mp = new MonitorPane('cockpitstate', 'contourctrl', df1);
+    //locate button constants
+    const buttonConstants = window['contourctrl'].TOOLS;
+
+    //add specific actions to toolbar buttons
+    const freezeBtn = getButton('contourctrl', buttonConstants.FREEZE);
+    freezeBtn.addEventListener('click', function () {
+        df1.isPaused = !df1.isPaused;
+        if (df1.isPaused) {
+            freezeBtn.classList.add('depressed');
+        } else {
+            freezeBtn.classList.remove('depressed');
+            schedFreeze();
+        }
+    }, false);
+    
+    //add a scheduled event to freeze after delay - reduces server load
+    schedFreeze();
+    
+    function schedFreeze() {
+        setTimeout( function() { autoFreeze(); }, autoFreezeMs);
+    }//end schedule freeze
+    
+    function autoFreeze() {
+        const freezeBtn = getButton('contourctrl', buttonConstants.FREEZE);
+        if (!df1.isPaused) {
+            freezeBtn.click();
+        }//end not paused
+    }//end auto freeze
+</script>
+{% endblock %}

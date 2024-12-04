@@ -1,0 +1,194 @@
+{% extends "layout.html" %} 
+{% block title %}Vision{% endblock %}
+{% block head %} {{ super() }}
+<link rel="stylesheet" href="/styles/toolpane.css" />
+<link rel="stylesheet" href="/styles/vision.css" />
+{% endblock %}
+{% block header %}
+	{% with toolpane = profile_selection_toolpane %}
+	    {% include "toolpane.html" %} 
+	{% endwith %}
+{% endblock %}
+{% block navheader %}Vision{% endblock %}
+{% block content %}
+<main>
+	<figure>
+    	<figcaption>Camera View</figcaption>
+		<img id="camera-img" class="figbody" src="icons/camera.png" />
+	</figure>
+	<figure>
+        <figcaption>Settings</figcaption>
+        <div class="figbody">
+		    {% with toolpane = settings_buttons_toolpane %}
+		        {% include "toolpane.html" %} 
+		    {% endwith %}
+			<div class="zoom-vp-content">
+			  {% with toolpane = settings_toolpane %}
+			      {% include "toolpane.html" %} 
+			  {% endwith %}
+			</div>
+        </div>
+	</figure>
+	<figure>
+		<figcaption>Info</figcaption>
+		<div id="stats" class="stats-grid figbody">
+		</div>
+	</figure>
+</main>
+{% endblock %} 
+{% block foot %} 
+    {{ super() }}
+    <script src="/scripts/settings-pane.js"></script>
+    <script src="/scripts/http-fetcher.js"></script>
+    <script>
+        {% with toolPane = settings_toolpane, buttonPane = settings_buttons_toolpane %}
+            const tpId = "{{toolPane.id}}";
+            const bpId = "{{buttonPane.id}}";
+        {% endwith %}
+        let stats = {'Elapsed-time': 0};
+        const buttonConstants = window[bpId].TOOLS;
+        
+        //add specific actions to toolbar buttons
+        const saveBtn = getButton(bpId, buttonConstants.SAVE);
+        saveBtn.addEventListener('click', function () {
+            if (confirm('This action will update the configuration. Are you sure?')) {
+                save(this);
+            }
+        }, false);
+        const freezeBtn = getButton(bpId, buttonConstants.FREEZE);
+        freezeBtn.addEventListener('click', function () {
+            freeze(this);
+        }, false);
+        //then set button states
+        let enabMask = buttonConstants.FREEZE;
+        enableToolpane(bpId, enabMask);
+        
+        //create http fetcher object
+        const hf1 = new HttpFetcher("/vision_img", 5000, false, false);//no cachebuster, not free-running
+        
+        //listen for fetcher events
+        const imgId = 'camera-img';
+        const img = document.getElementById(imgId);
+        hf1.addEventListener('body-available', function(event) {
+            img.src = event.detail;
+            stats['Elapsed-time'] = Math.round(event.elapsed) / 1000;
+            refreshUrl();
+        });
+        hf1.addEventListener('body-unavailable', function() {
+            img.src = '/icons/camera-error.png';
+            stats['Elapsed-time'] = Math.round(event.elapsed) / 1000;
+            refreshUrl();
+        });
+        hf1.addEventListener('http-error', function() {
+            //500, 404
+            img.src = '';
+            stats['Elapsed-time'] = Math.round(event.elapsed) / 1000;
+            refreshUrl();
+        });
+        hf1.addEventListener('fetch-error', function() {
+            //no server to fetch image?
+            img.src = '';
+            stats['Elapsed-time'] = Math.round(event.elapsed) / 1000;
+            refreshUrl();
+        });
+        hf1.addEventListener('headers-available', function(event) {
+            const headers = event.detail;
+            processHeaders(headers);
+        });  
+        
+        //create settings pane object
+        const sp = new SettingsPane(tpId, bpId);
+        sp.addEventListener('settings-changed', function(event) {
+            hf1.url = '/vision_img?' + sp.qs;
+        }); 
+
+        //initialise url
+        hf1.url = '/vision_img?' + sp.qs;
+        hf1.refresh();
+
+        //initialise gain widgets
+        syncGains(document.getElementsByName('awb-mode')[0]);
+        
+        function refreshUrl() {
+            if (!hf1.isPaused) {
+                sp.assembleQueryString(); 
+                url = '/vision_img?' + sp.qs;
+                hf1.url = url;
+                if (bpId !== null) {
+                    enableTool(bpId, buttonConstants.SAVE, sp.dirty);           
+                }//end button state
+            }//end not paused
+        }//end refresh url
+
+        function syncGains(ddl) {
+            manGains = document.querySelectorAll('[name="red-gain"], [name="blue-gain"]');
+			for(var w=0; w < manGains.length; w++)
+			{
+			    manGains[w].disabled = (ddl.selectedIndex > 0);
+			}
+        }//end sync gains
+        
+		function processHeaders(headers) {
+		    const exclStatsKeys = ['content-type', 'date'];
+		    let statsPane = document.getElementById('stats');
+            let newStats = {};
+            newStats['Elapsed-time'] = stats['Elapsed-time'];
+            stats = newStats;	      
+		    // add headers to stats
+		    for (const pair of headers.entries()) {
+		        const key = pair[0];
+		        const value = pair[1];
+		        if (!exclStatsKeys.includes(key)) stats[key] = value;
+		    }//next header
+		    // Display the key/value pairs
+		    let statsContent = '';
+		    for (const key in stats) {
+		        const value = stats[key];
+		        statsContent += '<div>' + key + '</div><div>' + value + '</div>';
+		    }
+		    statsPane.innerHTML = statsContent;
+		}//end process headers
+		
+	    function save(btn) {
+	        btn.disabled = true;
+	        const qs = '&save=1';
+	        const okMsg = 'Configuration Saved Successfully';
+	        const failMsg = 'Configuration Save Failed';                
+	        const btnDisabledAfter = true;            
+	        const reloadAfter = false;            
+	        postRequest(btn, qs, okMsg, failMsg, btnDisabledAfter, reloadAfter);
+            sp.cache_qs = url;
+            sp.dirty = false;        
+	    }//end save
+	
+        async function postRequest(btn, qs, okMsg, failMsg, btnDisabledAfter, reloadAfter) {
+            try {
+                const response = await fetch(url + qs, {method: 'POST'});
+                const contentType = response.headers.get("content-type");
+                if (!response.ok) {
+                    throw new Error(`Response status: ${response.status}`);
+                }//end error response
+                const respText = await response.text();
+                btn.disabled = btnDisabledAfter;
+                if (respText.startsWith('0')) {
+                    //requires page reload?
+                    if (reloadAfter) location.reload(true);
+                } else {
+                    throw new Error(failMsg);
+                }    
+            } catch (error) {
+                alert(error.message);
+            }//end catch
+        }//end post request
+	    
+	    function freeze(btn) {
+	        //freeze refreshing
+	        hf1.isPaused = !hf1.isPaused;
+	        if (hf1.isPaused) {
+	            btn.classList.add('depressed');
+	        } else {
+	            btn.classList.remove('depressed');
+	        }//end not paused
+	    }//end freeze
+    </script>
+{% endblock %}

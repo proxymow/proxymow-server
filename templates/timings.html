@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block title %}Thread Timings{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel = "stylesheet" href = "/styles/toolpane.css" />
+  <meta http-equiv="refresh" content="10">
+{% endblock %}
+{% block navheader %}Thread Timings{% endblock %}
+{% block header %}
+{% endblock %}
+{% block content %}
+    <main>
+      <figure>
+          <figcaption>Thread Timings</figcaption>
+          <div class="figbody">
+            <img src="/timings_img" />
+          </div>
+      </figure>
+    </main>    
+{% endblock %}
+{% block foot %}
+  {{ super() }}
+{% endblock %}

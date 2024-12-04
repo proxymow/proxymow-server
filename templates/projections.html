@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block title %}Projections{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel = "stylesheet" href = "/styles/toolpane.css" />
+{% endblock %}
+{% block navheader %}Projections{% endblock %}
+{% block header %}
+    {% with toolpane = contour_control_toolpane %}
+        {% include "toolpane.html" %} 
+    {% endwith %}
+    {% include "contour_navbar.html" %}
+{% endblock %}
+{% block content %}
+    <main>
+      <figure>
+          <figcaption>Projections</figcaption>
+		  <div class="fig-img-body zoom-vp-in">
+            <img id="img1" src="" />
+		  </div>
+      </figure>
+    </main>    
+{% endblock %}
+{% block foot %}
+  {{ super() }}
+  <script src="/scripts/http-fetcher.js"></script>
+  <script>
+    const autoFreezeMs = {{auto_freeze_ms}};
+    //create image fetcher
+    let if1 = new HttpFetcher("/projection_analysis_img?projidx={{cid}}&ts=", 10000, true, true);
+    //listen for fetcher events
+    if1.addEventListener('body-available', function(event) {
+        document.getElementById('img1').src = event.detail;
+    });
+    //initial image
+    if1.refresh();
+    
+    //locate button constants
+    const buttonConstants = window['contourctrl'].TOOLS;
+    //add specific actions to toolbar buttons
+    const freezeBtn = getButton('contourctrl', buttonConstants.FREEZE);
+    freezeBtn.addEventListener('click', function () {
+        if1.isPaused = !if1.isPaused;
+        if (if1.isPaused) {
+            freezeBtn.classList.add('depressed');
+        } else {
+            freezeBtn.classList.remove('depressed');
+            schedFreeze();
+        }
+    }, false);
+    
+    //add a scheduled event to freeze after delay - reduces server load
+    schedFreeze();
+    
+    function schedFreeze() {
+        setTimeout( function() { autoFreeze(); }, autoFreezeMs);
+    }//end schedule freeze
+    
+    function autoFreeze() {
+        const freezeBtn = getButton('contourctrl', buttonConstants.FREEZE);
+        if (!if1.isPaused) {
+            freezeBtn.click();
+        }//end not paused
+    }//end auto freeze
+  </script>
+{% endblock %}

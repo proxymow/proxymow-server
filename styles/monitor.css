@@ -1,0 +1,58 @@
+.wifi-4 {
+    background-image: url('../icons/wifi-4bars.svg');
+}
+.wifi-3 {
+    background-image: url('../icons/wifi-3bars.svg');
+}
+.wifi-2 {
+    background-image: url('../icons/wifi-2bars.svg');
+}
+.wifi-1 {
+    background-image: url('../icons/wifi-1bar.svg');
+}
+.wifi-offline {
+    background-image: url('../icons/wifi-offline.svg');
+}
+.robot-lost {
+    background-image: url('../icons/eye-lost.svg');
+}
+.robot-found {
+    background-image: url('../icons/eye-found.svg');
+}
+.battery {
+    background-color: #fff;
+    border: 2px solid #000;
+    height: 18px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+    display: inline-block;
+    width: 8px;
+}
+.battery > div {
+    background-color: #666;
+    width: 100%;
+    position: absolute; 
+    bottom: 0; 
+    height: 75%;
+}
+.battery.offline > div {
+    background-color: #888888;
+}
+.battery.high > div {
+    background-color: #66CD00;
+}
+.battery.medium > div{
+    background-color: #FCD116;
+}
+.battery.low > div {
+    background-color: #FF3333;
+}
+.compass-image {
+    vertical-align: middle;
+    background-image: url('../icons/compass.png');
+}
+.emergency-stop {
+    vertical-align: middle;
+    background-image: url('../icons/stop24.png');
+}

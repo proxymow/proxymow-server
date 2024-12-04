@@ -1,0 +1,44 @@
+<g id="routeviewsvg">
+{% set arena_width_m = config["arena.width_m"] %}
+{% set arena_length_m = config["arena.length_m"] %}
+{% set cutter_dia_m = config["mower.dimensions.cutter_dia_m"] %}
+{% set cutter_width = ((cutter_dia_m / arena_width_m) * 10000) | int %}
+{% for pt in config["lawn.route"] %}
+    {% set i = loop.index0 %}
+    {% set x = (pt[0] / arena_width_m) * 10000 %}
+    {% set y = (1 - (pt[1] / arena_length_m)) * 10000 %}<!-- cartesian pt y -->
+    {% if not loop.last %}
+        {% set nxtpt = config["lawn.route"][loop.index] %}
+        {% set ni = loop.index %}
+        {% set nx = (nxtpt[0] / arena_width_m) * 10000 %}
+        {% set ny = (1 - (nxtpt[1] / arena_length_m)) * 10000 %}
+        {% set x_span = nx - x -%}
+        {% set y_span = ny - y -%}
+        {% set h1 = (x_span ** 2 + y_span ** 2) ** 0.5 -%}
+        {% set h2 = h1 - (2 * 200) -%}
+        {% set ratio = h2 / h1 -%}
+        {% set x_span2 = x_span * ratio -%}
+        {% set y_span2 = y_span * ratio -%}
+        {% set x3 = x + ((x_span - x_span2) / 2) -%}
+        {% set y3 = y + ((y_span - y_span2) / 2) -%}
+        {% set x4 = nx - ((x_span - x_span2) / 2) -%}
+        {% set y4 = ny - ((y_span - y_span2) / 2) -%}
+        {% set hyp = ( ((x4 - x3)**2) + ((y4 - y3)**2)) ** 0.5 -%}
+        <!-- draw the line linking r0-r1, r1-r2, etc. plus the shadow cutter track -->
+        <line class="route-line-hidden" x1="{{ x }}" y1="{{ y }}" x2="{{ nx }}" y2="{{ ny }}" stroke-width="{{cutter_width}}" pointer-events="none" />
+        <!-- add marker at end if space permits -->
+        <!-- line class="route-line" marker-end={{ "url(#mkr-green-arrow)" if hyp > 60 else "none" }} x1="{{ x3 }}" y1="{{ y3 }}" x2="{{ x4 }}" y2="{{ y4 }}" pointer-events="none" / -->
+        <line class="route-line" marker-end="url(#mkr-green-arrow)" x1="{{ x3 }}" y1="{{ y3 }}" x2="{{ x4 }}" y2="{{ y4 }}" pointer-events="none" />
+
+        <!-- finally draw the point in order r0, r1, etc over all lines -->
+        <use xlink:href="#sym-route-point-hdpc" class="route-point" id="r{{ i }}" x="{{ x }}" y="{{ y }}" />
+        <!-- number the point -->
+        <text class="route-point-text" id="lf{{i}}" x="{{ x }}" y="{{ y }}">{{loop.index}}</text>
+    {% else %}
+        <!-- finally draw the final point etc over all lines -->
+        <use xlink:href="#sym-route-point-hdpc" class="final-route-point" id="r{{ i }}" x="{{ x }}" y="{{ y }}" />
+        <!-- number the point -->
+        <text class="route-point-text" id="lf{{i}}" x="{{ x }}" y="{{ y }}">{{loop.index}}</text>
+    {% endif %}
+{% endfor %}
+</g>

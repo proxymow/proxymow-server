@@ -1,0 +1,18 @@
+.stats-table {
+	border-collapse: collapse;
+}
+.stats-table-heading {
+	border: 1px solid gray;
+	padding: 6px 3px;
+	width: 200px;
+}
+.stats-table-row {
+	line-height: 10px;
+}
+.stats-table-cell {
+	border: 1px solid gray;
+	padding: 4px 6px;
+}
+.setting-row {
+	margin-bottom: 3px;
+}

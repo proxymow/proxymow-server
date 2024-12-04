@@ -1,0 +1,63 @@
+<h2 id="scoring">Scoring Measures Feature</h2>
+	<p>
+	    The <em>Scoring Measures</em> feature allows the user to change the way projections are scored.<br/><br/>
+	    The goal is to reward the target shape representing the mower, and penalise noise.<br/><br/>
+	    The user can't configure new measures, but can change the setpoints, upper and lower ranges and maximum points scored. 
+	    The default values should be suitable for most use cases.
+	</p>
+    <p>The feature comprises:
+		<ul>
+		    <li>A projection sample to experiment with</li>
+		    <li>The Scoring Measures Editor</li>
+		    <li>The Scorecard</li>
+		</ul>
+	    <div>There are five properties of the projection that can be scored:
+			<ul>
+			    <li>Span</li>
+			    <li>Area</li>
+			    <li>Isoscelicity</li>
+			    <li>Solidity</li>
+			    <li>Fitness</li>
+			</ul>
+			<h3>Span</h3>
+			   <p>The span is the derived distance from the base of the isosceles triangle to its tip.</p>
+			<h3>Area</h3>
+			   <p>The area is the area of the isosceles triangle.<br/><br/>
+			     Both Span and Area are <em>scaled</em> measures. Rather than entering a fixed setpoint, 
+			     the user provides a scale factor which is multiplied by the expected vlaue taken from the the mower configuration.</p>
+			<h3>Isoscelicity</h3>
+			   <p>This is a ratio derived from the relative side lengths of the isosceles triangle.</p>
+			<h3>Solidity</h3>
+			   <p>This is a ratio derived from the relative areas of the isosceles triangle and contour convex hull.</p>
+			<h3>Fitness</h3>
+				<p>Fitness is a measure of how well the derived projection fits the original contour.</p>
+        </div>
+		<p>
+			Unlike Span and Area, Isoscelicity, Solidity and Fitness are setpoint measures. 
+			This means the setpoints configured should work with targets of any size.
+		</p>
+    <p>There are four values for each scoring measure:
+	    <ul>
+	        <li>Setpoint</li>
+	        <li>Lower Range</li>
+	        <li>Upper Range</li>
+	        <li>Maximum Score</li>
+	    </ul>
+	</p>
+    <p>
+        The maximumum score is an arbritrary number of points for the measure. 
+        Measures can be <em>weighted</em> by allocating different maximum scores. 
+        The maximum score is awarded if the projection property matches the setpoint. 
+        The score reduces to zero as the projection property approaches the threshold in either direction, 
+        i.e. the lower range below the setpoint, or the upper range above the setpoint. 
+        It is important to note that any property with a value beyond the upper or lower thresholds 
+        scores zero, and makes the total for that projection zero. Hence it will not be considered a viable target. 
+        The final confidence value for the projection is expressed as a percentage, 
+        calculated as:
+        <div><pre>100 * sum of the scores / sum of maximum scores</pre></div> 
+    </p>
+    <p>
+        When changing scoring measures the best way to validate the change is to hover over the relevant widget 
+        in the scorecard and check that the calculation meets your requirements, before commiting the change by clicking the Save button.
+    </p>
+    

@@ -1,0 +1,90 @@
+main {
+    height: 100%;
+	display: grid;
+    grid-template-rows: 0 minmax(100px, 63.8%) minmax(100px, 1fr);
+    gap: 4px;
+    padding: 4px;
+}
+.figbody {
+    text-align: center;
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.fig-grid-body {
+    height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    overflow-y: auto;
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.fig-img-body {
+    height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    border: 2px solid var(--pxm-highlight-grey);
+}
+.fig-img-body img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.monitor {
+    justify-self: center;
+    margin-top: 36px;
+    z-index: 1;
+}
+#img1 {
+    width: 100%;
+}
+#cockpitstate {
+    height: 28px;
+    background-color: black;
+}
+#cockpitstate2 {
+    height: 24px;
+}
+.cont-grid {
+    border-collapse: collapse;
+    border: 1px solid #777;
+    width: 100%;
+    font-size: medium;
+    padding: 4px;
+}
+.cont-grid thead tr {
+    text-align: center;
+}
+.cont-grid thead {
+   font-size: small;
+   font-weight: bold;
+   text-transform: capitalize;
+}
+.cont-grid tbody tr:nth-child(even):not(.row-disabled) {
+   background-color: #F0F0D0;
+}
+.cont-grid th, td {
+    border: 1px solid #777;
+    padding: 4px;
+}
+.contour-thumbnail-widget {
+	width: 48px;
+	height: 48px;
+	background-repeat: no-repeat;
+}
+.contour-bar-widget {
+    border: 1px solid black;
+	text-align: center;
+}
+.contour-bar-widget > div {
+    background-color: green;
+    height: 100%;
+}
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+
+	figure:not(:first-child) {
+	    height: auto;
+	    width: fit-content;
+	}
+	.figbody {
+	   border: none; 
+	}
+	main {
+	   grid-template-columns: repeat(auto-fill, minmax(100%, 50%));
+	   grid-template-rows: 1fr 1fr;
+	}
+}

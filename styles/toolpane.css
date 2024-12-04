@@ -1,0 +1,328 @@
+.ToolPaneVert, .ToolPaneHor {
+    display: inline-block;
+}
+.ToolPaneVert button, .ToolPaneHor button, .ToolPaneGrid button {
+    font-size: 1.0em;
+    margin: 2px;
+    top: 0;
+    left: 0;
+    border: 1px solid #6d6875;
+    height: 32px;
+    width: auto;
+    border-radius: .125em;
+    position: relative;
+    white-space: nowrap;
+    background-color: ButtonFace;
+}
+.ToolPaneVert > span {
+    margin: 2px;
+}
+.ToolPaneVert button, .ToolPaneVert span {
+    display: block;
+    width: auto;
+}
+button.widget {
+    padding: 4px;
+}
+.ToolPaneHor.ToolPaneDual > button {
+    width: auto;
+    padding: 4px;
+}
+.ToolPaneVert.ToolPaneDual > button {
+    width: 104px;
+}
+.btn-string-tool {
+    width: 104px; /* match buttons */
+    padding: 4px;    
+    margin: 2px;
+    font-weight: bold;
+    font-size: small;
+}
+.ToolPaneIcon button {
+    width: auto;
+}
+.ToolPaneVert svg, .ToolPaneHor svg {
+    width: 1em;
+    height: 1em;
+    position: relative;
+    top: .125em;  
+    left: .25em;
+}
+.ToolPaneVert svg {
+    float: left;
+}
+.ToolPaneVert.ToolPaneDual > button > span {
+    margin-left: 6px;
+    min-width: 80px;
+    display: inline-block;
+}
+.ToolPaneHor.ToolPaneDual > button > span {
+    margin-left: 6px;
+}
+.ToolPaneHor.ToolPaneDual {
+    display: inline-block;
+}
+.ToolPaneHor > span + span {
+    margin-left: 16px;
+}
+.ToolPaneVert button:hover:not(:disabled), .ToolPaneHor button:hover:not(:disabled), .ToolPaneGrid button:hover:not(:disabled) {
+    color: #ffcdb2;
+    background: #6d6875;
+    border-color: #6d6875;
+}
+.ToolPaneVert button:disabled, .ToolPaneHor button:disabled, .ToolPaneGrid button:disabled {
+    fill: gray;
+    border-color: gray;
+    opacity: 0.5;
+} 
+.ToolPaneVert label.disabled, .ToolPaneHor label.disabled, .ToolPaneGrid label.disabled {
+    fill: gray;
+    border-color: gray;
+    opacity: 0.5;
+}    
+.ToolPaneVert button:active:not(:disabled), .ToolPaneHor button:active:not(:disabled), .ToolPaneGrid button:active:not(:disabled) {
+    top: 1px;
+    left: 1px;
+}
+.ToolPaneVert button.depressed, .ToolPaneHor button.depressed, .ToolPaneGrid button.depressed {
+    outline: none;
+    background-color: darkgray;
+    color: white;
+    top: 1px;
+    left: 1px;
+}
+.ToolPaneVert label, .ToolPaneHor label {
+	color: #111111;
+}
+.ToolPaneVert input.wgt-check, .ToolPaneHor input.wgt-check {
+    display: none;
+}
+.ToolPaneSettings input.tpt-check, .ToolPaneSettings input.wgt-check {
+    display: inline-block;
+}
+input.wgt-check {
+    display: none;
+}
+.ToolPaneHor label:not(:first-child) {
+    margin-left: 16px;
+}
+.number-tool-1dp {
+	width: 45px;
+}
+.number-tool-2dp {
+    width: 55px;
+}
+.number-tool-3dp {
+    width: 65px;
+}
+.string-tool {
+    width: auto;
+}
+select[name="direct-command"] {
+  width: 120px;
+}
+.ToolPaneSettings {
+    color: var(--pxm-highlight-grey);
+    display: grid;
+    grid-template-columns: 23fr 34fr 15fr;
+    column-gap: 1%;
+    justify-items: center;
+    height: 100%;
+    align-content: space-around;
+}
+.ToolPaneSettings input, .ToolPaneSettings select {
+	width: 100%;
+}
+.ToolPaneSettings input[type="checkbox"] {
+    width: 45%;/* on lhs */
+    justify-self: self-start;
+}
+label.tpt-label {
+    justify-self: end;
+    display: inline-block;
+}
+.tpt-slider {
+	display: grid;
+	grid-template-columns: 40px auto 40px;
+    column-gap: 5px;
+    align-content: left;
+}
+.tpt-slider label {
+	display: inline-block;
+}
+.tpt-slider label:first-of-type {
+    text-align: end;
+}
+.tpt-slider label:last-of-type {
+    text-align: start;
+}
+.ToolPaneSettings Button {
+	grid-column: 1 /  span 4;
+}
+.dashboard-icon {
+    background-size: 24px;
+    background-repeat: no-repeat;
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+}
+
+.number-tool {
+    width: 32px;
+    margin-right: 0px;
+    padding-right: 1px;
+    text-align: right;
+}
+.readonly {
+    background-color: lightgray;
+}
+.subtool-label {
+    font-size: small;
+    font-family: arial;
+}
+.annotate {
+    border-radius: 10px;
+    border: 1px solid green;
+    overflow: hidden;
+    position: absolute;
+    background-color: palegreen;
+    margin: 28px;
+    line-height: 1.3em;
+}
+.expose {
+    padding: 12px;
+    transform: scale(1);
+    animation: woosh 0.35s forwards;
+}
+@keyframes woosh {
+  0% {transform:scale(0);}
+  100% {transform:scale(1);}
+}
+.depressed {
+    outline: none;
+    background-color: darkgray;
+    color: white;
+}
+.radio-button-on {
+    outline: none;
+    background-color: darkgray;
+    color: white;
+}
+.radio-button-off {
+	outline: auto;
+	background-color: auto;
+	color: auto;
+}
+.marker-wrapper {
+    height: 100%;
+    aspect-ratio: 4 / 3;
+    display: grid;
+    grid-template-columns: 100%;
+    grid-template-rows: 100%;
+    margin: auto;
+}
+/* The switch - the box around the slitch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 80px;
+  height: 27px;
+  border: 1px solid #6d6875;
+  border-radius: .125em;
+  vertical-align: middle;
+}
+.offlab, .onlab {
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    border: 0px solid blue;
+    pointer-events: none;
+    font-family: ui-monospace;
+    font-size: max(0.7vw, 12px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+input:disabled ~ label {
+    fill: gray;
+    border-color: gray;
+    opacity: 0.5;
+}
+
+.offlab {
+    left: 0;
+    width: 28%;
+}
+.onlab {
+    right:0;
+    width: 22%;
+}
+input:checked ~ .onlab {
+    font-weight: bolder;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slitch */
+.slitch {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: ButtonFace;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slitch:before {
+  margin-left: 28%;
+  position: absolute;
+  content: "";
+  height: 80%;
+  width: 25%;
+  left: 0;
+  bottom: 10%;
+  background-color: DarkSlateGray;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slitch:before {
+  background-color: crimson;
+}
+
+input:disabled + .slitch {
+    fill: gray;
+    border-color: gray;
+    opacity: 0.5;
+    cursor: default;
+}
+
+input:focus + .slitch {
+  box-shadow: 0 0 4px #2196F3;
+  border: 0px solid pink;
+}
+
+input:checked + .slitch:before {
+  -webkit-transform: translateX(100%);
+  -ms-transform: translateX(100%);
+  transform: translateX(100%);
+}
+
+/* Rounded slitchs */
+.slitch.round {
+  border-radius: 34px;
+}
+
+.slitch.round:before {
+  border-radius: 50%;
+}

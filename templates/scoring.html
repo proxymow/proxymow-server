@@ -1,0 +1,179 @@
+{% extends "layout.html" %} 
+{% block title %}Scoring{% endblock %}
+{% block head %} 
+    {{ super() }}
+    <link rel="stylesheet" href="/styles/toolpane.css" />
+    <link rel="stylesheet" href="/styles/scoring.css" />
+{% endblock %}
+{% block navheader %}Scoring{% endblock %}
+{% block header %}
+{% endblock %}
+{% block content %}
+    <!-- span style="position: absolute;right: 0">SSID:&nbsp;{{ssid}}&nbsp;Projections:&nbsp;{{proj_ssids}}&nbsp;Viewports:&nbsp;{{vp_idxs}}|{{scoring_proj_limit}}</span --> 
+<main>
+    <figure>
+        <figcaption>Projections</figcaption>
+        <span style="padding: 6px">
+	        <button id="scrg-proj-first" class="widget" onclick="setProj(0)">First</button>&nbsp;
+	        <button id="scrg-proj-prev" class="widget" onclick="setProj(-1)">Previous</button>&nbsp;
+	        <input id="proj-idx" class="readonly" readonly size="3" style="width: 100px;" title="SSID:&nbsp;{{ssid}}&nbsp;Projections:&nbsp;{{proj_ssids}}&nbsp;Viewports:&nbsp;{{vp_idxs}}" />
+	        <button id="scrg-proj-next" class="widget" onclick="setProj(1)">Next</button>&nbsp;
+	        <button id="scrg-proj-last" class="widget" onclick="setProj({{scoring_proj_limit}})">Last</button>       
+        </span>
+        <div class="fig-img-body">
+            <img id="img1" />
+        </div>
+    </figure>
+	<figure>
+        <figcaption>Scoring Measures</figcaption>
+        <div class="figbody">
+            {% with toolpane = settings_buttons_toolpane %}
+                {% include "toolpane.html" %} 
+            {% endwith %}
+			<div class="zoom-vp-content measures-grid">
+			  {% with toolpane = settings_toolpane %}
+			      {% include "toolpane.html" %} 
+			  {% endwith %}
+			</div>
+        </div>
+	</figure>
+    <figure>
+        <figcaption>Scorecard</figcaption>
+        <div class="fig-grid-body">
+            <table id="score-grid" class="score-grid">
+                <thead>
+                    <tr>
+                        {% for hdg in contour_target_hdr %}
+                          <th {% if hdg|first in "_" %}style="display: none"{% endif %}>{{hdg}}</th>    
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <th colspan="{{ contour_target_hdr|length }}">{{contour_target_subhdr}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+            <div id="targets-table" class="cont-data-table">
+            </div>
+        </div>
+    </figure>
+</main>
+{% endblock %} 
+{% block foot %} 
+    {{ super() }}
+    <script src="/scripts/settings-pane.js"></script>
+    <script src="/scripts/http-fetcher.js"></script>
+    <script src="/scripts/grid.js"></script>
+    <script>
+        let projIndex = 0;
+        {% with toolPane = settings_toolpane, buttonPane = settings_buttons_toolpane %}
+            const tpId = "{{toolPane.id}}";
+            const bpId = "{{buttonPane.id}}";
+        {% endwith %}
+        const buttonConstants = window[bpId].TOOLS;
+        //add specific actions to toolbar buttons
+        const saveBtn = getButton(bpId, buttonConstants.SAVE);
+        saveBtn.addEventListener('click', function () {
+            if (confirm('This action will update the configuration. Are you sure?')) {
+                save(this);
+            }
+        }, false);
+
+        //create support objects
+        let dt = new Grid('score-grid');
+        //create scorecard fetcher
+        let df1 = new HttpFetcher("/measures_json", 0, false, false);
+        {% with toolpane = settings_toolpane %}
+            var sp = new SettingsPane("{{toolpane.id}}", null);
+            sp.addEventListener('settings-changed', function(event) {
+                refreshScorecard(projIndex);
+            });
+            df1.addEventListener('body-available', function(event) {
+                const json = event.detail;
+                dt.processBody(json);
+                refreshPlot(projIndex);
+            });
+            //kickstart
+            var event = new Event('settings-changed');
+            sp.dispatchEvent(event);
+        {% endwith %}
+        const projLimit = {{scoring_proj_limit}};
+        function setProj(deltaIdx) {
+            //update, absolute or relative
+            if (typeof deltaIdx !== 'undefined') {
+                const prevIndex = projIndex;
+	            if (deltaIdx^2 == 1) {
+	                projIndex += deltaIdx;
+	            } else {
+	                projIndex = deltaIdx;
+	            }
+	            let projInfo = '';
+	            if (projLimit > 0) {
+	               projInfo = `${projIndex + 1} of ${projLimit + 1}`;
+	            }
+	            document.getElementById('proj-idx').value = projInfo;
+                if (prevIndex != projIndex) refreshScorecard(projIndex);
+            }
+            //validate toolbar setting states
+            const first_btn = document.getElementById('scrg-proj-first');
+            const prev_btn = document.getElementById('scrg-proj-prev');
+            const next_btn = document.getElementById('scrg-proj-next');
+            const last_btn = document.getElementById('scrg-proj-last');
+            first_btn.disabled = !(projIndex > 0);
+            prev_btn.disabled = !(projIndex > 0);
+            next_btn.disabled = !(projIndex < projLimit);
+            last_btn.disabled = !(projIndex < projLimit);
+        }//end set projection
+        function refreshPlot(prjIdx) {
+           if (typeof prjIdx === 'undefined') {
+                return
+            } else {
+	            //refresh image with cache-buster
+                const img = document.getElementById('img1');
+	            img.src = '/target_analysis_img?projidx=' + prjIdx + '&tstmp=' + new Date().getTime();
+	        }            
+        }//end refresh plot
+        function refreshScorecard(prjIdx) {
+           if (typeof prjIdx === 'undefined') {
+                return
+            } else {
+	            df1.url = '/measures_json?projidx=' + prjIdx + '&' + sp.qs;
+	            df1.refresh();
+            }
+            enableTool(bpId, buttonConstants.SAVE, sp.dirty); 
+        }//end refresh scorecard
+        function save(btn) {
+            btn.disabled = true;
+            const qs = '&save=1';
+            const okMsg = 'Configuration Saved Successfully';
+            const failMsg = 'Configuration Save Failed';                
+            const btnDisabledAfter = true;            
+            const reloadAfter = false;            
+            postRequest(btn, qs, okMsg, failMsg, btnDisabledAfter, reloadAfter);
+            sp.cache_qs = df1.url;
+            sp.dirty = false;        
+        }//end save
+        async function postRequest(btn, qs, okMsg, failMsg, btnDisabledAfter, reloadAfter) {
+            try {
+                const response = await fetch(df1.url + qs, {method: 'POST'});
+                const contentType = response.headers.get("content-type");
+                if (!response.ok) {
+                    throw new Error(`Response status: ${response.status}`);
+                }//end error response
+	            const respText = await response.text();
+	            btn.disabled = btnDisabledAfter;
+                if (respText.startsWith('0')) {
+                    //requires page reload?
+                    if (reloadAfter) location.reload(true);
+                } else {
+                    throw new Error(failMsg);
+                }    
+            } catch (error) {
+                alert(error.message);
+            }//end catch
+        }//end post request
+        
+        setProj(projIndex);//init
+    </script>
+{% endblock %}

@@ -1,0 +1,66 @@
+<h2 id="supervisor">Supervisor</h2>
+<p>The <em>supervisor</em> is the control centre for mowing operations, once everything else has been set up i.e. vision, calibration, etc.</p>
+<p>The feature comprises:
+<ul>
+    <li>A header toolbar</li>
+    <li>The <em>Arena View</em>, the current top-down view of the arena</li>
+    <li>A monitor pane showing current system state</li>
+    <li>The <em>Controls</em> toolpane with tools to manage excursions</li>
+    <li>The <em>History</em> list showing the latest commands sent to the robot</li>
+</ul>
+</p>
+<h3>The Header Toolbar</h3>
+<p>This toolbar hosts Profile, Navigation Strategy and Mowing Pattern dropdowns.</p>
+<h3>The Arena View</h3>
+<p>The arena view is a helicopter view of the lawn, with the route overlaid.
+A marker can be dropped onto this view with a double mouse click, setting the target destination.
+The robot will navigate to this destination. 
+</p>
+<h3>The Monitor Pane</h3>
+<p>The monitor pane sits at the top of the Arena View, and includes:</p>
+{% include "help/monitor.html" %}
+<h3>Control Toolpane</h3>
+{% include "help/common_controls.html" %}
+<div>
+    <h4>Cutter Switches</h4>
+    <p>Slide switches display the current state of the cutter(s), and enable them to be turned on or off.</p>
+	<h4>Enrol</h4>
+	<p>If robots are used in multiple locations, it may be necessary to <em>enrol</em> them in their local hotspot.<br/>
+	Each profile can have a hotspot name specified in it's configuration, and this is displayed beside the Enrol button.
+	Clicking the Enrol button will initiate a command to the robot requesting this hotspot be given priority.<br/>
+	</p>
+	<h4>Reboot</h4>
+	<p>This button will initiate a reboot of the proxymow-server host, if confirmed.</p>
+	<h4>Shutdown</h4>
+	<p>Clicking this button will shutdown the proxymow-server host, if confirmed.</p>
+</div>
+<h3>Direct Commands</h3>
+<p>Direct commands are low level commands sent direct to the robot, ignoring any navigation operations in progress.</p>
+<h3>Manual Driving Mode</h3>
+<div>Manual driving operates at a higher level than Direct Commands. A destination can be specified by either:
+<ul>
+    <li>Selecting a manouvre from the Manual dropdown list e.g. Fwd 0.2</li>
+    <li>Selecting an absolute location from the Manual dropdown list e.g. (1.0, 1.0)</li>
+    <li>Selecting a relative movement from the Manual dropdown list e.g. (-0.1, +0.1)</li>
+    <li><img src="/icons/map_marker.png" />Double-clicking and dropping a marker on the arena view</li>
+</ul>
+Manual driving is different to Direct Commands, as it specifies a target location that the navigation system must resolve.
+</div>
+<h3>The History List</h3>
+<div>The history list contains a line for every command despatched to the robot. Details include:
+    <ul>
+        <li>The time the command was sent</li>
+        <li>The snapshot id</li>
+        <li>The current pose</li>
+        <li>The percentage progress</li>
+        <li>The relative heading and distance to target</li>
+        <li>The command rule name</li>
+        <li>The command parameters e.g. speeds & duration</li>
+        <li>Any frozen status</li>
+        <li>Any escalation applied (+, ++, etc.)</li>
+        <li>In motion status when finished(...)</li>
+    </ul>
+    There is a compressed format of history list for mobile devices.<br/>
+    The list can be expnded to a full tab of the underlying log by clicking the tab title link.
+</div>
+

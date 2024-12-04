@@ -1,0 +1,42 @@
+fieldset {
+	padding: 6px;
+	border: 1px dashed red;
+	margin-top: 8px;
+}
+.form-pane > div {
+	padding: 4px;
+	padding-bottom: 36px;
+	margin-bottom: 6px;
+	border: 1px dotted blue;
+}
+.form-pane label {
+    padding: 3px;
+    min-width: 166px;
+    text-align: right;
+    display: inline-block;
+    font-weight: bold;
+}
+legend {
+    font-weight: normal;
+    font-style: italic;
+    font-size: 1.2em;
+    text-shadow: #fff 1px 1px 1px;
+    margin-left: 10px; 
+}
+.form-heading {
+	padding: 2px;
+	font-weight: bold;
+}
+input.tpt-string {
+    color: blue;
+}
+input.tpt-expression {
+    color: red;
+    font-family: monospace;
+    width: 50%;
+}
+#stgs-btn-pane {
+    padding: 8px;
+    float: right;
+    margin-top: -50px;
+}

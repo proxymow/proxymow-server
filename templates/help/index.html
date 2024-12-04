@@ -1,0 +1,49 @@
+{% extends "help/layout.html" %}
+{% macro toc() -%}
+    <a href="#table-of-contents">Back to top...</a>
+{%- endmacro %}
+{% block content %}
+	<h1>Proxymow Server Help</h1>
+	<h2 id="table-of-contents">Table of Contents</h2>
+	<h3>Features</h3>
+	<ul>
+	    <li><a href="#vision">Vision</a></li>
+	    <li><a href="#calibration">Calibration</a></li>
+	    <li><a href="#fence">Fence Editor</a></li>
+	    <li><a href="#supervisor">Supervisor</a></li>
+        <li><a href="#navigator">Navigator</a></li>
+        <li><a href="#contours">Contours</a></li>
+        <li><a href="#projections">Projections</a></li>
+        <li><a href="#scoring">Scoring Measures</a></li>
+        <li><a href="#stages">Stage Tracking</a></li>
+        <li><a href="#console">Robot Console</a></li>
+        <li><a href="#settings">Settings</a></li>
+	</ul>
+    <h3>Tutorials</h3>
+    <ul>
+        <li><a href="/help/navigator/tutorial.md">Navigation Strategy Tutorial</a></li>
+    </ul><br /><br />
+	{% include "help/vision/index.html" %}
+	{{ toc() }}
+	{% include "help/calibration/index.html" %}
+	{{ toc() }}
+	{% include "help/fence/index.html" %}
+	{{ toc() }}
+    {% include "help/supervisor/index.html" %}
+    {{ toc() }}
+    {% include "help/navigator/index.html" %}
+    {{ toc() }}
+	{% include "help/contours/index.html" %}
+	{{ toc() }}
+    {% include "help/projections/index.html" %}
+    {{ toc() }}
+    {% include "help/scoring/index.html" %}
+    {{ toc() }}
+    {% include "help/stages/index.html" %}
+    {{ toc() }}
+    {% include "help/console/index.html" %}
+    {{ toc() }}
+    {% include "help/settings/index.html" %}
+    {{ toc() }}
+	<br /><br />
+{% endblock %}

@@ -1,0 +1,215 @@
+{% macro html_options(opts) -%}
+    {% for key, value in opts.items() -%}
+       {{key}}="{{value}}"{{" "}} 
+    {%- endfor %}
+{%- endmacro %}
+{% macro html_label(text, widgid) -%}
+    <label class="tpt-label" for="{{widgid}}">{{text}}</label>
+{%- endmacro %}
+{% macro on_action(action, code) -%}
+    {% if code is not none -%}
+        {{"on"}}{{action}}="{{code}}"
+    {% endif -%}
+{%- endmacro -%}
+{% macro tp_enab(id, enabled) -%}
+    {% if enabled is not none %}
+       <input class="wgt-check" type="checkbox" id="{{ id }}" {{ "checked=checked" if enabled else "" }} />
+     {% else %}
+       <span></span>
+     {% endif %}
+{%- endmacro %}
+{% macro tp_button(tp, t) -%}
+    <button 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        {{"disabled" if not t.enabled}} 
+        {{on_action("click", t.action)}} 
+        title="{{t.tooltip}}" 
+        {{ html_options(t.html_options) }}>
+        {{t.icon if t.icon is not none}}
+        <span>{{t.label if tp.has_labels}}</span>
+    </button>
+{%- endmacro %}
+{% macro tp_check(id, t, curval) -%}
+    <input 
+        type="checkbox" 
+        id="{{ id }}" 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        data-key="{{t.key}}" 
+        data-type="boolean" 
+        {{"disabled" if not t.enabled}} 
+        {{on_action("change", t.action)}} 
+        title="{{t.tooltip}}" 
+        {{ "checked=checked" if (t.enabled and curval) else "" }} 
+        {{ html_options(t.html_options) }} 
+    />
+{%- endmacro %}
+{% macro tp_slide(id, t, curval) -%}
+    <label class="switch">
+	    <input 
+	        type="checkbox" 
+	        id="{{ id }}" 
+	        {% if t.name is not none %}   
+	            name="{{ t.name }}"
+	        {% endif %}
+	        data-key="{{t.key}}" 
+	        data-type="boolean" 
+	        {{"disabled" if not t.enabled}} 
+	        {{on_action("change", t.action)}} 
+	        title="{{t.tooltip}}" 
+	        {{ "checked=checked" if (t.enabled and curval) else "" }} 
+	        {{ html_options(t.html_options) }} 
+	    />
+        <span class="slitch"></span>
+	    <span class="offlab">Off</span>
+	    <span class="onlab">On</span>
+    </label>
+{%- endmacro %}
+{% macro tp_dropdown(id, t, opts, curval) -%}
+     <select 
+        id="{{ id }}" 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        data-key="{{t.key}}" 
+        data-type="string" 
+        {{"disabled" if not t.enabled}} 
+        {{on_action("change", t.action)}} 
+        title="{{t.tooltip}}" 
+        {{ html_options(t.html_options) }}>
+           {% for key, value in t.default_options.items() -%}
+             <option value="{{key}}" {{"selected" if curval == key}}>{{value}}</option>
+           {%- endfor %}
+           {% if opts is mapping %}
+              {% for key, value in opts.items() -%}
+                 <option value="{{key}}" {{"selected" if curval == key}}>{{value}}</option>
+              {%- endfor %}
+           {% elif opts is iterable %}
+              {% for value in opts -%}
+                 <option value="{{value}}" {{"selected" if curval == value}}>{{value}}</option>
+              {%- endfor %}
+           {% endif %}
+     </select>
+{%- endmacro %}
+{% macro tp_slider(id, t, curval) -%}
+   {% if t.has_slider %}
+      <span class="tpt-slider">
+           <label>{{ t.min_val }}</label>
+           <input 
+                id="{{ id }}-slide" 
+				{% if t.name is not none %}   
+				    name="{{ t.name }}"
+				{% endif %}
+                class="custom-range" 
+                type="range" 
+                data-peer="{{ id }}" 
+                {{ "" if t.enabled else "disabled" }} 
+                value="{{ curval }}" 
+                min="{{ [t.min_val, t.max_val]|min }}" 
+                max="{{ [t.min_val, t.max_val]|max }}" 
+                step="{{ t.step }}"
+                {% if t.min_val > t.max_val %}   
+                    style="direction: rtl"
+                {% endif %}
+           />
+           <label>{{ t.max_val }}</label>
+      </span>
+   {% endif %}
+{%- endmacro %}
+{% macro tp_numeric(id, t, curval) -%}
+   <input 
+        id="{{id}}" 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        data-key="{{t.key}}" 
+        data-type="number" 
+        type="number" 
+        data-peer="{{id}}-slide" 
+        {{"disabled" if not t.enabled}} 
+        min="{{ [t.min_val, t.max_val]|min }}" 
+        max="{{ [t.min_val, t.max_val]|max }}" 
+        step="{{ t.step }}" 
+        {{on_action("change", t.action)}} 
+        title="{{t.tooltip}}" 
+        value="{{curval}}" 
+        {{ html_options(t.html_options) }}
+   />
+{%- endmacro %}
+{% macro tp_string(id, t, curval) -%}
+    <input 
+        id="{{id}}" 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        data-key="{{t.key}}" 
+        data-type="string" 
+        {% if t.val_regex is not none %}
+            data-validate="{{t.val_regex}}"
+	        {% if t.val_msg is not none %}
+	            data-valmsg="{{t.val_msg}}"
+	        {% endif %}
+        {% endif %}
+        type={{t.html_options["type"] if "type" in t.html_options else "text"}} 
+        {{"disabled" if not t.enabled}} 
+        {{on_action("change", t.action)}} 
+        title="{{t.tooltip}}" 
+        value="{{curval if curval is not none}}" 
+        {{ html_options(t.html_options) }}
+    />
+{%- endmacro %}
+{% macro tp_hidden(id, t, curval) -%}
+    <input 
+        type="hidden" 
+        id="{{ id }}" 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        data-key="{{t.key}}" 
+        data-type="string" 
+        value="{{curval}}"
+    />
+{%- endmacro %}
+{% macro tp_indicator(id, t) -%}
+    <div 
+        title="{{t.tooltip}}" 
+        {{on_action("click", t.action)}} 
+        {{ html_options(t.html_options) }}>
+    </div>
+{%- endmacro %}
+{% macro tp_battery(id, t) -%}
+    <div 
+        title="{{t.tooltip}}" 
+        {{on_action("click", t.action)}} 
+        {{ html_options(t.html_options) }}>
+        <div></div>
+    </div>
+{%- endmacro %}
+{% macro tp_readout(id, t, curval) -%}
+    <input 
+        id="{{id}}" 
+        {% if t.name is not none %}   
+            name="{{ t.name }}"
+        {% endif %}
+        data-key="{{t.key}}" 
+        data-type="number" 
+        type="text" 
+        {{"disabled" if not t.enabled}} 
+        {{on_action("change", t.action)}} 
+        title="{{t.tooltip}}" 
+        value="{{curval}}" 
+        {{ html_options(t.html_options) }}
+    />
+{%- endmacro %}
+{% macro tp_label(t, curval) -%}
+    <span {{ html_options(t.html_options) }}>{{curval}}</span>
+{%- endmacro %}
+{% macro tp_gap(t) -%}
+    <div style="display: inline-block;min-width: 10px" {{ html_options(t.html_options) }}></div>
+{%- endmacro %}
+{% macro tp_newline(t) -%}
+    <div {{ html_options(t.html_options) }}></div>
+{%- endmacro %}

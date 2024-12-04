@@ -1,0 +1,171 @@
+html {
+	padding: 0;
+	margin: 0;
+}
+.master-grid {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 33% 33% 33%;
+  grid-template-rows: 33% 33% 33%;
+  grid-gap: 4px;
+  background-color: #2196F3;
+  padding: 4px;
+  height: 96vh;
+}
+.master-grid-item {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  padding: 10px;
+  font-size: 1em;
+  text-align: center;
+  min-width: 0;
+  min-height:0;
+  position: relative;
+  box-sizing: border-box;
+}
+.matrix-grid {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-gap: 5px;
+  background-color: #2196F3;
+  padding: 5px;
+  width: fit-content;
+}
+.matrix-grid-item {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  text-align: center;
+  min-width: 0;
+  min-height:0;
+}
+.image {
+  	object-fit: cover;
+  	width: 100%;
+	max-height: 90%;
+}
+.whole-image {
+	max-height: 100%;
+}
+.matrix-item {
+  	width: 72px;
+  	font-size: 1.0em;
+}
+.camera-form label, .scene-form label {
+	font-size: 0.8em;
+	width: 100px;
+	margin-bottom: 6px;
+	text-align: right;
+	display: inline-block;
+}
+input {
+	text-align: right;
+}
+input[type="range"] {
+	width: 50px;
+}
+.spanLine {
+	stroke: black;
+	stroke-width: 4;
+	fill: black;
+}
+.sideAxisLine {
+	stroke: black;
+	stroke-width: 0.05;
+	fill: black;
+}
+.axisLine {
+	stroke: black;
+	stroke-width: 1;
+	fill: black;
+	stroke-dasharray: 10, 10;
+}
+.ovlAxisLine {
+	stroke: white;
+	stroke-width: 1;
+	fill: white;
+	stroke-dasharray: 10, 10;
+}
+.ovlAxisLabel {
+	fill: white;
+	dominant-baseline: middle;
+	text-anchor: middle;
+}
+.ovlHorizontalAxisLabel {
+	fill: white;
+	dominant-baseline: middle;
+}
+.ovlVerticalAxisLabel {
+	fill: white;
+	dominant-baseline: text-after-edge;
+	text-anchor: middle;
+}
+.ovlMajorGridLine {
+	stroke: gray;
+	stroke-width: 1;
+	opacity: 0.5;
+}
+.ovlMinorGridLine {
+	stroke: lightgray;
+	stroke-width: 1;
+	opacity: 0.2;
+}
+svg {
+  width: 100%;
+  height: 100%;
+  border: 1px solid gray;
+}
+.camera-text {
+	font-family: Verdana;
+	fill: blueviolet;
+}
+.imagePaneWrap {
+	border: 1px solid blue;
+	padding: 0px;
+	position: relative;
+	transform-origin: 0% 0%;
+	width: 93%;
+	height: 100%;
+	margin: auto;
+}
+.imagePane {
+	object-fit: fill;
+	border: 1px solid red;
+	width: 100%;
+	height: 100%;
+}
+.heads-up {
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+.svg-elevation {
+	height: 100%;
+}
+.banner {
+	position: absolute;
+    top: 10px;
+    bottom: auto;
+    left: 10px;
+	right: auto;
+    color: white;
+    font-size: larger;
+    background-color: cadetblue;
+    padding: 4px;
+}
+.right-banner {
+	right: 10px;
+    left: auto;
+    bottom: 10px;
+    top: auto;
+}
+.topright-banner {
+	right: 10px;
+    left: auto;
+    bottom: auto;
+}
+.centralBanner {
+    left: 100px;
+    top: 25px;
+	
+}

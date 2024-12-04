@@ -1,0 +1,46 @@
+{% set arena_width_m = config["arena.width_m"] %}
+{% set arena_length_m = config["arena.length_m"] %}
+{% set cutter_dia_m = config["mower.dimensions.cutter_dia_m"] %}
+{% set cutter_width = ((cutter_dia_m / arena_width_m) * 10000) | int %}
+<g>
+	<g id="fencesvg">
+		{% for pt in config["lawn.fence"] %}
+		    {% set i, x, y = pt.index, pt.x * 100, pt.ncy * 100 -%}<!-- cartesian y -->
+		    {% if not loop.last -%}
+		        {% set nxtpt = config["lawn.fence"][loop.index] %}
+		    {% else %}
+		        {% set nxtpt = config["lawn.fence"][0] %}
+		    {% endif -%}
+		    {% set ni, nx, ny = nxtpt.index, nxtpt.x * 100, nxtpt.ncy * 100 %}<!-- cartesian y -->
+		    <!-- draw the line linking f0-f1, f1-f2, etc. plus the hidden click-able shadow -->
+		    {% set x_span = nx - x -%}
+		    {% set y_span = ny - y -%}
+		    {% set h1 = (x_span ** 2 + y_span ** 2) ** 0.5 -%}
+		    {% set h2 = h1 - (2 * 200) -%}
+		    {% set ratio = h2 / h1 -%}
+		    {% set x_span2 = x_span * ratio -%}
+		    {% set y_span2 = y_span * ratio -%}
+		    {% set x3 = x + ((x_span - x_span2) / 2) -%}
+		    {% set y3 = y + ((y_span - y_span2) / 2) -%}
+		    {% set x4 = nx - ((x_span - x_span2) / 2) -%}
+		    {% set y4 = ny - ((y_span - y_span2) / 2) -%}
+		    <line data-start="f-{{i}}" data-finish="f-{{ni}}" class="fence-line-hidden" x1="{{ x }}" y1="{{ y }}" x2="{{ nx }}" y2="{{ ny }}" stroke-width="{{cutter_width}}" pointer-events="all" />
+		    <line data-start="f-{{i}}" data-finish="f-{{ni}}" class="fence-line visible-line" x1="{{ x3 }}" y1="{{ y3 }}" x2="{{ x4 }}" y2="{{ y4 }}" marker-end="url(#mkr-yellow-arrow)" pointer-events="none" />
+		{% endfor %}
+		{% for pt in config["lawn.fence"] %}
+		    {% set i, x, y = pt.index, pt.x * 100, pt.ncy * 100 -%}<!-- cartesian y -->
+		    <!-- finally draw the point in order f0, f1, etc over all lines -->
+		    <use xlink:href="#sym-point-hdpc" class="fence-point selectable-point" id="f-{{i}}" x="{{ x }}" y="{{ y }}" data-r="{{cutter_width/2}}" />
+		    <!-- number the point -->
+		    <text data-connect="f-{{i}}" class="selectable-point-text" id="lf{{i}}" x="{{ x }}" y="{{ y }}" pointer-events="none">{{loop.index}}</text>
+		{% endfor %}
+	</g>
+	<g id="scaffold" visibility="hidden">
+	    <circle id="centroid" cx="5000" cy="5000" r="100" />
+	    {% for pt in config["lawn.fence"] -%}
+	        {% set i, x, y = pt.index, pt.x * 100, pt.ncy * 100 -%}<!-- cartesian y -->
+	        <circle id="scafpt-{{i}}" cx="{{ x }}" cy="{{ y }}" r="200" />
+	        <line id="scafln-{{i}}" x1="5000" y1="5000" x2="{{ x }}" y2="{{ y }}" />
+	    {% endfor -%}
+	</g>
+</g>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xml>
+<project name="deploy-to-node-template">
+	<description>
+		This is a custom Ant deploy file which contains a target that
+		copies required files to proxymow-server
+		You may need to kill the python process: 
+		
+			sudo pkill -f proxymow.py
+			
+		and restart if cherrypy does not detect change.		
+	</description>
+	<!-- set global properties for this build -->
+    <property name="tgt" location="\\proxymow-xxx\pi\proxymow-server"/>
+    <!-- local modules -->
+    <copy verbose="true" todir="${tgt}">
+        <fileset dir="${basedir}/..">
+            <include name="**/*" />
+            <exclude name="**/ant/**" />
+            <exclude name="**/__pycache__/**" />
+        </fileset>
+    </copy>
+</project>

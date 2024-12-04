@@ -1,0 +1,50 @@
+{% import "toolpane_macros.html" as tpm %}
+{% set nfpctr = [] %}
+{% macro process(fieldset) -%}
+    {% for var_cls, tools in fieldset.items() %}
+        {% set var_name, cls_name = var_cls.split("|") %}
+ 	    <fieldset data-class="{{cls_name}}" data-var="{{var_name}}">
+		    <legend>{{cls_name}}</legend>
+		    {% for t in tools -%}
+		        {% set curval = t.cur_val %}
+                {% if nfpctr.append(1) %}{% endif %}
+		        {% set id = "w" ~ nfpctr|length %}
+		        {% if t is mapping  %}
+		            {{ process(t) }}
+		        {% elif t.classname == "ToolPaneDropdown"  %}
+		             <div>
+		                 {{ tpm.html_label(t.label, id) }}
+		                 {% set opts = config[t.data_options] if t.data_options is string else t.data_options %}             
+		                 {{ tpm.tp_dropdown(id, t, opts, curval) }}
+		             </div>
+		        {% elif t.classname == "ToolPaneNumber" %}
+		             <div>
+		               {{ tpm.html_label(t.label, id) }}
+		               {{ tpm.tp_numeric(id, t, curval) }}     
+		               {{ t.unit_str }} 
+		             </div>
+		        {% elif t.classname == "ToolPaneCheck" %}
+		             <div>
+		               {{ tpm.html_label(t.label, id) }}
+		               {{ tpm.tp_check(id, t, curval) }}
+		             </div>
+		        {% elif t.classname == "ToolPaneSlide" %}
+		             <div>
+		               {{ tpm.html_label(t.label, id) }}
+		               {{ tpm.tp_slide(id, t, curval) }}
+		             </div>
+		        {% elif t.classname == "ToolPaneString" or t.classname == "ToolPaneExpression" %}
+		             <div>
+		               {{ tpm.html_label(t.label, id) }}
+		               {{ tpm.tp_string(id, t, curval) }}
+		             </div>
+		        {% elif t.classname == "ToolPaneHidden" %}
+		               {{ tpm.tp_hidden(id, t, curval) }}
+		        {% endif %}
+ 		    {% endfor -%}
+	    </fieldset>
+	{% endfor %}
+{%- endmacro %}
+<div id="formpane">
+    {{ process(formpane.config) }}
+</div>

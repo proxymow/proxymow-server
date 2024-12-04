@@ -1,0 +1,22 @@
+<link rel = "stylesheet" href = "/styles/toolpane.css" />
+
+    {% if eid > 0 -%}
+        <a href="?cid=0">First</a>
+    {% else %}
+        <label>First</label>
+    {% endif -%}&nbsp;
+    {% if cid > 0 -%}
+        <a href="?cid={{cid-1}}">Previous</a>
+    {% else %}
+        <label>Previous</label>
+    {% endif -%}&nbsp;
+    {% if cid < eid -%}
+        <a href="?cid={{cid+1}}">Next</a>
+    {% else %}
+        <label>Next</label>
+    {% endif -%}&nbsp;
+    {% if eid > 0 -%}
+        <a href="?cid=-1">Latest</a>&nbsp;
+    {% else %}
+        <label>Latest</label>
+    {% endif -%}&nbsp;

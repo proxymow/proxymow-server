@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% block title %}Stage Tracking{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel = "stylesheet" href = "/styles/toolpane.css" />
+  <link rel="stylesheet" href="/styles/stages.css" />
+{% endblock %}
+{% block navheader %}Stage Tracking{% endblock %}
+{% block header %}
+    {% if srid > 1 -%}
+        <a href="/stages?srid=1">First</a>
+    {% else %}
+        <label>First</label>
+    {% endif -%}&nbsp;
+    {% if srid > 1 -%}
+        <a href="/stages?srid={{srid-1}}">Previous</a>
+    {% else %}
+        <label>Previous</label>
+    {% endif -%}&nbsp;
+    {% if srid < crid-1 -%}
+        <a href="/stages?srid={{srid}}&erid={{srid+1}}">Current+</a>
+    {% else %}
+        <label>Current+</label>
+    {% endif -%}&nbsp;
+    {% if srid < crid-2 -%}
+        <a href="/stages?srid={{srid}}&erid={{srid+2}}">Current++</a>
+    {% else %}
+        <label>Current++</label>
+    {% endif -%}&nbsp;
+    {% if srid < crid-3 -%}
+        <a href="/stages?srid={{srid}}&erid={{srid+3}}">Current+++</a>
+    {% else %}
+        <label>Current+++</label>
+    {% endif -%}&nbsp;
+    {% if true -%}
+        <a href="/stages?srid={{srid+1}}">Next</a>
+    {% else %}
+        <label>Next</label>
+    {% endif -%}&nbsp;
+    {% if true -%}
+        <a href="/stages?srid={{srid+1}}&erid={{srid+2}}">Next+</a>
+    {% else %}
+        <label>Next+</label>
+    {% endif -%}&nbsp;
+    {% if true -%}
+        <a href="/stages?srid={{srid+1}}&erid={{srid+3}}">Next++</a>
+    {% else %}
+        <label>Next++</label>
+    {% endif -%}&nbsp;
+    {% if srid < crid -%}
+        <a href="/stages?srid={{crid}}">Last</a>
+    {% else %}
+        <label>Last</label>
+    {% endif -%}
+{% endblock %}
+{% block content %}
+    <main>
+      <figure>
+          <figcaption>Stage View</figcaption>
+		  <div class="figbody zoom-vp-in">
+            <img src="/stage_img?srid={{srid}}&erid={{erid}}" />
+		  </div>
+      </figure>
+    </main>    
+{% endblock %}
+{% block foot %}
+  {{ super() }}
+{% endblock %}

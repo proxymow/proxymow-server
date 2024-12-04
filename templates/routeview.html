@@ -1,0 +1,10 @@
+<figure id="routeview">
+    <figcaption id="route-view" class="new-tab-caption">Route View</figcaption>
+    <div class="figbody zoom-vp-out">
+      <svg id="other-svg" class="zoom-vp-content zoomable" viewBox="0 0 10000 10000" preserveAspectRatio="none">
+          {% include "defs.svg" %}
+          <image id="rv-svg-image" href="/fence_img?ts={{cur_secs}}" height="10000" width="10000" preserveAspectRatio="none" />
+          {% include "routeviewsvg.html" %}
+      </svg>
+    </div>
+</figure>

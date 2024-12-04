@@ -1,0 +1,63 @@
+main {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 630px));
+    grid-template-rows: 1fr;
+    column-gap: 4px;
+    padding: 0;
+}
+.figbody {
+    height: 25vw;/* from image aspect ratio (100 / 3) * (3 / 4) */
+    text-align: center;
+	border: 2px solid var(--pxm-highlight-grey);
+	overflow: auto;
+}
+#camera-img {
+	width: 100%;
+}
+#camsettings {
+	padding: 10px;
+}
+.zoom-vp-content {
+	height: 84%;
+	padding: 0 10px;
+}
+.stats-grid {
+	display: grid;
+	grid-template-columns: 33% 67%;
+	column-gap: 0;
+    justify-items: right;
+    color: var(--pxm-highlight-grey);
+    padding: 10px;
+}
+.stats-grid div {
+    padding: 4px;
+    vertical-align: middle;
+    justify-self: stretch;
+}
+.stats-grid div:nth-child(2n) {
+    text-align: left;
+}
+.stats-grid div:nth-child(2n-1) {
+    text-align: right;
+    font-weight: bolder;
+}
+.stats-grid div:nth-child(2n-1)::after {
+  content: ":";
+}
+.stats-grid div:nth-child(4n-1), .stats-grid div:nth-child(4n) {
+    backdrop-filter: brightness(85%);/* striping */
+}
+.add-bar {
+    display: none;/* hide address bar */
+	color: black; 
+	height: 32px; 
+	border: 1px inset gray; 
+	box-sizing: border-box; 
+	padding: 4px;
+}
+@media all and (max-width: 768px) {
+    /* ADDITIONAL rules for smaller footprints */
+    .figbody {
+        height: 100vw;
+    }
+}

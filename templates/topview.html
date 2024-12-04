@@ -1,0 +1,47 @@
+<figure id="topview">
+    <figcaption id="arena-view" class="new-tab-caption">Arena View</figcaption>
+    <div class="figbody zoom-vp-out">
+      <svg id="other-svg" class="zoom-vp-content" viewBox="-1000 0 11000 11000" preserveAspectRatio="none">
+          <rect class="svg-image-border" /> 
+          <image id="tv-svg-image" href="/calib_img_stack?ts={{cur_secs}}" height="40000" width="10000" y="-30000" preserveAspectRatio="none" />
+          <use xlink:href="#sym-cross-hair-cursor" class="svg-cursor" id="crosshair" x="{{ -1000 }}" y="{{ -1000 }}" />
+          <text id="cursor-pos" class="svg-cursor-text" x="{{ 1000 }}" y="{{ 1000 }}"></text>
+          <!-- axes -->
+          <!-- horizontal y = 0 -->
+          <!-- line class="major-axis-line" x1="0" y1="10000" x2="10600" y2="10000" / -->
+          <text class="major-axis-col-units" x="5000" y="10300">metres</text>
+          <!-- vertical x = 0 -->
+          <!-- line class="major-axis-line" x1="0" y1="0" x2="0" y2="10000" / -->
+          <text class="major-axis-row-units" x="-300" y="5000">m</text>
+          {% set w = config["arena.width_m"] %}
+          {% set h = config["arena.length_m"] %}
+          {{w}},{{h}}
+          {% for x in range((w | int) + 1) %}
+            {% set xhdpc = ((10000 / w) * x ) %}
+            {% if not loop.first -%}
+                <line class="major-axis-line" x1="{{xhdpc}}" y1="100" x2="{{xhdpc}}" y2="10200" />
+            {% else %}
+                <line class="major-axis-line" x1="{{xhdpc}}" y1="10100" x2="{{xhdpc}}" y2="10200" />
+            {% endif -%}
+            <text class="major-axis-col-label" x="{{xhdpc}}" y="10500">{{"%.1f"|format(x)}}</text>
+          {% endfor %}
+          {% for y in range((h | int) + 1) %}
+            {% set yhdpc = 10000 - ((10000 / h) * y ) %}
+            {% if not loop.first -%}
+                <line class="major-axis-line" y1="{{yhdpc}}" x1="-100" y2="{{yhdpc}}" x2="10200" />
+            {% else %}
+                <line class="major-axis-line" y1="{{yhdpc}}" x1="-100" y2="{{yhdpc}}" x2="-200" />
+            {% endif -%}
+            <text class="major-axis-row-label" y="{{yhdpc}}" x="-500">
+                <tspan dx="-100" dy="0">{{"%.1f"|format(y)}}</tspan>
+            </text>
+          {% endfor %}
+      </svg>
+    </div>
+</figure>
+<script> 
+	//add action link to 'Arena View' tab
+	document.getElementById('arena-view').addEventListener("click", function() {
+	    window.open(`/calib_img_stack?ts=${new Date().getTime()}&src=3`, 'arena_view');
+	});
+</script>

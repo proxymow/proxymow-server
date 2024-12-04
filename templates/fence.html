@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block title %}Fence Editor{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel = "stylesheet" href = "/styles/toolpane.css" />
+  <link rel = "stylesheet" href = "/styles/fence.css" />
+{% endblock %}
+{% block header %}
+  {% with toolpane = profile_selection_toolpane %}
+    {% include "toolpane.html" %}
+  {% endwith %}
+  {% with toolpane = fence_cutter_toolpane %}
+    {% include "toolpane.html" %}
+  {% endwith %}
+{% endblock %}
+{% block navheader %}Fence Editor{% endblock %}
+{% block content %}
+    <main>
+      {% with toolpane = fence_edit_toolpane %}
+        {% include "toolpane.html" %}
+      {% endwith %}
+      {% include "fenceview.html" %}
+      {% include "routeview.html" %}
+    </main>    
+{% endblock %}
+{% block foot %}
+  {{ super() }}
+  <script src="/scripts/pan-zoom.js"></script>
+  <script src="/scripts/point-queue-lib.js"></script>
+  <script src="/scripts/point-editor.js"></script>
+  <script src="/scripts/svg-drag.js"></script>
+  <script src="/scripts/http-fetcher.js"></script>
+  <script>
+    var arenaMatrix = {{config["calib.arena_matrix_js"]}};
+    var deviceWidth = {{config["optical.width"]}};
+    var deviceHeight = {{config["optical.height"]}};
+    var arenaWidth = {{config["arena.width_m"]}};
+    var arenaLength = {{config["arena.length_m"]}};
+
+    //create PointEditor
+    new PointEditor("arena-svg", "{{fence_edit_toolpane.id}}", null, null, "lawn.fence", "routeview");
+    //create Command Queues
+    let fenceCmdQueue = new Queue('fence', 1000, function() {
+        refreshComponent('fenceview');
+        refreshComponent('routeviewsvg');
+    });
+    let routeCmdQueue = new Queue('route', 1000, function() {
+        refreshComponent('routeviewsvg');
+    }, function() {
+        alert('There was an error submitting the api command. Maybe there is no currently selected object?');
+    });
+    //add action link to 'Route View' tab
+    document.getElementById('route-view').addEventListener("click", function() {
+        window.open(`/route?ts=${new Date().getTime()}`, 'route_view');
+    });
+  </script>
+{% endblock %}

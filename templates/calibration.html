@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+{% block title %}Calibration{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel = "stylesheet" href = "/styles/toolpane.css" />
+  <link rel = "stylesheet" href = "/styles/calibration.css" />
+{% endblock %}
+{% block header %}
+  {% with toolpane = lawn_dims_toolpane %}
+    {% include "toolpane.html" %}
+  {% endwith %}
+{% endblock %}
+{% block navheader %}Calibration{% endblock %}
+{% block content %}
+    <main>
+      {% with toolpane = cal_quad_toolpane %}
+          {% include "toolpane.html" %}
+      {% endwith %}
+      <figure>
+        <figcaption id="camera-view" class="new-tab-caption">Camera View</figcaption>
+        <div class="figbody">
+            <div class="zoom-vp-in">
+		      <svg id="camera-svg" class="zoom-vp-content zoomable" viewBox="0 0 10000 10000" preserveAspectRatio="none" tabindex="0">
+		        {% include "defs.svg" %}
+		        <image id="src-live" visibility="visible" href="/calib_img_stack?ts={{cur_secs}}" height="40000" width="10000" y="0" preserveAspectRatio="none" />
+		        <image id="src-archive" visibility="hidden" href="/calib_img_stack?ts={{cur_secs}}" height="40000" width="10000" y="-10000" preserveAspectRatio="none" />
+		        <image id="src-blend" visibility="hidden" href="/calib_img_stack?ts={{cur_secs}}" height="40000" width="10000" y="-20000" preserveAspectRatio="none" />
+		        {% for pt in config["lawn.calib"] -%}
+		            {% set i, x, y = pt.index, pt.x * 100, pt.ncy * 100 -%}<!-- non-cartesian y -->
+		            {% if not loop.last -%}
+		                {% set nxtpt = config["lawn.calib"][loop.index] %}
+                    {% else %}
+                        {% set nxtpt = config["lawn.calib"][0] %}
+                    {% endif -%}
+	                {% set ni, nx, ny = nxtpt.index, nxtpt.x * 100, nxtpt.ncy * 100 %}<!-- non-cartesian y -->
+                    <!-- draw the line linking f0-f1, f1-f2, .., fn-f0 -->
+                    {% set x_span = nx - x -%}
+                    {% set y_span = ny - y -%}
+                    {% set h1 = (x_span ** 2 + y_span ** 2) ** 0.5 -%}
+                    {% set h2 = h1 - (2 * 200) -%}
+                    {% set ratio = h2 / h1 -%}
+                    {% set x_span2 = x_span * ratio -%}
+                    {% set y_span2 = y_span * ratio -%}
+                    {% set x3 = x + ((x_span - x_span2) / 2) -%}
+                    {% set y3 = y + ((y_span - y_span2) / 2) -%}
+                    {% set x4 = nx - ((x_span - x_span2) / 2) -%}
+                    {% set y4 = ny - ((y_span - y_span2) / 2) -%}
+                    <line class="link-line visible-line" data-start="cal-{{i}}" data-finish="cal-{{ni}}" x1="{{x3}}" y1="{{y3}}" x2="{{x4}}" y2="{{y4}}" pointer-events="none" />
+		            <!-- finally draw the point over line -->
+		            <use xlink:href="#sym-point-hdpc" class="cal-point selectable-point" id="cal-{{i}}" x="{{ x }}" y="{{ y }}" data-r="200" />
+                    <!-- label the point -->
+                    <!-- text class="visible-point-text" id="lf{{i}}" x="{{ x }}" y="{{ y }}" pointer-events="none">{{i}}</text -->
+		        {% endfor -%}   
+		      </svg>
+		    </div>
+		</div>
+      </figure>
+      {% include "topview.html" %}
+    </main>    
+{% endblock %}
+{% block foot %}
+  {{ super() }}
+  <script src="/scripts/pan-zoom.js"></script>
+  <script src="/scripts/point-queue-lib.js"></script>
+  <script src="/scripts/point-editor.js"></script>
+  <script src="/scripts/svg-drag.js"></script>
+  <script> 
+    var arenaMatrix = {{config["calib.arena_matrix_js"]}};
+    var deviceWidth = {{config["optical.width"]}};
+    var deviceHeight = {{config["optical.height"]}};
+    var arenaWidth = {{config["arena.width_m"]}};
+    var arenaLength = {{config["arena.length_m"]}};
+    //create PointEditor
+    let pe1 = new PointEditor("camera-svg", "{{cal_quad_toolpane.id}}", "crosshair", "cursor-pos", "lawn.calib.", "topview");
+    //create Command Queue
+    let calCmdQueue = new Queue('calib', 1000, function() {
+        refreshComponent('topview');
+    });
+    //add action link to 'Camera View' tab
+    document.getElementById('camera-view').addEventListener("click", function() {
+        const selSrc = document.getElementsByName("calibration_source")[0].selectedIndex;
+        window.open(`/calib_img_stack?ts=${new Date().getTime()}&src=${selSrc}`, 'camera_view');
+    });
+    //capture
+    function capture() {
+        //Update server
+        sendData('PUT', 'api', 'capture', -1, true, function(resp) {
+            alert('Image Captured');
+        });
+        //refresh page
+        location.reload();
+    }//end capture
+    function selectSource(ddl) {
+        const sceId = 'src-' + ddl.value.toLowerCase();
+        //hide all images
+        const allImages = document.querySelectorAll("image[id^='src']");
+		allImages.forEach((image) => {
+		  image.setAttribute("visibility", "hidden");
+		});
+		document.getElementById(sceId).setAttribute("visibility", "visible");
+    }//end select source
+  </script>
+{% endblock %}

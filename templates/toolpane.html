@@ -1,0 +1,82 @@
+{% import "toolpane_macros.html" as tpm %}
+{% set tpctr = [] %}
+<div class="{{toolpane.class_name}}" id="{{toolpane.id}}">
+	{% for t in toolpane.config -%}
+        {% if t.cur_val is string %}
+            {% if "." in t.cur_val and not t.cur_val.endswith(".") %}
+                {# "dotted string" #}
+                {% set curval = config[t.cur_val] %}
+            {% else %}
+                {# "plain string" #}
+                {% set curval = t.cur_val %}
+            {% endif %}
+        {% elif t.cur_val is number %}
+            {# "number" #}
+            {% set curval = t.cur_val %}
+        {% elif t.cur_val.__class__.__name__ == "tuple" %}
+            {# "tuple" #}
+            {% set curval = t.cur_val %}
+        {% elif t.cur_val is iterable %}
+            {# "iterable" #}
+            {% set curval = config[t.cur_val[0]] ~ "." ~ config[t.cur_val[1]] %}
+        {% elif t.cur_val is not none %}
+            {# "boolean" #}
+            {% set curval = t.cur_val %}
+        {% endif %}
+        {% if tpctr.append(1) %}{% endif %}
+        {% set id = "t" ~ toolpane.id ~ "w" ~ tpctr|length %}
+   	    {% if t.classname == "ToolPaneButton" %}
+	       {{ tpm.tp_button(toolpane, t) }}
+	    {% elif t.classname == "ToolPaneDropdown"  %}
+             {% if t.label is not none %}
+	               {{ tpm.html_label(t.label, id) }}
+	         {% endif %}
+ 	         <span></span>
+             {% set opts = config[t.data_options] if t.data_options is string else t.data_options %} 	         
+             {{ tpm.tp_dropdown(id, t, opts, curval) }}
+	    {% elif t.classname == "ToolPaneNumber" %}
+           {{ tpm.html_label(t.label, id) }}
+           {{ tpm.tp_slider(id, t, curval) }}
+           {{ tpm.tp_numeric(id, t, curval) }}      
+        {% elif t.classname == "ToolPaneHidden" %}
+           {{ tpm.tp_hidden(id, t, curval) }}
+        {% elif t.classname == "ToolPaneCheck" %}
+           {% if t.label is not none %}
+                {{ tpm.html_label(t.label, id) }}
+           {% endif %}
+           {{ tpm.tp_check(id, t, curval) }}
+           <span></span>
+        {% elif t.classname == "ToolPaneSlide" %}
+           {{ tpm.html_label(t.label, id) }}
+           {{ tpm.tp_slide(id, t, curval) }}
+	    {% elif t.classname == "ToolPaneString" %}
+           {{ tpm.html_label(t.label, id) }}
+           <span></span>
+           {{ tpm.tp_string(id, t, curval) }}
+	    {% elif t.classname == "ToolPaneIndicator" %}
+            {{ tpm.tp_indicator(id, t) }}
+	    {% elif t.classname == "ToolPaneBatteryIndicator" %}
+            {{ tpm.tp_battery(id, t) }}
+	    {% elif t.classname == "ToolPaneReadout" %}
+           {{ tpm.html_label(t.label, id) }}
+           {{ tpm.tp_readout(id, t, curval) }}
+	    {% elif t.classname == "ToolPaneLabel" %}
+           {{ tpm.tp_label(t, curval) }}
+        {% elif t.classname == "ToolPaneGap" %}
+           {{ tpm.tp_gap(t) }}
+        {% elif t.classname == "ToolPaneNewline" %}
+           {{ tpm.tp_newline(t) }}
+	    {% endif %}
+	{% endfor -%}
+	<script>
+	   {% set ns = toolpane.id -%}
+       {% set arr_name = ns ~ ".TOOLS" -%}
+	   var {{ns}} = {{ns}} || {};
+	   {{arr_name}} = {{arr_name}} || {};
+	   {% for t in toolpane.config if t.key is not none -%}
+		   {% set name = t.key|replace("_","")|replace(".","") -%}
+	       {% set mask = 2 ** loop.index0 -%}
+	       {{arr_name}}.{{name|upper}} = {{ mask }};                        
+	   {% endfor -%}
+	</script>
+</div>
