@@ -34,7 +34,7 @@ python proxymow.py
 Browse to displayed url.
 
 ## Getting help
-Read the detailed [documentation](http://proxymow.co.uk).
+Read the detailed [documentation](https://proxymow.co.uk).
 
 ## Who maintains and contributes to the project
 info@proxymow.co.uk
