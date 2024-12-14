@@ -31,6 +31,7 @@ sudo apt -y -q install python3-skimage
 sudo pip3 install mariadb --break-system-packages
 sudo pip3 install cherrypy --break-system-packages
 sudo pip3 install shapely==1.4.1 --break-system-packages
+sudo pip3 install markdown --break-system-packages
 
 echo 'Please Reboot...'
 
