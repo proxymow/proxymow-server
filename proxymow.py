@@ -2643,9 +2643,12 @@ class ProxymowServer(object):
             # template
             tmplt_route = os.path.sep.join(args)
             tmplt_folder_name = self.tmplt_path_name + os.path.sep + tmplt_route
-            if tmplt_route.endswith('.md'):
-                # markdown filename is last arg
-                tmplt_filename = args[-1]
+            if os.path.isdir(tmplt_folder_name):
+                # try index in that folder
+                tmplt_filename = 'index.html'
+            elif tmplt_route.endswith('.md'):
+                # otherwise filename is last arg
+                tmplt_filename = '{0}'.format(args[-1])
                 # and route is shorter
                 tmplt_route = os.path.sep.join(args[:-1])
                 tmplt_folder_name = self.tmplt_path_name + os.path.sep + tmplt_route
