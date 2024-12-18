@@ -64,6 +64,8 @@ main {
     font-size: 0.95em;
     list-style: none;
     display: block;
+    white-space: pre;
+    font-family: monospace;
 }
 #last-comp-cmds-list {
     display: none;
@@ -144,6 +146,8 @@ main {
         font-size: 0.8em;
         list-style: none;
         display: block;
+        white-space: pre;
+        font-family: monospace;
     }
     
 }

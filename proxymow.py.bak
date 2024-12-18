@@ -2643,14 +2643,17 @@ class ProxymowServer(object):
             # template
             tmplt_route = os.path.sep.join(args)
             tmplt_folder_name = self.tmplt_path_name + os.path.sep + tmplt_route
-            if tmplt_route.endswith('.md'):
-                # markdown filename is last arg
-                tmplt_filename = args[-1]
+            if os.path.isdir(tmplt_folder_name):
+                # try index in that folder
+                tmplt_filename = 'index.html'
+            elif tmplt_route.endswith('.md'):
+                # otherwise filename is last arg
+                tmplt_filename = '{0}'.format(args[-1])
                 # and route is shorter
                 tmplt_route = os.path.sep.join(args[:-1])
                 tmplt_folder_name = self.tmplt_path_name + os.path.sep + tmplt_route
             else:
-                # otherwise html filename is last arg
+                # otherwise filename is last arg
                 tmplt_filename = '{0}.html'.format(args[-1])
                 # and route is shorter
                 tmplt_route = os.path.sep.join(args[:-1])
@@ -2674,13 +2677,7 @@ class ProxymowServer(object):
                 tmplt = self.env.get_template(rel_tmplt_filepath)
                 if rel_tmplt_filepath.endswith('.md'):
                     markdown_source = self.env.loader.get_source(self.env, rel_tmplt_filepath)
-                    # md => tmplt, tmplt => html
-                    html_from_md = markdown.markdown(markdown_source[0])
-                    # recover jinja expressions
-                    tmplt_str_from_md = html_from_md.replace('<!--', '').replace('-->', '')
-                    tmplt_from_md = self.env.from_string(tmplt_str_from_md)
-                    # parse
-                    html = tmplt_from_md.render(ctx)
+                    html = markdown.markdown(markdown_source[0])
                 else:
                     html = tmplt.render(ctx)
             except Exception as ex:

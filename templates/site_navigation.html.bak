@@ -1,17 +1,17 @@
 <svg id="nav-menu-icon" onclick="act(this)" viewBox="0 0 24 24"><title>Main menu</title><path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
-<ul id="nav-menu-items" class="hideable" style="list-style: none;padding-left: 0;">
-    <li><a href="/vision">Vision</a></li> 
-    <li><a href="/calibration">Calibration</a></li>  
-    <li><a href="/fence">Fence Editor</a></li>  
-    <li><a href="/supervisor">Supervisor</a></li>  
-    <li><a href="/navigator">Navigator</a></li> 
-    <li><a href="/contours">Contours</a></li> 
-    <li><a href="/projections">Projections</a></li> 
-    <li><a href="/scoring">Scoring</a></li> 
-    <li><a href="/stages">Stages</a></li>   
-    <li><a href="/settings">Settings</a></li> 
-    <li><a href="/console">Robot Console</a></li> 
-    <li><a href="/guide#{{ compname }}" target="help">Help</a></li>
+<ul id="nav-menu-items" class="hideable">
+    <a href="/vision">Vision</a> 
+    <a href="/calibration">Calibration</a --> 
+    <a href="/fence">Fence Editor</a --> 
+    <a href="/supervisor">Supervisor</a> 
+    <a href="/navigator">Navigator</a>
+    <a href="/contours">Contours</a> 
+    <a href="/projections">Projections</a>
+    <a href="/scoring">Scoring</a>
+    <a href="/stages">Stages</a>          
+    <a href="/settings">Settings</a> 
+    <a href="/console">Robot Console</a> 
+    <a href="/help#{{ compname }}" target="help">Help</a>
 </ul>
 <script>
     function act(elem) {

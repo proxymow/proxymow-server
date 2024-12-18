@@ -1,9 +1,11 @@
+import os
 import sys
 import datetime
 import time
 import socket
 import lxml.etree as ET
 from copy import deepcopy
+import markdown
 
 import constants
 import toolpane_defs
@@ -324,3 +326,35 @@ def contour_navbar(host, _req_args, req_kwargs):
         'cid': cid,
         'eid': eid
     }
+
+def guide(host, _req_args, _req_kwargs):
+    help_topics = {}
+    # mine help folder for topics
+    help_topic_entries = os.listdir("templates/help")
+    for fldr in [e for e in help_topic_entries if '.' not in e]:
+        fldr_path = "templates/help" + os.path.sep + fldr
+        fldr_entries = os.listdir(fldr_path)
+        html_filename = 'index.html'
+        md_filename = 'index.md'
+        if html_filename in fldr_entries:
+            filepath = fldr_path + os.path.sep + html_filename
+            with open(filepath,"r") as f:
+                tmplt_string = f.read()
+            tmplt = host.env.from_string(tmplt_string)
+            # parse
+            html = tmplt.render({})
+            help_topics[fldr] = html
+        elif md_filename in fldr_entries:
+            filepath = fldr_path + os.path.sep + md_filename
+            with open(filepath,"r") as f:
+                md_string = f.read()
+            html_string = markdown.markdown(md_string)
+            # recover jinja expressions
+            tmplt_string = html_string.replace('<!--', '').replace('-->', '')
+            tmplt = host.env.from_string(tmplt_string)
+            html = tmplt.render({})                
+            help_topics[fldr] = html
+    return {
+        'help_topics': help_topics
+    }
+    

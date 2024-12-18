@@ -1,19 +1,24 @@
+<!--{% extends "help/layout.html" %}-->
+<!--{% block content %}-->
+
 # Navigation Strategy Tutorial
 In this tutorial we will cover the following topics:
 
 * [Creating a new Strategy](#creating-a-new-strategy)
 * [Adding a Term](#adding-a-term)
 * [Adding a Rule](#adding-a-rule)
-* [Dropping a Pin to set manual destination](#setting-manual-destination)
+* [Setting Manual Destination](#setting-manual-destination)
 * [Adding a Forward Drive Rule](#adding-a-forward-drive-rule)
 * [Adding a Stage Completion Rule](#adding-a-stage-completion-rule)
 * [Driving the Route](#driving-the-route)
-* [Adding a Reverse Drive Rule](#reverse-driving)
+* [Driving in Reverse](#reverse-driving)
 
-## Creating a new Strategy
+<h2 id="creating-a-new-strategy">Creating a new Strategy</h2>
+
 Head over to the Settings feature and expand the *Strategies* Branch of the hierarchical menu. Click the *Add Strategy* link and enter a name and description for your strategy e.g. *Tutorial* and *Introduction to Navigation*. The name must be at least 6 characters long, but the description is optional. Click Save and confirm that your strategy has been added to the menu.
 
-## Adding a Term
+<h2 id="adding-a-term">Adding a Term</h2>
+
 Switch to the Navigator feature, which displays the arena view, a grid of Terms, and a grid of Rules. Select your strategy from the Navigation Strategy dropdown list. Once we have created a strategy, and selected it, we can add, edit and test terms and rules here. 
 
 The first term we want to add is a constant representing the Home Sector. As we are about to create a rule that rotates the robot so it points towards the destination, we need to know when to stop. This is the purpose of the Home Sector term.
@@ -47,7 +52,8 @@ Click Save to save the term, and confirm that it appears at the top of the grid.
 
 Be mindful of features that have Freeze capability. Auto-Freeze may be enabled and if it has kicked in you may have to cancel it to refresh the feature.
 
-## Adding a Rule
+<h2 id="adding-a-rule">Adding a Rule</h2>
+
 The first rule we want to add is one that rotates the robot counter-clockwise so it points to the destination. Rules normally consist of four expressions:
 
 * Condition
@@ -82,7 +88,8 @@ Add a second rule named *Rotate CW* with the following condition:
 
 We are now in a position to test rule selection, but as we have no Speed or Duration expressions configured then Driving the Route is not practical.
 
-## Setting Manual Destination
+<h2 id="setting-manual-destination">Setting Manual Destination</h2>
+
 When testing new strategies it is convenient to be able set a temporary destination to see how the strategy responds, before driving a larger circuit. If you examine the terms you will see most are set at -1, because the system has no target destination to reference. We can set a target destination by double-clicking the arena view image. A map pin will be dropped, and the system will update its terms and attempt to match rules. 
 
 Note that dropping a pin on the Navigator Arena View just sets a destination, you have to click *Drive* if you want to drive to it. This is different to dropping a pin on the Supervisor Arena View, where a double-click plans and executes the manoeuvre.
@@ -143,7 +150,8 @@ You can use the Pause and Step buttons to pause a navigation and single-step it.
 
 If you hover your mouse over any expression a tooltip will be displayed which summarises the values of the terms used in the matched expression. Freezing the display refresh when the suspect rule is matched can provide more time to analyse the expression terms to better understand the problem.
 
-## Adding a Forward Drive Rule
+<h2 id="adding-a-forward-drive-rule">Adding a Forward Drive Rule</h2>
+
 We should now have a strategy that aims our robot in the right direction, so the next rule needs to drive it towards the destination. The rotation rules corrected the heading error, with a conditions that matched when we were outside the range of the home sector, so the drive condition is simply the inverse i.e. when ```u``` is between ```-hs``` and ```hs```. This condition can be simplified if we use absolute shortest delta [radians] ```a``` instead of signed ```u```. 
 
 Add a new rule named *Drive Forward* and enter ```a < hs``` as the condition. We can use set driving speed ```s``` as both left and right speeds, but what about the duration?
@@ -170,12 +178,14 @@ Add a new term named ```hr``` and set the description to *Home Radius*, the Expr
 
 ```a < hs and d > hr```
 
-## Driving the Route
+<h2 id="driving-the-route">Driving the Route</h2>
+
 Now we may be in a position to attempt driving the Route. Click Reset to home the robot, and then click Route to send it on its first excursion. If you receive a warning about incomplete previous excursions just choose Cancel to restart the route from scratch.
 
 If your strategy is working you should reach the first node of the route, then stop. We haven't equipped the strategy with any rules that detect when a node has been reached, and the robot is ready to move to the next.
 
-## Adding a Stage Completion Rule
+<h2 id="adding-a-stage-completion-rule">Adding a Stage Completion Rule</h2>
+
 We have already used the check ```d > hr``` in our driving condition, and we can also use it to detect Stage Completion. Add another rule named ```Stage Complete```, set the condition to ```d <= hr``` and check the stage complete checkbox. Save the rule, Reset the robot and drive the route again. 
 
 ## Nones, Nulls and Nils
@@ -275,7 +285,8 @@ Add the following term:
 ## Virtual Mower Realism
 You may have noticed that the virtual robot is not a *perfect machine* as implied earlier. There are a number of variables that can be changed in the Virtual Mower python code to make the virtual mower more realistic. By default these are all turned off, except for one: the load factor. This represents the inefficiency of the machine, e.g. friction, and has a default value of 0.85. The effect of load factor can be seen when rotating, as the robot needs 2 manoeuvres to achieve its goal.
 
-## Reverse Driving
+<h2 id="reverse-driving">Reverse Driving</h2>
+
 The strategy we have built has driven the robot around the route in a forward direction. We may not always want this. For example, if we mow up to the edge of the lawn, there may be insufficient solid ground to perform a 180 degree rotation, and we need to back off before rotating.
 
 Fortunately, the system has the following terms:
@@ -291,3 +302,5 @@ Up until now, we have exclusively used *stationary* rules. A stationary rule is 
 There are occasions when we can overlook this constraint. The robot can accept new *sweep* commands before the existing one is complete. If we are driving a long straight path and get thrown off course, then we need to correct as soon as possible. The visual information may be slightly out of date, but the correction is likely still valid.
 
 If you set a rule's scope to *In-Flight* then it will be considered for selection if the robot is moving. It is wise to limit in-flight rules to the middle phase of a path i.e. after the robot has left the start zone, and before the robot reaches the destination zone. In fact, a stationary rule will always be needed in order to get the robot moving at the outset.
+
+<!--{% endblock %}-->

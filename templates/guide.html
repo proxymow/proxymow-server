@@ -1,0 +1,49 @@
+{% extends "help/layout.html" %}
+{% macro toc() -%}
+    <a href="#table-of-contents">Back to top...</a>
+{%- endmacro %}
+{% block content %}
+	<h1>Proxymow Server Help</h1>
+	<h2 id="table-of-contents">Table of Contents</h2>
+	<h3>Features</h3>
+	<ul>
+	    <li><a href="#vision">Vision</a></li>
+	    <li><a href="#calibration">Calibration</a></li>
+	    <li><a href="#fence">Fence Editor</a></li>
+	    <li><a href="#supervisor">Supervisor</a></li>
+        <li><a href="#navigator">Navigator</a></li>
+        <li><a href="#contours">Contours</a></li>
+        <li><a href="#projections">Projections</a></li>
+        <li><a href="#scoring">Scoring Measures</a></li>
+        <li><a href="#stages">Stage Tracking</a></li>
+        <li><a href="#console">Robot Console</a></li>
+        <li><a href="#settings">Settings</a></li>
+	</ul>
+    <h3>Tutorials</h3>
+    <ul>
+        <li><a href="/help/navigator/tutorial.md">Navigation Strategy Tutorial</a></li>
+    </ul><br /><br />
+    {{ help_topics["vision"] }}
+    {{ toc() }}
+    {{ help_topics["calibration"] }}
+    {{ toc() }}
+    {{ help_topics["fence"] }}
+    {{ toc() }}
+    {{ help_topics["supervisor"] }}
+    {{ toc() }}
+    {{ help_topics["navigator"] }}
+    {{ toc() }}
+    {{ help_topics["contours"] }}
+    {{ toc() }}
+    {{ help_topics["projections"] }}
+    {{ toc() }}
+    {{ help_topics["scoring"] }}
+    {{ toc() }}
+    {{ help_topics["stages"] }}
+    {{ toc() }}
+    {{ help_topics["console"] }}
+    {{ toc() }}
+    {{ help_topics["settings"] }}
+    {{ toc() }}
+	<br /><br />
+{% endblock %}

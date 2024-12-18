@@ -1,10 +1,10 @@
 <div>
     <ul>
-        <li><img src="/icons/wifi-4bars.svg" alt="wifi icon" />An icon representing the strength of the robot wifi signal</li>
-        <li><img src="/icons/battery.png" alt="battery icon" />An icon depicting the state of the robot battery</li>
-        <li><img src="/icons/eye-found.svg" alt="eye icon" />An icon reflecting the status of robot detection</li>
-        <li><img src="/icons/compass.png" alt="compass icon" />The current location and orientation of the robot</li>
-        <li><img src="/icons/stop.png" alt="stop icon" />An Emergency Stop button</li>
+        <li><img src="/icons/wifi-4bars.svg" />An icon representing the strength of the robot wifi signal</li>
+        <li><img src="/icons/battery.png" />An icon depicting the state of the robot battery</li>
+        <li><img src="/icons/eye-found.svg" />An icon reflecting the status of robot detection</li>
+        <li><img src="/icons/compass.png" />The current location and orientation of the robot</li>
+        <li><img src="/icons/stop.png" />An Emergency Stop button</li>
     </ul>
     <div><b>Clicking the emergency stop button will stop the robot, turn off all cutters and Pause the current excursion.</b><br/><br/>
     Hovering over the wifi icon will display additional information:
