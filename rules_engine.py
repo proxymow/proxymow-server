@@ -5,12 +5,13 @@ import logging
 import numpy
 from collections import deque
 
-from utilities import trace_rules, get_safe_functions  # , FixedLengthList
+from utilities import trace_rules, get_safe_functions
 from geom_lib import get_circle_from_world_points, get_angle_between_cartesian_points, get_distance_between_points
 from odometry import MovementCode
 from forms.rule import RuleScope
 import geom_lib
 from destination import Attitude
+import constants
 
 class RulesEngine():
     '''
@@ -254,22 +255,22 @@ class RulesEngine():
                         self.logger.debug(
                             'build_context no look ahead distance specified, defaulting to x2, y2 end of the path')
                 self.context['lap'] = lap
-                tgt_x = tgt_y = -1
+                tgt_x = x2
+                tgt_y = y2
                 if lad is not None:
                     if trace:
                         self.logger.debug(
                             'build_context using angle between x,y and look ahead lax,lay for target heading')
                     c2 = get_angle_between_cartesian_points(x, y, lax, lay)
                     tgt_x, tgt_y = lax, lay
-                elif d is not None and d > 0.1:
+                elif d is not None and d > constants.CLOSE_TO_HOME_RADIUS_M:
                     if trace:
                         self.logger.debug(
                             'build_context using angle between x,y and x2,y2 for target heading')
                     c2 = get_angle_between_cartesian_points(x, y, x2, y2)
-                    tgt_x, tgt_y = x2, y2
                 else:
                     self.logger.debug(
-                        'build_context using current heading for target heading')
+                        'build_context too close to home - using current heading for target heading')
                     c2 = c
                 self.context['c2'] = c2
 

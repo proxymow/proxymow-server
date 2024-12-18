@@ -242,3 +242,8 @@ RESIZE_POSE_TO_VIEWPORT = 5.0
     OVERLAY_EXTRAPOLATED_POSE - overlay extrapolated pose on arena image
 '''
 OVERLAY_EXTRAPOLATED_POSE = False
+
+'''
+    CLOSE_TO_HOME_RADIUS_M - distance below which rotations towards destination are unsafe
+'''
+CLOSE_TO_HOME_RADIUS_M = 0.1

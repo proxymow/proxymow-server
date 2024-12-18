@@ -164,6 +164,14 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
     sector_angle = 0
     sector_portion = 0
     try:
+        if debug:
+            print('get_circle_from_world_points x1: {}m y1: {}m t1: {}deg x2: {}m y2: {}m'.format(
+                x1,
+                y1,
+                degrees(t1),
+                x2,
+                y2)
+            )
         path_angle = get_angle_between_cartesian_points(x1, y1, x2, y2)
         if path_angle is not None:
             if debug:
@@ -189,6 +197,10 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
                     print('Error in get_circle_from_world_points sector angle formula: {0} path_distance={1} r={2}'.format(
                         e, path_distance, r))
                 sector_portion = sector_angle / (2 * pi)
+                if debug:
+                    print('get_circle_from_world_points sector portion: {}'.format(
+                        sector_portion)
+                        )
 
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno

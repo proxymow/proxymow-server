@@ -1829,6 +1829,14 @@ class ProxymowServer(object):
                                             logger.info(
                                                 'Governor rule unacknowledged: updating telemetry status')
 
+                                        # if command is auxiliary - hasten telemetry refresh
+                                        if selected_rule.auxiliary:
+                                            logger.info(
+                                                'Governor rule auxiliary: telemetry refresh')
+                                            self.telem = fetch_telemetry(
+                                                self.config, self.udp_socket)
+                                            self.telemetry_updated = time.time()
+
                                         # calculate estimated landing time
                                         landing_time = self.estimate_landing_time(
                                             selected_rule, fixed_overhead=0.8)
