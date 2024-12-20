@@ -1529,6 +1529,8 @@ class ProxymowServer(object):
                 dest_cnt = self.itinerary.outstanding
                 total_destinations = self.itinerary.num_destinations
                 tgt_point = self.itinerary.get_current_path()[2:4]
+                if not all(tgt_point):
+                    tgt_point = (0, 0)
             else:
                 dest_cnt = 0
                 total_destinations = 0
@@ -1543,7 +1545,7 @@ class ProxymowServer(object):
             else:
                 prog_compl_pc = -1
                 pose_str = '-1@()'
-
+            self.log_debug('progress completed: {} target point: {}'.format(prog_compl_pc, tgt_point))
             tgt_str = '({1:.2f}, {2:.2f}) {0:.0f}%'.format(
                 prog_compl_pc, *tgt_point)
             if self.rules_engine.stage_started_time == -1:
@@ -3252,7 +3254,6 @@ class ProxymowServer(object):
                         'Graphical Terms shape dictionary: {}'.format(shape_dict))
 
                     # find widest text
-                    # tmplt = '{:<16} = {} {}'
                     tmplt = '{}: {} {}'
                     widest = ''
                     for shape_colour, coords in shape_dict.items():
@@ -3263,24 +3264,27 @@ class ProxymowServer(object):
                             if len(text) > len(widest):
                                 widest = text
 
-                    line_height_px = 16
-                    font_size_px = 16
+                    line_height_px = int(font.size * 0.75)
+                    ann_font = ImageFont.truetype(self.font_path, line_height_px)
+                    ann_padding = 4
                     ann_line = 1  # initialise annotation line
                     for shape_colour, coords in shape_dict.items():
                         if len(coords) == 1:
                             # annotation
                             gterm = shape_term_dict[shape_colour]
-                            position = (3 * img_width_px / 4, 2 * img_height_px /
-                                 3 + (line_height_px * ann_line * 1.25))
+                            position = (3 * img_width_px / 4, (2 * img_height_px /
+                                 3) + ((line_height_px + (1 * ann_padding)) * ann_line))
                             text = tmplt.format(gterm.name, coords[0], gterm.units)
-                            bbox = list(top_img_draw.textbbox(position, widest, font_size=font_size_px * 1.25))
-                            bbox[0] -= font_size_px * (1.25 / 2)
-                            bbox[1] -= font_size_px * (1.25 / 4)
+                            bbox = list(top_img_draw.textbbox(position, widest, font=ann_font))
+                            bbox[0] -= ann_padding
+                            bbox[1] -= ann_padding
+                            bbox[2] += ann_padding
+                            bbox[3] += ann_padding
                             top_img_draw.rectangle(bbox, fill="ivory", outline="grey")
                             top_img_draw.text(
                                 position,
                                 text,
-                                font_size=font_size_px,
+                                font=ann_font,
                                 fill=shape_colour
                             )
                             ann_line += 1
