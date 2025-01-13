@@ -5,3 +5,4 @@
 # log-files
 *.log
 /.project
+/.pydevproject
