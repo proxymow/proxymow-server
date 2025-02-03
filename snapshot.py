@@ -39,6 +39,7 @@ class Snapshot():
         self.run_elapsed_secs = 0
         self.loc_stat_count = 0
         self.loc_quality = 100
+        self.best_proj_conf_pc = 0
         self._contours = []
         self.cont_count = 0
         self.fltrd_count = 0
