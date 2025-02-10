@@ -218,6 +218,10 @@ footer {
     }
     #nav-menu-icon {
         z-index: 999;
+        width: auto;
+    }
+    .monitor {
+        padding-right: 24px;
     }
     .page-container {
         width: 100%;
