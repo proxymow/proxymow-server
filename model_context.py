@@ -330,9 +330,9 @@ def contour_navbar(host, _req_args, req_kwargs):
 def guide(host, _req_args, _req_kwargs):
     help_topics = {}
     # mine help folder for topics
-    help_topic_entries = os.listdir("templates/help")
+    help_topic_entries = os.listdir(host.tmplt_path_name + os.path.sep + "help")
     for fldr in [e for e in help_topic_entries if '.' not in e]:
-        fldr_path = "templates/help" + os.path.sep + fldr
+        fldr_path = host.tmplt_path_name + os.path.sep + "help" + os.path.sep + fldr
         fldr_entries = os.listdir(fldr_path)
         html_filename = 'index.html'
         md_filename = 'index.md'
