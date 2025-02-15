@@ -28,6 +28,7 @@ def global_ctx(host, compname, _req_args, _req_kwargs):
         'config': host.config,
         'compname': compname,
         'hostname': socket.gethostname(),
+        'vername': host.VERSION_STRING,
         'debug': host.debug
     }
 

@@ -103,6 +103,8 @@ class MowerProxy():
 
 class ProxymowServer(object):
 
+    VERSION_STRING = "1.0.7"
+
     linux = (platform.system() == 'Linux')
 
     tmp_folder_path = tempfile.gettempdir()
