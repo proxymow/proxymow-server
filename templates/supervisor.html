@@ -119,7 +119,6 @@
         const ym = ((1 - yClickRatio) * arenaLengthM).toFixed(2);
         document.querySelector('input[data-key="Driveto.X"]').value = xm;
         document.querySelector('input[data-key="Driveto.Y"]').value = ym;
-        document.querySelector('input[data-key="Driveto.Theta"]').value = '';   
         sendData('PUT', 'api', 'plan-drive', `[${xm}, ${ym}]`);
     }
     function driveToClickPosition(e) {

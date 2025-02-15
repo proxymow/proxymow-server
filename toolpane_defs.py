@@ -525,14 +525,6 @@ dir_drv_dict = {
     "+0|-0.1": "(+0, -0.1)",
     "+0.1|+0": "(+0.1, +0)",
     "-0.1|+0": "(-0.1, +0)",
-    "+15": "(+0, +0) +15",
-    "-15": "(+0, +0) -15",
-    "+30": "(+0, +0) +30",
-    "-30": "(+0, +0) -30",
-    "+90": "(+0, +0) +90",
-    "-90": "(+0, +0) -90",
-    "+210": "(+0, +0) +210",
-    "-210": "(+0, +0) -210",
     "1.2|1.2": "(1.2, 1.2)",
     "1.3|1.3": "(1.3, 1.3)",
     "1.4|1.4": "(1.4, 1.4)",
@@ -637,21 +629,11 @@ cockpit_control_driveto_config = [
         {'class': 'readonly'},
         'Initialising...'
     ),
-    driveto_tool_pane_button,
     cancel_tool_pane_button,
-    ToolPaneNewline(12),
+    ToolPaneNewline(6),
     ToolPaneLabel('Manual', {'class': 'subtool-label'}),
     x_rdout,
     y_rdout,
-    ToolPaneReadout(
-        'Driveto.Theta',
-        None,
-        '&theta;',
-        'Heading Angle in degrees',
-        False,
-        one_dp_opts_ro,
-        0.0
-    ),
     ToolPaneDropdown(
         'direct.drive',
         None,
@@ -663,7 +645,9 @@ cockpit_control_driveto_config = [
         dir_drv_dict,
         None,
         {}
-    )
+    ),
+    driveto_tool_pane_button
+
 ]
 
 # drive commands

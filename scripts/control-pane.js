@@ -20,7 +20,6 @@ class ControlPane {
                           this.btns.ROBOTSPEED | 
                           this.btns.DIRECTCOMMAND |
                           this.btns.DRIVE |
-                          this.btns.DIRECTDRIVE |
                           this.btns.ROUTE |
                           this.btns.PAUSE |
                           this.btns.STEP |
@@ -214,7 +213,6 @@ class ControlPane {
                 enableTool(this.tpId, this.btns.CUTTER1ENABLED, true);  
                 enableTool(this.tpId, this.btns.CUTTER2ENABLED, true);  
                 enableTool(this.tpId, this.btns.DIRECTDRIVE, true);  
-                enableTool(this.tpId, this.btns.DRIVE, false);  
                 enableTool(this.tpId, this.btns.ROUTE, true);  
                 enableTool(this.tpId, this.btns.PAUSE, false);  
                 enableTool(this.tpId, this.btns.SKIP, false);  
@@ -397,7 +395,6 @@ class ControlPane {
         const itm = sel.value;
         const xWidget = getWidget(this.tpId, "DRIVETOX");   
         const yWidget = getWidget(this.tpId, "DRIVETOY");   
-        const hdgWidget = getWidget(this.tpId, "DRIVETOTHETA");   
     
         const tAng = this.poseJson['t_deg'];
         const xPos = this.poseJson['c_x_m'];
@@ -405,13 +402,11 @@ class ControlPane {
 
         let x = 0;
         let y = 0;
-        let t = 0;
     
         if (itm !== '') {
             const itmParts = itm.split('|');
             if (itmParts.length == 2) {
                 //drive to location
-    
                 if (xPos != '' && yPos != '') {
                     //can't drive to absolute negative location, so any symbol indicates relative
                     if (itm.indexOf('+') != -1 || itm.indexOf('-') != -1) {
@@ -423,13 +418,11 @@ class ControlPane {
                         x = parseFloat(itmParts[0]);
                         y = parseFloat(itmParts[1]);                                    
                     }
-                    // don't set the angle, let mower calculate it
-                    hdgWidget.value = '';
                     xWidget.value = x.toFixed(2);
                     yWidget.value = y.toFixed(2);
                 }//end valid values
             }  else if (itmParts.length == 1) {
-                //relative angle
+                //forward
                 if (itm.charAt(0) == 'F') {
                     const distance = itm.replace( /^\D+/g, '');
                     const xChange = distance * Math.sin((tAng * Math.PI / 180) - Math.PI);
@@ -439,32 +432,20 @@ class ControlPane {
                     y = parseFloat(yPos) - yChange;             
                     xWidget.value = x.toFixed(2);
                     yWidget.value = y.toFixed(2);
-                    hdgWidget.value = '';
-                } else if (tAng == '') {
-                    console.log('Drive to Pose calculation error - no pose angle to base relative');
-                } else {
-                    const tBase = parseFloat(tAng);
-                    t = tBase + parseFloat(itmParts[0]);
-                    if (t >= 360) {
-                        t -= 360;
-                    }
-                    hdgWidget.value = t;
-                    xWidget.value = '';
-                    yWidget.value = '';
-                }           
+                }//end fwd           
             }//end length 1
-        }
+        }//end valid itm
+        
+        enableTool(this.tpId, this.btns.DRIVE, true); 
              
     }//end compute drive to
     
     driveTo() {
         const xWidget = getWidget(this.tpId, "DRIVETOX");   
         const yWidget = getWidget(this.tpId, "DRIVETOY");   
-        const hdgWidget = getWidget(this.tpId, "DRIVETOTHETA");   
         const ddlWidget = getWidget(this.tpId, "DIRECTDRIVE");   
         let x = 'None';
         let y = 'None';
-        let t = 'None';
         if (xWidget != null) {
             x = xWidget.value;
             if (x == '') {
@@ -477,25 +458,19 @@ class ControlPane {
                 y = 'None';
             }
         }
-        if (hdgWidget != null) {
-            t = hdgWidget.value;   
-            if (t == '') {
-                t = 'None';
-            } else {
-                t = (t * Math.PI / 180);
-            }
-        }
-        if (x == y == t == 'None') {
+        if (x == y == 'None') {
             console.log('Can\'t Drive to unknown location!');
         } else {
             //Update server and refresh manual overlay
-            sendData('PUT', 'api', 'drive', [x, y, t], true);               
+            sendData('PUT', 'api', 'drive', [x, y], true);               
         }
         
         //Reset dropdown so it can accept same request again!
         if (ddlWidget != null) {
             ddlWidget[0].selected = true; 
         } 
+             
+        enableTool(this.tpId, this.btns.DRIVE, false); 
              
     }//end drive to
     
