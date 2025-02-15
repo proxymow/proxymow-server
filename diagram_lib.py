@@ -247,7 +247,7 @@ def plot_contour_entry_as_projection(host, entry, hide_conf, logger):
         except Exception as ex1:
             err_line = sys.exc_info()[-1].tb_lineno
             if logger:
-                logger.error('Error overlaying contour: ' +
+                logger.error('Error overlaying contour: ' + str(dat_cnt_as_npa) + 
                              str(ex1) + ' on line ' + str(err_line))
             
         plot_projection_img(tgt, capture_datetime,
