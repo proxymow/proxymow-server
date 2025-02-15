@@ -2048,7 +2048,8 @@ class ProxymowServer(object):
                                 self.viewport.resize(1.2)
                                 logger.info('pxm locate expanded viewport looking for escaped target: {0}'.format(
                                     self.viewport))
-                                sleep(5)
+                                # add delay to smooth process... 
+                                sleep(1)
                             else:
                                 # don't null the viewport here - wait until vision improves...
                                 logger.info(
