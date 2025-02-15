@@ -1,5 +1,4 @@
 import sys
-import platform
 import time
 import numpy as np
 from PIL import Image, ImageDraw
@@ -39,8 +38,6 @@ class OpticalLusb(USBCamera):
         self.debug = debug
         self.logger = logger
         self.revision = 'Picamera II USB'
-        # Windows | Linux | Darwin(mac)
-        self.linux = (platform.system() == 'Linux')
         self._resolution = CamRes()
         # Flip Image?
         self.hflip = False

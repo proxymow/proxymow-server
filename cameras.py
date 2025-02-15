@@ -1,4 +1,5 @@
 import sys
+import platform
 import tempfile
 import time
 import logging
@@ -18,6 +19,8 @@ class BaseCamera():
         try:
             self.debug = False
             self.tmp = tempfile.gettempdir()
+            # Windows | Linux | Darwin(mac)
+            self.linux = (platform.system() == 'Linux')
 
             self.logger = logging.getLogger('vision')
             if self.debug:
