@@ -6,6 +6,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 from math import radians, degrees, atan2, sqrt
 import copy
+import matplotlib as mpl
+mpl.use('agg')
 from matplotlib.figure import Figure
 import matplotlib.patches as mpatches
 import poses
@@ -264,7 +266,7 @@ def plot_contour_entry_as_projection(host, entry, hide_conf, logger):
 def plot_projection_img(proj, capture_datetime, src_arr_img, disp_img, img_buf, logger):
 
     try:
-        fig = Figure(figsize=(12, 8))
+        fig = Figure(figsize=(12, 9))
         gridspec = fig.add_gridspec(2, 2)  # RowsxCols
         subplotspec0 = gridspec.new_subplotspec((0, 0), 1, 1)  # display image
         subplotspec1 = gridspec.new_subplotspec((1, 0), 1, 1)  # source image
@@ -311,7 +313,7 @@ def plot_projection_img(proj, capture_datetime, src_arr_img, disp_img, img_buf, 
         ax2.set_ylim(std_y_low, std_y_high)
         fig.savefig(img_buf, format='jpeg',
                     bbox_inches='tight', pad_inches=0.2)
-        fig.clear()
+        
     except Exception as ex1:
         err_line = sys.exc_info()[-1].tb_lineno
         logger.error('Error in plot projection image: ' +
