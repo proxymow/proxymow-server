@@ -88,36 +88,47 @@ class Snapshot():
         try:
             if p_start is not None and p_finish is not None and self._consecutive_extrapolations < constants.CONSECUTIVE_EXTRAPOLATION_LIMIT:
                 linear_displacement, angular_displacement = p_finish - p_start
-                t1 = p_start.t_zero
-                t2 = p_finish.t_zero
-                time_displacement = round(t2 - t1, 2)
-                if self._logger:
-                    self._logger.debug(
-                        'Snapshot Constructor - linear_displacement: {0:.2f}m angular_displacement: {1:.2f}deg time_displacement: {2:.2f}secs'.format(
-                            linear_displacement,
-                            degrees(angular_displacement),
-                            time_displacement)
-                    )
-                x_displacement = linear_displacement * \
-                    sin((2 * pi) - p_finish.arena.t_rad)  # ccw
-                y_displacement = linear_displacement * \
-                    cos((2 * pi) - p_finish.arena.t_rad)
-                if self._logger:
-                    self._logger.debug(
-                        'Snapshot Constructor - calculating extrapolation displacement ({0:.2f}, {1:.2f})'.format(x_displacement, y_displacement))
-                p3_cxm = p_finish.arena.c_x_m + \
-                    (x_displacement * time_displacement)
-                p3_cym = p_finish.arena.c_y_m + \
-                    (y_displacement * time_displacement)
-                if self._logger:
-                    self._logger.debug(
-                        'Snapshot Constructor - calculating extrapolation landing ({0:.2f}, {1:.2f})'.format(p3_cxm, p3_cym))
-                self._extrapolated_pose = Pose(
-                    p3_cxm, p3_cym, p_finish.arena.t_rad)
-                self._consecutive_extrapolations += 1
-                if self._logger:
-                    self._logger.debug('Snapshot Constructor - Posting Extrapolation {0}'.format(
-                        self._extrapolated_pose.as_concise_str()))
+                if (
+                    linear_displacement > constants.FROZEN_DISTANCE_THRESHOLD_METRES or
+                    degrees(angular_displacement) > constants.FROZEN_ANGLE_THRESHOLD_DEGREES
+                    ): 
+                    t1 = p_start.t_zero
+                    t2 = p_finish.t_zero
+                    time_displacement = round(t2 - t1, 2)
+                    if self._logger:
+                        self._logger.debug(
+                            'Snapshot Constructor - linear_displacement: {0:.2f}m angular_displacement: {1:.2f}deg time_displacement: {2:.2f}secs'.format(
+                                linear_displacement,
+                                degrees(angular_displacement),
+                                time_displacement)
+                        )
+                    x_displacement = linear_displacement * \
+                        sin((2 * pi) - p_finish.arena.t_rad)  # ccw
+                    y_displacement = linear_displacement * \
+                        cos((2 * pi) - p_finish.arena.t_rad)
+                    if self._logger:
+                        self._logger.debug(
+                            'Snapshot Constructor - calculating extrapolation displacement ({0:.2f}, {1:.2f})'.format(x_displacement, y_displacement))
+                    p3_cxm = p_finish.arena.c_x_m + \
+                        (x_displacement * time_displacement)
+                    p3_cym = p_finish.arena.c_y_m + \
+                        (y_displacement * time_displacement)
+                    if self._logger:
+                        self._logger.debug(
+                            'Snapshot Constructor - calculating extrapolation landing ({0:.2f}, {1:.2f})'.format(p3_cxm, p3_cym))
+                    self._extrapolated_pose = Pose(
+                        p3_cxm, p3_cym, p_finish.arena.t_rad)
+                    self._consecutive_extrapolations += 1
+                    if self._logger:
+                        self._logger.debug('Snapshot Constructor - Posting Extrapolation {0}'.format(
+                            self._extrapolated_pose.as_concise_str()))
+                else:
+                    if self._logger:
+                        self._logger.debug(
+                            'Snapshot Constructor - Unable to compute extrapolated pose - insufficient discrimination')
+                    self._extrapolated_pose = None
+                    self._consecutive_extrapolations = 0
+                    
             else:
                 if self._logger:
                     self._logger.debug(
