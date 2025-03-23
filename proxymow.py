@@ -103,11 +103,11 @@ class MowerProxy():
 
 class ProxymowServer(object):
 
-    VERSION_STRING = "1.0.7"
+    VERSION_STRING = "1.0.8"
 
     linux = (platform.system() == 'Linux')
 
-    tmp_folder_path = tempfile.gettempdir()
+    tmp_folder_path = tempfile.gettempdir() + os.path.sep
     font_path = findfont(FontProperties(family=['sans-serif']))
 
     LOG_MAX_BYTES = constants.LOG_MAX_BYTES
@@ -2051,9 +2051,9 @@ class ProxymowServer(object):
                                 # add delay to smooth process... 
                                 sleep(1)
                             else:
-                                # don't null the viewport here - wait until vision improves...
-                                logger.info(
-                                    'pxm locate held viewport waiting for better vision/RNF: {0}'.format(self.viewport))
+                                # null the viewport - reached edge...
+                                self.viewport = Viewport()  # Null Viewport
+                                logger.info('pxm locate viewport grown to reach edge - reset')
 
                         zoom_scale_factor = 4
                         lsid = '{0}A'.format(sid)
@@ -2120,12 +2120,6 @@ class ProxymowServer(object):
                     locate_snapshot.best_proj_found = (len(filtered_projections) > 0 and
                         filtered_projections[0].conf_pc > constants.SCORE_THRESHOLD)
 
-                    # pose
-                    locate_snapshot.set_pose(pose)
-                    logger.debug('Adding pose to locate snapshot {0}: {1}'.format(
-                        locate_snapshot.ssid,
-                        pose.as_concise_str() if pose is not None else 'None'))
-
                     # statistics
                     locate_snapshot.loc_stat_count = location_stat_count
                     locate_snapshot.loc_quality = location_quality
@@ -2135,7 +2129,6 @@ class ProxymowServer(object):
                     locate_snapshot.fltrd_count = len(filtered_contour_index)
                     locate_snapshot.cont_count = len(all_contours)
 
-                    # convert to json
                     timesheet.add('json snapshotted')
 
                     # augment information sent as headers
@@ -2151,11 +2144,18 @@ class ProxymowServer(object):
                         self.drive['last_comp_cmds'] = list(
                             self.rules_engine.last_n_comp_commands)[::-1]
 
+                    # pose
+                    locate_snapshot.set_pose(pose) # sets growth => POSED
+                    logger.debug('Adding pose to locate snapshot {0}: {1}'.format(
+                        locate_snapshot.ssid,
+                        pose.as_concise_str() if pose is not None else 'None'))
+
                 timesheet.add('snapshot complete')
 
         except Empty:
             # Handle empty queue here
-            logger.warning('pxm find_execute get from queue timed out')
+            err_line = sys.exc_info()[-1].tb_lineno
+            logger.warning('pxm find_execute get from queue timed out on line ' + str(err_line))
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             logger.error('Error in pxm locate: ' + str(e) +
@@ -2809,7 +2809,7 @@ class ProxymowServer(object):
             selected_snapshots = [
                 s for s in self.snapshot_buffer.values() if (
                     s._growth.value >= min_progress and
-                    (s._strategy_name == req_strat) or req_strat is None)
+                    ((s._strategy_name == req_strat) or req_strat is None))
                     ]
             self.log_debug('metadata_json: min progress requested: {} {}'.format(
                 min_progress,
@@ -2866,9 +2866,12 @@ class ProxymowServer(object):
                 # render table
                 max_row_count = constants.CONTOUR_TABLE_MAX_ROWS
                 rendered_projections = []
-                for proj in locate_snapshot._fltrd_projections[-max_row_count:]:
-                    rendered_projections.append(
-                        render_contour_row(proj, self.pxm_logger))
+                if (locate_snapshot is not None and
+                    '_fltrd_projections' in vars(locate_snapshot) and
+                    locate_snapshot._fltrd_projections is not None):
+                    for proj in locate_snapshot._fltrd_projections[-max_row_count:]:
+                        rendered_projections.append(
+                            render_contour_row(proj, self.pxm_logger))
 
                 # convert to json
                 resp = json.dumps(rendered_projections).replace("NaN", "null").replace(
@@ -3359,7 +3362,9 @@ class ProxymowServer(object):
                 # just return latest
                 locate_snapshot = self.snapshot_buffer.latest()
 
-            if locate_snapshot is not None:
+            if (locate_snapshot is not None and
+                '_source_img_arr' in vars(locate_snapshot) and
+                locate_snapshot._source_img_arr is not None):
 
                 img_height_px = self.config['optical.height']
                 img_width_px = self.config['optical.width']
@@ -3480,14 +3485,12 @@ class ProxymowServer(object):
         img_stream = None
         try:
             prj_idx = int(kwargs['projidx']) if 'projidx' in kwargs else 0
-            num_entries = len(self.contours_buffer)
-            max_id = num_entries - 1
-            if prj_idx >= -1 and prj_idx <= max_id and len(self.contours_buffer) > prj_idx:
+            try:
                 entry = self.contours_buffer[prj_idx]
                 img_buf = plot_contour_entry_as_projection(
                     self, entry, False, self.pxm_logger)
                 img_stream = img_buf.getvalue()
-            else:
+            except IndexError:
                 err_image = Image.new("RGBA", (240, 360))
                 err_draw = ImageDraw.Draw(err_image)
                 err_font = ImageFont.truetype(self.font_path, 12)
@@ -4408,6 +4411,8 @@ class ProxymowServer(object):
     def get_chan_arrays(self, cam_settings, grid=False, cap_display=True):
 
         timesheet = Timesheet('Get Channel Arrays')
+        analysis_chan_array = None
+        capped_display_img = None
 
         try:
 
@@ -4433,99 +4438,112 @@ class ProxymowServer(object):
             img_arr = self.camera.snap(
                 'yuv' if display_chan == 'gray' else 'rgb')
             timesheet.add('camera snap complete')
-            self.log('get_chan_arrays capture complete, array shape: ' +
-                     str(img_arr.shape), incl_mem_stats=True)
-
-            # decide if any overlays are needed...
-            virtual_mower = 'virtual_mower' in cam_settings and cam_settings['virtual_mower']
-            self.log('get_chan_arrays capture rgb virtual robot mode: {0}'.format(
-                virtual_mower is not None and virtual_mower))
-            annotate = (
-                'annotate' in cam_settings and cam_settings['annotate'])
-            overlaying = (virtual_mower or annotate)
-
-            rgb_img = Image.fromarray(img_arr)
-            self.log(
-                'get_chan_arrays rgb capture complete, array size: ' + str(img_arr.shape))
-
-            if overlaying:
-
-                if virtual_mower:
-                    self.overlay_virtual_mower(rgb_img)
-
-                if display_chan == 'col':
-                    ovl_draw = ImageDraw.Draw(rgb_img, 'RGB')
-                elif display_chan == 'gray':
-                    ovl_draw = ImageDraw.Draw(rgb_img)
-
-                if virtual_mower:
-                    if constants.VIRTUAL_NOISE > 0 or constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0:
-                        self.overlay_virtual_noise(ovl_draw)
-
-                # overlaid image back to array
-                img_arr = np.array(rgb_img)
-
-                timesheet.add('overlay complete')
-
-            if display_chan == 'gray':
-                self.log(
-                    'get_chan_arrays using single grayscale image for both channels')
-                analysis_chan_array = disp_chan_array = img_arr
+            
+            if img_arr is None:
+                self.log('get_chan_arrays capture empty', incl_mem_stats=True)
             else:
+                self.log('get_chan_arrays capture complete, array shape: ' +
+                         str(img_arr.shape), incl_mem_stats=True)
+    
+                # decide if any overlays are needed...
+                virtual_mower = 'virtual_mower' in cam_settings and cam_settings['virtual_mower']
+                self.log('get_chan_arrays capture rgb virtual robot mode: {0}'.format(
+                    virtual_mower is not None and virtual_mower))
+                annotate = (
+                    'annotate' in cam_settings and cam_settings['annotate'])
+                overlaying = (virtual_mower or annotate)
+    
+                rgb_img = Image.fromarray(img_arr)
                 self.log(
-                    'get_chan_arrays using rgb image => grayscale for analysis')
-                analysis_chan_array = np.array(
-                    Image.fromarray(img_arr).convert('L'))
-                disp_chan_array = img_arr
+                    'get_chan_arrays rgb capture complete, array size: ' + str(img_arr.shape))
+    
+                if overlaying:
+    
+                    if virtual_mower:
+                        self.overlay_virtual_mower(rgb_img)
+    
+                    if display_chan == 'col':
+                        ovl_draw = ImageDraw.Draw(rgb_img, 'RGB')
+                    elif display_chan == 'gray':
+                        ovl_draw = ImageDraw.Draw(rgb_img)
+    
+                    if virtual_mower:
+                        if constants.VIRTUAL_NOISE > 0 or constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0:
+                            self.overlay_virtual_noise(ovl_draw)
+    
+                    # overlaid image back to array
+                    img_arr = np.array(rgb_img)
+    
+                    timesheet.add('overlay complete')
+    
+                if display_chan == 'gray':
+                    self.log(
+                        'get_chan_arrays using single grayscale image for both channels')
+                    analysis_chan_array = disp_chan_array = img_arr
+                else:
+                    self.log(
+                        'get_chan_arrays using rgb image => grayscale for analysis')
+                    analysis_chan_array = np.array(
+                        Image.fromarray(img_arr).convert('L'))
+                    disp_chan_array = img_arr
+    
+                grid_ovl_img = Image.fromarray(disp_chan_array)
+                if grid:
+                    timesheet.add('grid image from array')
+                    grid_ovl_draw = DashedImageDraw(grid_ovl_img)
+                    timesheet.add('grid draw from img')
+                    lawn_width_m = self.config['lawn.width_m']
+                    lawn_length_m = self.config['lawn.length_m']
+                    border_m = self.config['lawn.border_m']
+                    arena_matrix = self.config['calib.arena_matrix']
+    
+                    if cam_settings['client'] == 'vision':
+                        self.draw_grid(
+                            cam_settings,
+                            lawn_width_m,
+                            lawn_length_m,
+                            border_m,
+                            arena_matrix,
+                            grid_ovl_draw,
+                            timesheet=timesheet,
+                            data_mapper=self.grid_data_mapper,
+                            just_periphery=True
+                        )
+                    elif cam_settings['client'] == 'locate':
+                        self.draw_grid(
+                            cam_settings,
+                            lawn_width_m,
+                            lawn_length_m,
+                            border_m,
+                            arena_matrix,
+                            grid_ovl_draw,
+                            timesheet=timesheet,
+                            data_mapper=self.data_mapper,
+                            just_periphery=False
+                        )
+                    elif cam_settings['client'] != 'calib':
+                        self.draw_grid(
+                            cam_settings,
+                            lawn_width_m,
+                            lawn_length_m,
+                            border_m,
+                            arena_matrix,
+                            grid_ovl_draw,
+                            timesheet=timesheet,
+                            data_mapper=self.data_mapper,
+                            just_periphery=False
+                        )
+    
+                    timesheet.add('grid drawn')
 
-            grid_ovl_img = Image.fromarray(disp_chan_array)
-            if grid:
-                timesheet.add('grid image from array')
-                grid_ovl_draw = DashedImageDraw(grid_ovl_img)
-                timesheet.add('grid draw from img')
-                lawn_width_m = self.config['lawn.width_m']
-                lawn_length_m = self.config['lawn.length_m']
-                border_m = self.config['lawn.border_m']
-                arena_matrix = self.config['calib.arena_matrix']
-
-                if cam_settings['client'] == 'vision':
-                    self.draw_grid(
-                        cam_settings,
-                        lawn_width_m,
-                        lawn_length_m,
-                        border_m,
-                        arena_matrix,
-                        grid_ovl_draw,
-                        timesheet=timesheet,
-                        data_mapper=self.grid_data_mapper,
-                        just_periphery=True
-                    )
-                elif cam_settings['client'] == 'locate':
-                    self.draw_grid(
-                        cam_settings,
-                        lawn_width_m,
-                        lawn_length_m,
-                        border_m,
-                        arena_matrix,
-                        grid_ovl_draw,
-                        timesheet=timesheet,
-                        data_mapper=self.data_mapper,
-                        just_periphery=False
-                    )
-                elif cam_settings['client'] != 'calib':
-                    self.draw_grid(
-                        cam_settings,
-                        lawn_width_m,
-                        lawn_length_m,
-                        border_m,
-                        arena_matrix,
-                        grid_ovl_draw,
-                        timesheet=timesheet,
-                        data_mapper=self.data_mapper,
-                        just_periphery=False
-                    )
-
-                timesheet.add('grid drawn')
+            # down-size display image if necessary
+            if cap_display:
+                display_width = self.config['optical.display_width']
+                display_height = self.config['optical.display_height']
+                capped_display_img = grid_ovl_img.resize(
+                    (display_width, display_height), resample=Image.Resampling.LANCZOS)
+            else:
+                capped_display_img = grid_ovl_img
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -4534,14 +4552,6 @@ class ProxymowServer(object):
 
         self.log_debug(str(timesheet))
 
-        # down-size display image if necessary
-        if cap_display:
-            display_width = self.config['optical.display_width']
-            display_height = self.config['optical.display_height']
-            capped_display_img = grid_ovl_img.resize(
-                (display_width, display_height), resample=Image.Resampling.LANCZOS)
-        else:
-            capped_display_img = grid_ovl_img
         return analysis_chan_array, np.asarray(capped_display_img)
 
     def connect(self):
