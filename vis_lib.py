@@ -489,6 +489,10 @@ def get_contour_source_array(
             if constants.FENCE_MASKING:
                 try:
                     if vp.isnull:
+                        if logger is not None:
+                            logger.debug('get_contour_source_array fence masking zoom_scale_factor: {}'.format(
+                                zoom_scale_factor)
+                            )
                         if zoom_scale_factor > 1:
                             sub_samp_fence_arr = fence_mask_array[::
                                                                   zoom_scale_factor, ::zoom_scale_factor]
@@ -506,15 +510,18 @@ def get_contour_source_array(
                         else:
                             fence_masked_arr = contour_source_arr * fence_mask_array  # full size
                     else:
-                        fence_masked_arr = contour_source_arr * \
-                            fence_mask_array[vp.slicer(
-                                fence_mask_array.shape)]  # * windowing_mask_array
-
+                        fma = fence_mask_array[vp.slicer(fence_mask_array.shape)]
+                        if logger is not None:
+                            logger.debug('get_contour_source_array fence masking fence_mask_array: {} {}'.format(
+                                contour_source_arr.shape, fma.shape)
+                            )
+                        fence_masked_arr = contour_source_arr * fma
                 except ValueError:
+                    err_line = sys.exc_info()[-1].tb_lineno
                     fence_masked_arr = contour_source_arr  # not needed
                     if logger is not None:
                         logger.warning(
-                            'get_contour_source_array fence masking NOT applied'
+                            'get_contour_source_array fence masking NOT applied {}'.format(err_line)
                         )
 
                 except Exception as ex1:
@@ -679,45 +686,98 @@ def get_prospect_list(
         timesheet.add('full scene prepared')
 
         # find multiple contours in array
-        prospect_cnts, margins, _edginess = Viewport.find_contours(
+        prospect_cnts, margins, _edginess = viewport.find_contours(
             prep_img_arr, logger)
         if logger and debug_level > 0:
             logger.debug('Number of raw prospect contours: {0}'.format(
                 len(prospect_cnts)))
         timesheet.add('lores contours found')
 
+        # log point counts
+        if logger and debug_level > 0:
+            logger.debug('pre-filter prospect point counts: {0}'.format(
+                [len(p) for p in prospect_cnts]))
+
         # best filtering methodology available
         # very low / very high point count is acceptable
-        filtered_prospect_contours = []
+        min_pt_cnt = constants.LORES_CONTOUR_MINIMUM_POINT_COUNT
+        while True:
+            filtered_prospect_contours = []
+            for p in prospect_cnts:
+                if min_pt_cnt < len(p) < 500:
+                    filtered_prospect_contours.append(p)
+            if len(filtered_prospect_contours) > 10:
+                min_pt_cnt += 5
+                if logger and debug_level > 0:
+                    logger.debug('filter prospects increasing min point count to: {}'.format(min_pt_cnt))
+            else:
+                break
+        
+        # log point counts
         if logger and debug_level > 0:
-            logger.debug('prospect point counts: {0}'.format(
-                [len(p) for p in prospect_cnts]))
-        for q, p in enumerate(prospect_cnts):
+            logger.debug('post-filter prospect point counts: {0}'.format(
+                [len(p) for p in filtered_prospect_contours]))
+
+        # log clipped prospects
+        for q, p in enumerate(filtered_prospect_contours):
             if logger:
                 logger.debug('clipped prospect?: {0} from {1}'.format(
                     any([m == 0 for m in margins[q]]), [int(m) for m in margins[q]]))
-            if constants.LORES_CONTOUR_MINIMUM_POINT_COUNT < len(p) < 500:
-                filtered_prospect_contours.append(p)
         if logger and debug_level > 0:
-            logger.debug('Number of filtered prospect contours [10 < len < 500]: {0}'.format(
-                len(filtered_prospect_contours)))
+            logger.debug('Number of filtered prospect contours [{} < len < 500]: {}'.format(
+                constants.LORES_CONTOUR_MINIMUM_POINT_COUNT, len(filtered_prospect_contours)))
         timesheet.add('prospects filtered')
 
         # convert prospect contours => universal viewports
-        prospect_vps = [Viewport.from_contour(
-            c, sub_shape, index='{0}-{1}'.format(sid, pid)) for pid, c in enumerate(filtered_prospect_contours)]
+        prosp_vps = []
+        for pid, c in enumerate(filtered_prospect_contours):
+            vp = Viewport.from_contour(c, sub_shape, index='{}-{}'.format(sid, pid))
+            if vp.footprint is None or vp.footprint <= constants.MAXIMUM_VIEWPORT_FOOTPRINT:
+                prosp_vps.append(vp)
+                if logger and debug_level > 0:
+                    logger.debug('Appending prospect viewport: fp {:.3f}%'.format(vp.footprint))
+            else:
+                if logger and debug_level > 0:
+                    logger.debug('Not appending prospect viewport: fp {:.3f}%'.format(vp.footprint))
+            
         if logger and debug_level > 0:
             logger.debug(
-                'Number of prospect viewports: {0}'.format(len(prospect_vps)))
-        merge_adjacent_viewports(prospect_vps)
+                'Number of prospect viewports: {}'.format(len(prosp_vps)))
+        
+        # annotate prospects lo-res
+        if debug_image_level >= 1 or abs(debug_image_level) == 1:
+            sm_font = ImageFont.truetype(host.font_path, 12)
+            # overlay original prospects in blue
+            overlay_viewports(prosp_vps, lores_draw,
+                              dbg_shape, 'blue', sm_font)
+
+        merge_adjacent_viewports(prosp_vps)
         if logger and debug_level > 0:
             logger.debug(
-                'Number of merged prospect viewports: {0}'.format(len(prospect_vps)))
+                'Number of merged prospect viewports: {}'.format(len(prosp_vps)))
+
+        # annotate merged prospects lo-res
+        if debug_image_level >= 1 or abs(debug_image_level) == 1:
+            sm_font = ImageFont.truetype(host.font_path, 12)
+            # overlay merged prospects in magenta
+            overlay_viewports(prosp_vps, lores_draw,
+                              dbg_shape, 'magenta', sm_font)
+
         timesheet.add('lores viewports merged')
 
-        # enlarge viewport as lo-res prospecting is crude and clips
-        [vp.resize(2.0) for vp in prospect_vps]
-        timesheet.add('lores viewports enlarged')
+        # enlarge qualifying viewports as lo-res prospecting is crude and clips
+        prospect_vps = []
+        for vp in prosp_vps:
+            vp.resize(2.0)
+            if (vp.footprint is None or vp.footprint <= constants.MAXIMUM_VIEWPORT_FOOTPRINT):
+                if logger and debug_level > 0:
+                    logger.debug('Qualifying prospect viewport: fp {:.3f}%'.format(vp.footprint))
+                prospect_vps.append(vp)
+                
+        if logger and debug_level > 0:
+            logger.debug(
+                'Number of qualifying enlarged prospect viewports: {}'.format(len(prospect_vps)))
+        timesheet.add('lores viewports filtered and enlarged')
 
         timesheet.add('lores prospect viewports obtained')
 
@@ -726,15 +786,14 @@ def get_prospect_list(
             logger.info(
                 'get_prospect_list viewport count: {0}'.format(viewport_count))
 
-        # annotate filtered prospects lo-res in red
+        # annotate prospects lo-res
         if debug_image_level >= 1 or abs(debug_image_level) == 1:
-            sm_font = ImageFont.truetype(host.font_path, 12)
             # overlay contours in orange
             cl.overlay_contours(filtered_prospect_contours, lores_draw,
                                 (dbg_ratio, dbg_ratio), 'orange', sm_font)
-            # overlay filtered prospects in red
+            # overlay filtered prospects
             overlay_viewports(prospect_vps, lores_draw,
-                              dbg_shape, 'red', sm_font)
+                              dbg_shape, 'yellow', sm_font)
             lores_img.save(host.tmp_folder_path + '{0}-lores.jpg'.format(sid))
 
         timesheet.add('lores prospect debug annotations')
@@ -791,25 +850,38 @@ def probe_prospect_list(
             vp.analysis_sub_array = prep_img_arr
             timesheet.add('contour source')
 
-            local_contours, local_margins, local_edginess = Viewport.find_contours(
+            local_contours, local_margins, local_edginess = vp.find_contours(
                 prep_img_arr, logger)
             timesheet.add('find contours')
 
+            # best filtering methodology available
+            # very low / very high point count is acceptable
+            filtered_local_contours = []
+            if logger and debug_level > 0:
+                logger.debug('local point counts: {0}'.format(
+                    [len(c) for c in local_contours]))
+            for c in local_contours:
+                if constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT < len(c) < 500:
+                    filtered_local_contours.append(c)
+            if logger and debug_level > 0:
+                logger.debug('Number of filtered local contours [{} < len < 500]: {}'.format(
+                    constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT, len(filtered_local_contours)))
+
             if logger and debug_level > 0:
                 logger.debug('probe: {0} pre-de-dupe contour count: {1} {2}'.format(
-                    vp.index, len(local_contours), [len(c) for c in local_contours]))
+                    vp.index, len(filtered_local_contours), [len(c) for c in filtered_local_contours]))
 
             # de-duplicate contour list in-place, by removing inner
             cl.dedupe_contour_list(
-                local_contours, 0, logger=logger, debug=False)
+                filtered_local_contours, 0, logger=logger, debug=False)
             timesheet.add('contours de-duped')
 
-            vp.local_contours = local_contours
+            vp.local_contours = filtered_local_contours
             vp.local_margins = local_margins
             vp.local_edginess = local_edginess
             if logger and debug_level > 0:
                 logger.debug('probe: {0} post-de-dupe contour count: {1} {2}'.format(
-                    vp.index, len(local_contours), [len(c) for c in local_contours]))
+                    vp.index, len(filtered_local_contours), [len(c) for c in filtered_local_contours]))
 
             # global contour offset
             offset = np.array(vp.origin) * np.array(img_arr.shape) / 100
@@ -879,6 +951,7 @@ def probe_prospect_list(
                         logger=logger,
                         debug=(debug_level > 3)
                     )
+                    tgt.assess(host.score_props)
 
                     # track thumbnails for contour analysis, and viewport for coarse location
                     tgt.cont_img_arr = sub_array
@@ -889,8 +962,10 @@ def probe_prospect_list(
                     b64_bytes = base64.b64encode(b64_buffer.getvalue())
                     tgt.cont_img_b64 = b64_bytes.decode()    # convert bytes to string
 
-                    vp.local_projections.append(tgt)
-                    tgt.assess(host.score_props)
+                    # pre-filter
+                    if tgt.conf_pc > constants.SCORE_THRESHOLD:
+                        vp.local_projections.append(tgt)
+                    
                     if logger and debug_level > 1:
                         logger.debug(tgt.timesheet)
 
@@ -956,6 +1031,8 @@ def probe_prospect_list(
             # let Pose apply offsetting
             pose = poses.Pose.from_tip_tail(
                 best_projection.v1, best_projection.tail, best_projection.heading, ssid=sid)
+            if logger and debug_level > 0:
+                logger.debug('Best projection: {0}'.format(best_projection))
             if logger and debug_level > 0:
                 logger.debug('Best projection pose from tip tail: {0}'.format(
                     pose.as_concise_str()))
