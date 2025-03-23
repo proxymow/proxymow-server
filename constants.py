@@ -142,6 +142,11 @@ DARK_ZONE_MIN_SEGMENT_PERCENT = 1.75
 MINIMUM_CONTOUR_THRESHOLD = 0.01
 
 '''
+    MAXIMUM_VIEWPORT_FOOTPRINT - maximum footprint area (0..100%) above which viewports can't be mower 
+'''
+MAXIMUM_VIEWPORT_FOOTPRINT = 15
+
+'''
     LORES_CONTOUR_MINIMUM_POINT_COUNT - minimum point count for lo-res contours
 '''
 LORES_CONTOUR_MINIMUM_POINT_COUNT = 10
