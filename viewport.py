@@ -95,6 +95,13 @@ class Viewport():
         return (max_coords - min_coords)
 
     @property
+    def footprint(self):
+        result = None
+        if self.height is not None and self.width is not None:
+            result = (self.height * self.width) / 1e2
+        return result
+
+    @property
     def height(self):
         if not self.isnull:
             min_coords = np.min(list(self.corners), axis=0)
@@ -264,8 +271,7 @@ class Viewport():
             print('Error in viewport scale:' + 
                   str(e) + ' on line ' + str(err_line))
 
-    @classmethod
-    def find_contours(cls, array, logger=None):
+    def find_contours(self, array, logger=None):
         margins = []
         edginess = []
         local_contours = []
@@ -282,11 +288,12 @@ class Viewport():
 
                 # skip situations where the statistics don't bode well...
                 if threshold < constants.MINIMUM_CONTOUR_THRESHOLD:
-                    logger.debug('Find Contours - skip as threshold is below constant minimum {:.3f} < {:.3f}'.format(
-                        threshold,
-                        constants.MINIMUM_CONTOUR_THRESHOLD
+                    if logger is not None:
+                        logger.debug('Find Contours - skip as threshold is below constant minimum {:.3f} < {:.3f}'.format(
+                            threshold,
+                            constants.MINIMUM_CONTOUR_THRESHOLD
+                            )
                         )
-                    )
                 else:
 
                     # find local contours at a constant value of threshold
@@ -294,8 +301,9 @@ class Viewport():
     
                     if logger is not None:
                         logger.info(
-                            'Find Contours - {} Max\Range: {:.3f} Thresh: {:.3f} Whites: {} Tone: {:.6f} Num Contours: {}'.format(
+                            'Find Contours - {} {:.2f}% Max\Range: {:.3f} Thresh: {:.3f} Whites: {} Tone: {:.6f} Num Contours: {}'.format(
                                 array.shape,
+                                self.footprint if self.footprint is not None else 100.0,
                                 intensity_range,
                                 threshold,
                                 white_pixel_count,
