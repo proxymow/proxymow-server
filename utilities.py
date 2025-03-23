@@ -182,15 +182,6 @@ def despatch_to_mower_udp(cmd, udp_socket, host, port, await_response=True, max_
             msg = 'mower comms timeout: ' + \
                 str(err) + ' attempt: ' + str(attempt)
             logger.warning(msg)
-            while True:
-                try:
-                    junk = udp_socket.recv(1024)
-                    msg = 'Timeout flushing junk: ' + str(junk, 'utf8')
-                    logger.warning(msg)
-                except Exception:
-                    msg = 'Timeout no junk to flush'
-                    logger.warning(msg)
-                    break
             attempt += 1
         except socket.error as err:
             err_line = sys.exc_info()[-1].tb_lineno
