@@ -69,7 +69,7 @@
 <script>
     const autoFreezeMs = {{auto_freeze_ms}};
     //create data fetcher
-    let df1 = new HttpFetcher("/metadata_json", 3000, false); //leading
+    let df1 = new HttpFetcher("/metadata_json?progress=3", 3000, false); //leading
     let df2 = new HttpFetcher("/contours_json", 0, false); //trailing
     //create image fetcher
     let if1 = new HttpFetcher("/contour_img&ts=", 0, true, false); //trailing
