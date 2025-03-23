@@ -47,10 +47,10 @@
     <figure class="history">
         <figcaption id="history-tab" class="new-tab-caption">History</figcaption>
         <div class="figbody">
-                <ul id="last-cmds-list">
-                </ul>
-                <ul id="last-comp-cmds-list">
-                </ul>
+            <ul id="last-cmds-list">
+            </ul>
+            <ul id="last-comp-cmds-list">
+            </ul>
         </div>
     </figure>
 </main>
@@ -63,8 +63,7 @@
 <script src="/scripts/control-pane.js"></script>
 <script>
     //create data fetcher url, refreshRate, useCacheBuster, isFreeRunning
-    //let df1 = new HttpFetcher("/metadata_json?progress=3", 2500, false); //leading 2500
-    let df1 = new HttpFetcher("/metadata_json", 3000, false); //leading 2500
+    let df1 = new HttpFetcher("/metadata_json?progress=3", 3000, false); //leading
     //create image fetcher
     let if1 = new HttpFetcher("/arena_img?ts=", 0, true, false); //trailing
     const tpid = 'cockpitctrl';
