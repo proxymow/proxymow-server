@@ -103,7 +103,7 @@ class MowerProxy():
 
 class ProxymowServer(object):
 
-    VERSION_STRING = "1.0.8"
+    VERSION_STRING = "1.0.9"
 
     linux = (platform.system() == 'Linux')
 
@@ -2340,7 +2340,7 @@ class ProxymowServer(object):
                     host = self.config['mower.ip'] if 'mower.ip' in self.config else None
                     port = self.config['mower.port'] if 'mower.port' in self.config else None
                     if host is not None and port is not None:
-                        mower_cmd = 'sweep(0, 0, 0)'
+                        mower_cmd = '>sweep(0, 0, 0)'
                         self.log(
                             'process_instruction - Cancel mower cmd - {0}'.format(mower_cmd))
                         resp = despatch_to_mower_udp(
@@ -3174,8 +3174,14 @@ class ProxymowServer(object):
                     # cutter indicators
                     cut_rad = 8
                     cut_wdth = 4
-                    if ((self.telem is not None and 'cutter1' in self.telem and self.telem['cutter1'] == 1) or
-                            (self.telem is not None and 'cutter1' not in self.telem and self.cutter1_state)):
+                    if ((self.telem is not None and
+                         isinstance(self.telem, dict) and
+                         'cutter1' in self.telem and
+                         self.telem['cutter1'] == 1) or
+                            (self.telem is not None and
+                             isinstance(self.telem, dict) and
+                             'cutter1' not in self.telem and
+                             self.cutter1_state)):
                         self.cutter1_state = True
                         top_img_draw.arc(
                             (tip_x_px - cut_rad, tip_y_px - cut_rad,
@@ -3187,8 +3193,14 @@ class ProxymowServer(object):
                     else:
                         self.cutter1_state = False
 
-                    if ((self.telem is not None and 'cutter2' in self.telem and self.telem['cutter2'] == 1) or
-                            (self.telem is not None and 'cutter2' not in self.telem and self.cutter2_state)):
+                    if ((self.telem is not None and
+                         isinstance(self.telem, dict) and
+                         'cutter2' in self.telem and
+                         self.telem['cutter2'] == 1) or
+                            (self.telem is not None and
+                             isinstance(self.telem, dict) and
+                             'cutter2' not in self.telem and
+                             self.cutter2_state)):
                         self.cutter2_state = True
                         top_img_draw.arc(
                             (tail_x_px - cut_rad, tail_y_px - cut_rad,
