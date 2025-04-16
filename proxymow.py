@@ -103,7 +103,7 @@ class MowerProxy():
 
 class ProxymowServer(object):
 
-    VERSION_STRING = "1.0.9"
+    VERSION_STRING = "1.0.10"
 
     linux = (platform.system() == 'Linux')
 
@@ -1129,6 +1129,22 @@ class ProxymowServer(object):
                 raise cherrypy.HTTPError(500)
 
         return value
+
+    @cherrypy.expose
+    def handle_DELETE(self, *_args, key):
+        cherrypy.response.headers['Access-Control-Allow-Origin'] = '*'
+        try:
+            self.config.delete(key)
+        except MissingClassException:
+            self.log_error('PUT DELETE: ' + str(key) + ' missing class')
+            raise cherrypy.HTTPError(500)
+        except RecordNotFoundException:
+            self.log_error('PUT DELETE: ' + str(key) + ' record not found')
+            raise cherrypy.HTTPError(404)
+        except CollectionNotUpdatableException:
+            self.log_error('PUT DELETE: ' + str(key) + ' collection not deleteable')
+            raise cherrypy.HTTPError(500)
+        return key + ' => ""'
 
     @cherrypy.expose
     def handle_x_DELETE(self, *args, **kwargs):
