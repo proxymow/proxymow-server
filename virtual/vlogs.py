@@ -1,14 +1,14 @@
 import logging
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-log_file_name = '/home/pi/logs/virtual.log'
 LOG_MAX_BYTES = 1000000
 LOG_BACKUP_COUNT = 10
 
-# control functions
 
+def init(work_folder_path=Path('/home/pi')):
 
-def init():
+    log_file_name = (work_folder_path / 'logs' / 'virtual.log').resolve().__str__()
 
     # create formatter
     log_formatter = logging.Formatter(
