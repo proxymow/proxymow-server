@@ -290,10 +290,13 @@ def sobel_compensation(cont_in, shrink_by=3, shift_by=2):
     '''
         compensate for sobel's offsetting and scaling
     '''
+    comp_cont = cont_in
     origin = np.min(cont_in, axis=0)
     height, width = np.ptp(cont_in, axis=0)
-    comp_cont = ((cont_in - origin) * [(height - shrink_by) /
-                 height, (width - shrink_by) / width]) + [origin + shift_by]
+    if height > 0 and width > 0:
+        scale = (cont_in - origin)
+        comp_cont = (scale * [(height - shrink_by) /
+                     height, (width - shrink_by) / width]) + [origin + shift_by]
     return comp_cont
 
 def fitness(c_in, vertices):
@@ -330,3 +333,43 @@ def fitness(c_in, vertices):
     fitness = np.mean(dist_ratios)
     
     return fitness
+
+def edginess(c, threshold=1.0, min_pt_cnt=6):
+    '''
+        Calculate edginess as ratio:
+            points on straight lines /
+                total points
+    '''
+    pt_count = len(c)
+    init_span = 2
+    start_idx = 0
+    finish_idx = init_span
+
+    lines = []
+    num_pts_on_lines = 0
+    
+    while finish_idx < pt_count:
+        x = c[start_idx:finish_idx, 0]
+        y = c[start_idx:finish_idx, 1]
+    
+        A = np.vstack([x, np.ones(len(x))]).T
+        slope, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
+        
+        line_vals = slope * x + intercept
+        err = np.mean((y - line_vals) ** 2) * 1e6
+        
+        if err < threshold:
+            finish_idx += 1
+        else:
+            # capture line?
+            length = finish_idx - start_idx
+            if length >= min_pt_cnt:
+                lines.append(c[start_idx:finish_idx-1])
+                num_pts_on_lines += length
+            start_idx = finish_idx
+            finish_idx += init_span
+
+    # calculate edginess
+    e = num_pts_on_lines / pt_count
+    
+    return e
