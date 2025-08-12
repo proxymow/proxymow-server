@@ -190,6 +190,8 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
             x, y, r = get_circle_from_world_tangents(
                 x1, y1, t1, x2, y2, arrival_angle_norm)
             if r is not None:
+                if debug:
+                    print('get_circle_from_world_points radius: {:.3f}'.format(r))
                 try:
                     sector_angle = acos(
                         1 - (path_distance ** 2 / (2 * r ** 2)))
@@ -565,3 +567,13 @@ def get_velocity_ratio(axle_track_m, turn_circle_radius, sector_portion, pragmat
         return round(velocity_ratio, 3), round(arc_length, 3)
     else:
         return velocity_ratio, arc_length
+
+def is_left_of_line(x1, y1, x2, y2, x, y):
+    # Given a line (x1, y1)--(x2, y2) and point (x, y)
+    # return True if point is on left of line
+    return (x2 - x1)*(y - y1) - (y2 - y1)*(x - x1) > 0
+
+def same_side_of_line(x1, y1, x2, y2, ax, ay, bx, by):
+    # Given a line (x1, y1)--(x2, y2) and 2 points (ax, ay) (bx, by)
+    # return True if points on same side of line
+    return not(is_left_of_line(x1, y1, x2, y2, ax, ay) ^ is_left_of_line(x1, y1, x2, y2, bx, by))
