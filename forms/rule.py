@@ -453,7 +453,7 @@ class Rule(Morphable):
         try:
             # execute the rule
             cmd = self.compile_cmd()
-            msg = 'Strategy Rule ' + self.name + ' transmitting Command: ' + cmd
+            msg = 'Strategy Rule ' + self.name + ' transmitting Command: [' + cmd + ']'
             if self.trace_on and trace:
                 trace_rules(msg)
                 trace_command(msg)
