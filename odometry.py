@@ -15,7 +15,7 @@ class Movement():
     def get_movement_code(cls, left_speed, right_speed):
         code = None
         try:
-            nil = (left_speed is None) and (right_speed is None)
+            nil = (left_speed is None) or (right_speed is None)
             if not nil:
                 stop = (left_speed == 0) and (right_speed == 0)
                 r1w = left_speed * right_speed == 0
