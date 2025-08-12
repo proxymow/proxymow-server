@@ -82,8 +82,7 @@ class MonitorPane {
         self.processBatteryLevel(self, telJson);
         //Online Annotation
         self.processOnlineAnnotation(self, telJson);
-        //Battery Annotation
-        //self.processBatteryAnnotation(self, telJson);
+        //Measurement Annotation
         self.processMeasAnnotation(self, telJson);
     }//end process telemetry header
 
@@ -127,8 +126,8 @@ class MonitorPane {
     processBatteryLevel(self, headerJson) {
 
         const widget = getWidget(self.tpId, "BATTERY");
-        if (typeof (headerJson) != 'undefined' && typeof (headerJson.sensors) != 'undefined') {
-            const battPercent = headerJson.sensors[Object.keys(headerJson.sensors)[0]]
+        if (typeof (headerJson) != 'undefined' && typeof (headerJson.analogs) != 'undefined') {
+            const battPercent = headerJson.analogs[0]*100/1024;
             let cssClass = 'offline';
             if (typeof battPercent !== 'undefined') {
                 if (battPercent > 50) {
@@ -248,26 +247,8 @@ class MonitorPane {
                 }
             }//end online        
         }//end present
-    }//end process battery annotation
+    }//end process measurement annotation
 
-    processBatteryAnnotation(self, telJson) {
-        const battAnn = document.getElementById('battery-annotation');
-        const batWidget = getWidget(self.tpId, "BATTERY");
-        if (batWidget !== null && battAnn !== null && typeof (telJson) != 'undefined') {
-            const lvl1Percent = telJson['mower_level1_percent'];
-            const lvl2Percent = telJson['mower_level2_percent'];
-            const lvl3Percent = telJson['mower_level3_percent'];
-            if (self.nullMower || Object.keys(telJson).length == 0) {
-                //Offline
-                batWidget.title = battAnn.innerText = 'Mower Offline';
-            } else {
-                batWidget.title = battAnn.innerText = 'Mower Levels ' + 
-                    lvl1Percent + '/' + 
-                    lvl2Percent + '/' + 
-                    lvl3Percent + '%';
-            }//end online        
-        }//end present
-    }//end process battery annotation
    processFoundAnnotation(self, poseJson, locJson) {
         const indWidget = getWidget(self.tpId, "FOUND");
         const foundAnn = document.getElementById('found-annotation');
