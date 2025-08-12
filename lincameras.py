@@ -9,7 +9,7 @@ import constants
 from cameras import BaseCamera, USBCamera
 from forms.settings import LusbSettings, PiSettings
 import vis_lib
-from timesheet import Timesheet
+from resourcesheet import Timesheet
 from utilities import await_elapsed
 
 
