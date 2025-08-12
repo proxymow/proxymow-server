@@ -4,7 +4,7 @@ import re
 from skimage.measure import find_contours
 
 import constants
-
+from utilities import get_mem_stats
 
 class Viewport():
     '''
@@ -276,6 +276,14 @@ class Viewport():
         edginess = []
         local_contours = []
         try:
+            if logger is not None:
+                logger.info(
+                    'About to Find Contours - {} {}'.format(
+                        array.shape,
+                        get_mem_stats()
+                    )
+                )
+
             if array is not None and len(array.shape) >= 2 and array.shape[0] > 4 and array.shape[1] > 4:
                 # if no threshold is specified, skimage is going to use (max(image) + min(image)) / 2
                 # so might as well pre-calculate for insight
@@ -292,6 +300,14 @@ class Viewport():
                         logger.debug('Find Contours - skip as threshold is below constant minimum {:.3f} < {:.3f}'.format(
                             threshold,
                             constants.MINIMUM_CONTOUR_THRESHOLD
+                            )
+                        )
+                elif self.footprint is not None and self.footprint > constants.MAXIMUM_VIEWPORT_FOOTPRINT:
+                    if logger is not None:
+                        logger.info(
+                            'Find Contours - skip as scope is too broad {:.3f}% > {:.3f}%'.format(
+                                self.footprint,
+                                constants.MAXIMUM_VIEWPORT_FOOTPRINT
                             )
                         )
                 else:
@@ -423,6 +439,7 @@ class Viewport():
                                      (np.hstack([sens_starts.flatten(), sides])))
             result += re.sub('(\\d+),', r'\1%,', str(self.slicer_info)
                              ) + ' [start, stop(excl), step]'
+            result += ' using {:.3f}Mb'.format(sys.getsizeof(self)/1e6)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             print('Error in viewport __repr__: ' + 
