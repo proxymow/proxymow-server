@@ -10,7 +10,6 @@ class Term(Morphable):
     pk_att_name = 'name'
 
     _hidden = ['result', 'alt_result']
-    # _readonlys = [pk_att_name]
 
     name = TextSetting('Term Name', 'Name of the term', None,
                        '^.{1,}$', 'must have at least 1 character')
@@ -52,7 +51,7 @@ class Term(Morphable):
             self.alt_result = None
             self.alt_units = alt_units
             self.colour = colour
-            self.cur_strategy = cur_strategy
+            self._cur_strategy = cur_strategy
 
     def __str__(self):
         return self.description + '<' + self.name + '>' + ('=' + self.expression if self.expression is not None else '')
@@ -82,13 +81,13 @@ class Term(Morphable):
 
         if variant == 'Term':
             xpath = "navigation_strategies/strategy[@name='{0}']/user_terms/term[@name='{1}']".format(
-                self.cur_strategy, self.name)
+                self._cur_strategy, self.name)
             action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{0}");'.format(
                 xpath)
             row_attributes[hidden_col_prefix + '@row_ondblclick'] = action
         elif variant == 'Hybrid':
             xpath = "navigation_strategies/strategy[@name='{0}']/hybrid_terms/hybrid[@name='{1}']".format(
-                self.cur_strategy, self.name)
+                self._cur_strategy, self.name)
             action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{0}");'.format(
                 xpath)
             row_attributes[hidden_col_prefix + '@row_ondblclick'] = action
