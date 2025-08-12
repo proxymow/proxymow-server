@@ -54,12 +54,10 @@ def process(cmd):
     return result
 
 
-def main():
-
-    log('in vmower Main')
+def main(work_folder_path):
 
     # initialise log
-    virtual.vlogs.init()
+    virtual.vlogs.init(work_folder_path)
 
     # initialise motion lib
     init()
@@ -115,8 +113,8 @@ def main():
                         log('Incoming asynchronous request: ' +
                             cmd + ' from ' + str(addr))
                         log('Sending acknowledgement...')
-                        s.sendto(ACK.encode(), addr)
-                        log('Sent acknowledgement')
+                        sent_bytes = s.sendto(ACK.encode(), addr)
+                        log('Sent acknowledgement: {}'.format(sent_bytes))
                         result = process_cmd(cmd)
                         log('Processed result: ' + str(result))
             else:
