@@ -35,7 +35,7 @@ NOT_FOUND_RESET_COUNT = 15  # 99 to disable
 '''
     SCORE_THRESHOLD - score above which we are confident target is the mower 
 '''
-SCORE_THRESHOLD = 50
+SCORE_THRESHOLD = 54
 
 '''
     VIRTUAL_NOISE - 0 Off, 1 Tracking Around, 2 Random Fixed, 3 Fixed, 4 random ellipse scatter, 5 bot parts, 6 animals
@@ -77,11 +77,6 @@ MAX_SNAPSHOT_ID = 9999
     RNF_MITIGATION - make an assumption about the pose if Robot Not Found
 '''
 RNF_MITIGATION = True
-
-'''
-    CONSECUTIVE_EXTRAPOLATION_LIMIT - number of consecutive Pose Extrapolations permitted
-'''
-CONSECUTIVE_EXTRAPOLATION_LIMIT = 3  # was 6
 
 '''
     ARCHIVE_IMAGE_RATE_SECS - rate at which archive images are captured (zero to disable)
@@ -157,6 +152,11 @@ LORES_CONTOUR_MINIMUM_POINT_COUNT = 10
 HIRES_CONTOUR_MINIMUM_POINT_COUNT = 35
 
 '''
+    CONTOUR_POINT_COUNT_THRESHOLD - proportion of mid-range
+'''
+CONTOUR_POINT_COUNT_THRESHOLD = 0.175
+
+'''
     CONTOUR_TABLE_MAX_ROWS - maximum rows to display in table
 '''
 CONTOUR_TABLE_MAX_ROWS = 12
@@ -174,7 +174,7 @@ ENABLE_CONTOUR_LOGGING = True
 '''
     UI_AUTO_FREEZE_MS - Automatically freeze certain user interface features to minimise server load
 '''
-UI_AUTO_FREEZE_MS = 120000 # 2 mins
+UI_AUTO_FREEZE_MS = 600000 # 5 mins
 
 '''
     NAVIGATOR_AUTO_FREEZE_MS - Automatically freeze navigator to minimise server load
@@ -220,7 +220,7 @@ NUM_ESCALATION_RUNGS = 3
 '''
     ESCALATION_DURATION_FACTOR - [0.0] reduce duration linearly with escalating speeds, [1.0] no reduction
 '''
-ESCALATION_DURATION_FACTOR = 0.75
+ESCALATION_DURATION_FACTOR = 2.0
 
 '''
     WAIT_FOR_CAMERA_SECS - delay before camera snap to compensate for lag
@@ -252,3 +252,14 @@ OVERLAY_EXTRAPOLATED_POSE = False
     CLOSE_TO_HOME_RADIUS_M - distance below which rotations towards destination are unsafe
 '''
 CLOSE_TO_HOME_RADIUS_M = 0.1
+
+'''
+    DIGITAL_SHADOW_DELTA_INTENSITY - amount by which to reduce intensity
+     of lower half of analysis array.  e.g. 192, set to zero to disable
+'''
+DIGITAL_SHADOW_DELTA_INTENSITY = 0
+
+'''
+    VISUAL_POSE_HISTORY - display kite tails
+'''
+VISUAL_POSE_HISTORY = True
