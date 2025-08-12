@@ -10,8 +10,8 @@ import pprint
 import constants
 import geom_lib
 import contour_lib as cl
-from timesheet import Timesheet
-
+from resourcesheet import Timesheet
+import utilities
 
 class Projection():
     '''
@@ -45,6 +45,8 @@ class Projection():
         self.span = 0
         self.isoscelicity = 0.0
         self.solidity = 0.0
+        self.fitness = 0.0
+        self.edginess = 0.0
         self.heading = -1
         self.pyramid = '[]'
         self.side_lengths = []
@@ -86,6 +88,9 @@ class Projection():
             centroid = np.mean(c_raw_in, axis=0)
             self.centroid_x, self.centroid_y = centroid
             self.timesheet.add('centroid calculated')
+            
+            # evaluate edginess
+            self.edginess = cl.edginess(c_raw_in)
 
             # point reduction?
             # we can be quite aggressive here without much loss of accuracy
@@ -238,6 +243,9 @@ class Projection():
 
             # calculate elapsed time
             self.elapsed_secs = time.time() - self.start_time_secs
+            
+            # calculate memory footprint
+            self.mem_footprint = utilities.getsize(self)
 
         except ValueError as vex:
             self.valid = False
@@ -262,8 +270,8 @@ class Projection():
         tmplt += 'pyramid: {}\tsides: {}\n'
         tmplt += 'clusters: {}\n'
         tmplt += 'area: {:.3f}\t\tspan: {:.3f}\t\t\theading: {} degrees\n'
-        tmplt += 'isoscelicity: {:.3f}\tsolidity: {:.3f}\tfitness: {:.3f}\n'
-        tmplt += '{}\tvalid: {}\tin {:.3f}secs'
+        tmplt += 'isoscelicity: {:.3f}\tsolidity: {:.3f}\tfitness: {:.3f}\tedginess:{:.3f}\n'
+        tmplt += '{} ({}%)\tvalid: {}\tin {:.3f}secs using {:.3f}Mb'
         result = tmplt.format(
             self.ssid,
             self.index,
@@ -279,9 +287,12 @@ class Projection():
             self.isoscelicity,
             self.solidity,
             self.fitness,
+            self.edginess,
             self.assessment(True).replace('&harr;', '~'),
+            self.conf_pc,
             self.valid,
-            self.elapsed_secs)
+            self.elapsed_secs,
+            self.mem_footprint/1e6)
         return result
 
     def plot(self, ax):
