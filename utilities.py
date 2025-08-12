@@ -8,6 +8,9 @@ import socket
 import json
 import logging
 import math
+import threading
+from types import ModuleType, FunctionType
+from gc import get_referents
 
 from destination import Attitude
 
@@ -17,7 +20,11 @@ RSSI_THRESHOLDS = [0, -30, -67, -70, -80, -90, -999]
 RSSI_CATEGORIES = ['Unbelievable', 'Amazing',
                    'Very Good', 'O.K.', 'Not Good', 'Unusable']
 
-LOCATION_CSV_HEADER = 'date/time, ssid, mssid, rid, x1[m], y1[m], x2[m], y2[m], x[m], y[m], theta[degrees], progress[%], span[m], cutter stray[%], battery[%], loaded[%], confidence[%]'
+LOCATION_CSV_HEADER = 'date/time, ssid, mssid, rid, x1[m], y1[m], x2[m], y2[m], x[m], y[m],'\
+                        ' theta[degrees], progress[%], span[m], cutter stray[%],'\
+                        ' battery[%], loaded[%], confidence[%], essid, rssi'
+
+despatch_lock = threading.Lock()
 
 def trace_rules(msg):
     logger = logging.getLogger('navigation')
@@ -156,43 +163,57 @@ def despatch_to_mower_udp(cmd, udp_socket, host, port, await_response=True, max_
     success = False
     attempt = 1
     logger = logging.getLogger('comms')
-    while not success and attempt <= max_attempts and host is not None and port is not None:
+    sock_timeout = udp_socket.gettimeout()
+    res = despatch_lock.acquire(timeout=sock_timeout + 1) # blocks
+    if res:
         try:
-            logger.info('despatching - {0} to {1}:{2} within {3} secs'.format(
-                cmd, host, port, udp_socket.gettimeout()))
-            msg = bytes(cmd + '\r\n', 'utf8')
-            start = time.time()
-            bytes_sent = udp_socket.sendto(msg, (host, port))
-            if await_response:
-                data, addr = udp_socket.recvfrom(1024)
-                rtt_secs = time.time() - start
-                logger.info('sent - ' + str(bytes_sent) +
-                            ' bytes, awaiting response...')
-                if data:
-                    resp = str(data, 'utf8')
-                    logger.info('{0} => {1} from {2} in {3} secs'.format(
-                        cmd, resp, addr, round(rtt_secs, 3)))
-                    success = True
-                else:
-                    logger.info('No data response received from: ' + cmd)
-            else:
-                success = True
-
-        except socket.timeout as err:
-            msg = 'mower comms timeout: ' + \
-                str(err) + ' attempt: ' + str(attempt)
-            logger.warning(msg)
-            attempt += 1
-        except socket.error as err:
-            err_line = sys.exc_info()[-1].tb_lineno
-            logger.error('mower socket error: ' + str(err) +
-                         ' on line ' + str(err_line))
-            break
-        except Exception as err:
-            err_line = sys.exc_info()[-1].tb_lineno
-            msg = 'mower error: ' + str(err) + ' on line: ' + str(err_line)
-            logger.error(msg)
-            break
+            msg = 'mower comms lock acquired...'
+            logger.debug(msg)
+            while not success and attempt <= max_attempts and host is not None and port is not None:
+                try:
+                    logger.info('despatching - {0} to {1}:{2} within {3} secs'.format(
+                        cmd, host, port, sock_timeout))
+                    msg = bytes(cmd + '\r\n', 'utf8')
+                    start = time.time()
+                    bytes_sent = udp_socket.sendto(msg, (host, port))
+                    if await_response:
+                        data, addr = udp_socket.recvfrom(1024)
+                        rtt_secs = time.time() - start
+                        logger.info('sent - ' + str(bytes_sent) +
+                                    ' bytes, awaiting response...')
+                        if data:
+                            resp = str(data, 'utf8')
+                            logger.info('{0} => {1} from {2} in {3} secs'.format(
+                                cmd, resp, addr, round(rtt_secs, 3)))
+                            success = True
+                        else:
+                            logger.info('No data response received from: ' + cmd)
+                    else:
+                        success = True
+        
+                except socket.timeout as err:
+                    msg = 'mower comms timeout: ' + \
+                        str(err) + ' attempt: ' + str(attempt)
+                    logger.warning(msg)
+                    attempt += 1
+                except socket.error as err:
+                    err_line = sys.exc_info()[-1].tb_lineno
+                    logger.error('mower socket error: ' + str(err) +
+                                 ' on line ' + str(err_line))
+                    break
+                except Exception as err:
+                    err_line = sys.exc_info()[-1].tb_lineno
+                    msg = 'mower error: ' + str(err) + ' on line: ' + str(err_line)
+                    logger.error(msg)
+                    break
+        finally:
+            despatch_lock.release()
+            msg = 'mower comms lock released'
+            logger.debug(msg)
+    else:
+        # lock timeout - shouldn't happen!
+        msg = 'mower comms lock timeout'
+        logger.warning(msg)
 
     return resp
 
@@ -223,7 +244,7 @@ def fetch_telemetry(config, udp_socket):
                 cmd, udp_socket, mower_host, mower_port, max_attempts=1)
             udp_socket.settimeout(def_timeout)
             logger.debug(
-                'fetch_telemetry - {0} telemetry json: {1}'.format(time.time(), telem_json))
+                'telemetry json: {}'.format(telem_json))
             if telem_json is not None and telem_json != '':
                 try:
                     telem = json.loads(telem_json)
@@ -282,20 +303,13 @@ def fetch_pose(config, udp_socket):
         mower_port = config['mower.port'] if 'mower.port' in config else None
         if mower_host is not None and mower_port is not None:
             cmd = ">get_pose()"
-            # capture timeout so it can be restored
-            def_timeout = udp_socket.gettimeout()
-            udp_socket.settimeout(2)
             pose_str = despatch_to_mower_udp(
                 cmd, udp_socket, mower_host, mower_port, max_attempts=1)
-            udp_socket.settimeout(def_timeout)
             logger.debug('fetch_pose - {0}'.format(pose_str))
             if pose_str is not None and pose_str != '':
                 pose = [float(v) for v in pose_str.split(',')]
             else:
                 logger.warn('utilities fetch_pose - Mower Offline!')
-        else:
-            pass
-            # logger.warn('utilities fetch_telemetry - No host:port!')
 
     except Exception as e2:
         err_line = sys.exc_info()[-1].tb_lineno
@@ -330,3 +344,21 @@ def tail(f, lines=1, _buffer=4098):
         block_counter -= 1
 
     return ''.join(lines_found[:-lines:-1])
+
+def getsize(obj):
+    """sum size of object & members."""
+    BLACKLIST = type, ModuleType, FunctionType
+    if isinstance(obj, BLACKLIST):
+        raise TypeError('getsize() does not take argument of type: '+ str(type(obj)))
+    seen_ids = set()
+    size = 0
+    objects = [obj]
+    while objects:
+        need_referents = []
+        for obj in objects:
+            if not isinstance(obj, BLACKLIST) and id(obj) not in seen_ids:
+                seen_ids.add(id(obj))
+                size += sys.getsizeof(obj)
+                need_referents.append(obj)
+        objects = get_referents(*need_referents)
+    return size
