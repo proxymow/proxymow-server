@@ -21,3 +21,6 @@ class Destination():
         self.target_x = x
         self.target_y = y
         self.attitude = attitude
+
+    def __repr__(self):
+        return('({}, {}) {}'.format(self.target_x, self.target_y, self.attitude))
