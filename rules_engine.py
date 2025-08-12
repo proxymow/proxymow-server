@@ -33,6 +33,7 @@ class RulesEngine():
         self.last_command = (-1, -1, -1)
         self.last_command_code = MovementCode.NIL.name
         self.in_flight = False
+        self.robot_attitude = Attitude.DEFAULT.name
 
         self.stage_started_time = -1
         self.route_started_time = -1
@@ -84,7 +85,7 @@ class RulesEngine():
 
         # collect together all the useful terms for our conditions and expressions
         try:
-            # might need some numpy math
+            # might need some numpy math, or geometry functions...
             self.context['np'] = numpy
             self.context['gl'] = geom_lib
 
@@ -111,6 +112,13 @@ class RulesEngine():
             self.context['m'] = self.last_command
             self.context['p'] = self.last_command_code
             self.context['z'] = self.in_flight
+
+            # robot attitude - has to be captured when the robot is approaching, not adjacent or beyond
+            if self.last_command_code == 'FWD':
+                self.robot_attitude = Attitude.FWD_DRIVE.name
+            elif self.last_command_code == 'REV':
+                self.robot_attitude = Attitude.REV_DRIVE.name
+            self.context['rat'] = self.robot_attitude
 
             # some will come from itinerary
             if itinerary is not None:
@@ -294,8 +302,12 @@ class RulesEngine():
 
                 # turn circle from current to destination
                 # library function calculates the angle of arrival from the start and path angles
+                if trace:
+                    trace_rules('get_circle_from_world_points x: {:.3f} y: {:.3f} c: {:.0f} tgt_x: {:.3f} tgt_y: {:.3f}'.format(x, y, degrees(c), tgt_x, tgt_y))
                 centre_x, centre_y, turn_circle_radius, arrival_angle, sector_angle, sector_portion = get_circle_from_world_points(
                     x, y, c, tgt_x, tgt_y)
+                self.context['tcx'] = centre_x
+                self.context['tcy'] = centre_y
                 if trace:
                     trace_rules('get_circle_from_world_points: centre_x {0}, centre_y {1}, turn_circle_radius {2}, arrival_angle {3}, sector_angle {4}, sector_portion {5}'.format(
                         centre_x, centre_y, turn_circle_radius, arrival_angle, sector_angle, sector_portion))
@@ -346,9 +358,8 @@ class RulesEngine():
                     self.context['f'] = 0
                     self.context['g'] = 0
                     self.context['b'] = 0
-                    self.context['j'] = 1  # velocity ration is 1
+                    self.context['j'] = 1  # velocity ratio is 1
                     self.context['l'] = d
-
             else:
                 if trace:
                     self.logger.debug(
@@ -356,8 +367,10 @@ class RulesEngine():
                 self.context['x2'] = None
                 self.context['y2'] = None
                 self.context['c2'] = None
+                self.context['tcx'] = None
+                self.context['tcy'] = None
                 self.context['att2'] = ''
-                self.context['d'] = -1  # 0 999 # None
+                self.context['d'] = -1
                 self.context['k'] = -1
                 self.context['t'] = 0
                 self.context['u'] = 0
@@ -365,27 +378,12 @@ class RulesEngine():
                 self.context['rt'] = 0
                 self.context['ru'] = 0
                 self.context['ra'] = 0
-                self.context['b'] = -1  # 0 999
+                self.context['b'] = -1
                 self.context['f'] = 0
                 self.context['g'] = 0
                 self.context['j'] = 1.0
-                self.context['l'] = -1  # 0 999
-                self.context['lap'] = (-1, -1)
-                '''
-                self.context['x2'] = -1
-                self.context['y2'] = -1
-                self.context['c2'] = -1
-                self.context['d'] = 999
-                self.context['k'] = -1
-                self.context['a'] = -1
-                self.context['t'] = -1
-                self.context['u'] = pi
-                self.context['b'] = -1
-                self.context['f'] = -1
-                self.context['g'] = -1
-                self.context['j'] = -1
                 self.context['l'] = -1
-                '''
+                self.context['lap'] = (-1, -1)
 
             # context needs to include user-defined expressions
             hyb_terms = [
@@ -399,9 +397,14 @@ class RulesEngine():
                         ud_result = eval(str(ud_term.expression),
                                          self.context, self.safe_functions)
                     except Exception as e:
+                        err_line = sys.exc_info()[-1].tb_lineno
                         if 'NoneType' not in str(e):
                             self.logger.error(
-                                'Error parsing user-defined term: ' + str(ud_term.expression) + ' => ' + str(e))
+                                'Error parsing user-defined term: ' + 
+                                str(ud_term.expression) + 
+                                ' on line ' + str(err_line) + 
+                                ' => ' + str(e)
+                            )
                         ud_result = -1  # None
                     try:
                         # convert to native Python types
