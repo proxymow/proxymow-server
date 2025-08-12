@@ -261,7 +261,11 @@ class ControlPane {
                 //Only update widget if it is enabled
                 //It will be disabled during cutter command processing
                 if (typeof cutterActivated !== 'undefined' && !chkWidget1.disabled) {
-                    chkWidget1.checked = cutterActivated;
+                    if (cutterActivated == 0) {
+                        chkWidget1.checked = false;                    
+                    } else if (cutterActivated == 1) {
+                        chkWidget1.checked = true;                                            
+                    }
                 }//end valid enab
             }//end defined
         }//end widget defined
@@ -272,7 +276,11 @@ class ControlPane {
                 //Only update widget if it is enabled
                 //It will be disabled during cutter command processing
                 if (typeof cutterActivated !== 'undefined' && !chkWidget2.disabled) {
-                    chkWidget2.checked = cutterActivated;
+                    if (cutterActivated == 0) {
+                        chkWidget2.checked = false;                    
+                    } else if (cutterActivated == 1) {
+                        chkWidget2.checked = true;                                            
+                    }
                 }//end valid enab
             }//end defined
         }//end widget defined
@@ -395,7 +403,6 @@ class ControlPane {
         const itm = sel.value;
         const xWidget = getWidget(this.tpId, "DRIVETOX");   
         const yWidget = getWidget(this.tpId, "DRIVETOY");   
-    
         const tAng = this.poseJson['t_deg'];
         const xPos = this.poseJson['c_x_m'];
         const yPos = this.poseJson['c_y_m'];
@@ -468,8 +475,8 @@ class ControlPane {
         //Reset dropdown so it can accept same request again!
         if (ddlWidget != null) {
             ddlWidget[0].selected = true; 
-        } 
-             
+        }
+
         enableTool(this.tpId, this.btns.DRIVE, false); 
              
     }//end drive to
