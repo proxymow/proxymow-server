@@ -166,7 +166,7 @@ class Morphable():
             # float
             typed_var = float(att_str)
         else:
-            typed_var = att_str  # string
+            typed_var = att_str.strip()  # string
         return typed_var
 
     @classmethod
