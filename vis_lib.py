@@ -699,19 +699,12 @@ def get_prospect_list(
                 [len(p) for p in prospect_cnts]))
 
         # best filtering methodology available
-        # very low / very high point count is acceptable
-        min_pt_cnt = constants.LORES_CONTOUR_MINIMUM_POINT_COUNT
-        while True:
-            filtered_prospect_contours = []
-            for p in prospect_cnts:
-                if min_pt_cnt < len(p) < 500:
-                    filtered_prospect_contours.append(p)
-            if len(filtered_prospect_contours) > 10:
-                min_pt_cnt += 5
-                if logger and debug_level > 0:
-                    logger.debug('filter prospects increasing min point count to: {}'.format(min_pt_cnt))
-            else:
-                break
+        # mid-range * threshold, or lower
+        count_threshold = constants.CONTOUR_POINT_COUNT_THRESHOLD
+        prospect_counts = [len(c) for c in prospect_cnts]
+        mid_range_count = (max(prospect_counts, default=0) + min(prospect_counts, default=0)) * count_threshold
+        min_pt_count = max(mid_range_count, constants.LORES_CONTOUR_MINIMUM_POINT_COUNT)
+        filtered_prospect_contours = [c for c in prospect_cnts if len(c) > min_pt_count]
         
         # log point counts
         if logger and debug_level > 0:
@@ -724,8 +717,8 @@ def get_prospect_list(
                 logger.debug('clipped prospect?: {0} from {1}'.format(
                     any([m == 0 for m in margins[q]]), [int(m) for m in margins[q]]))
         if logger and debug_level > 0:
-            logger.debug('Number of filtered prospect contours [{} < len < 500]: {}'.format(
-                constants.LORES_CONTOUR_MINIMUM_POINT_COUNT, len(filtered_prospect_contours)))
+            logger.debug('Number of filtered prospect contours [len > {}]: {}'.format(
+                min_pt_count, len(filtered_prospect_contours)))
         timesheet.add('prospects filtered')
 
         # convert prospect contours => universal viewports
@@ -854,18 +847,22 @@ def probe_prospect_list(
                 prep_img_arr, logger)
             timesheet.add('find contours')
 
-            # best filtering methodology available
-            # very low / very high point count is acceptable
-            filtered_local_contours = []
             if logger and debug_level > 0:
                 logger.debug('local point counts: {0}'.format(
                     [len(c) for c in local_contours]))
-            for c in local_contours:
-                if constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT < len(c) < 500:
-                    filtered_local_contours.append(c)
+
+            # best filtering methodology available
+            # mid-range * threshold, or lower
+            count_threshold = constants.CONTOUR_POINT_COUNT_THRESHOLD
+            local_counts = [len(c) for c in local_contours]
+            mid_range_count = (max(local_counts, default=0) + min(local_counts, default=0)) * count_threshold
+            min_pt_count = max(mid_range_count, constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT)
+            filtered_local_contours = [c for c in local_contours if len(c) > min_pt_count]
+
+            
             if logger and debug_level > 0:
-                logger.debug('Number of filtered local contours [{} < len < 500]: {}'.format(
-                    constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT, len(filtered_local_contours)))
+                logger.debug('Number of filtered local contours [len > {}]: {}'.format(
+                    min_pt_count, len(filtered_local_contours)))
 
             if logger and debug_level > 0:
                 logger.debug('probe: {0} pre-de-dupe contour count: {1} {2}'.format(
@@ -1044,17 +1041,15 @@ def probe_prospect_list(
         if (
             pose is None and
             constants.RNF_MITIGATION and
-            host.consecutive_extrapolations < constants.CONSECUTIVE_EXTRAPOLATION_LIMIT and
             host.snapshot_buffer.latest_extrap_pose() is not None
         ):
             pose = host.snapshot_buffer.latest_extrap_pose()
-            host.consecutive_extrapolations += 1
-            logger.info('fcc RNF MITIGATION, Pose is None so using extrapolation...{0} consecutives'.format(
-                host.consecutive_extrapolations))
-        else:
-            host.consecutive_extrapolations = 0
+            host.extrapolation_incidents += 1
+            logger.info('fcc RNF MITIGATION, Pose is None so using extrapolation {}... {} incidents'.format(
+                host.snapshot_buffer.latest_extrap_pose().as_concise_str(),
+                host.extrapolation_incidents)
+            )
 
-        # timesheet.add('hires contours mined')
         if logger and debug_level >= 0:
             logger.debug(timesheet)
 
