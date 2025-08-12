@@ -38,7 +38,6 @@ right_pwm = None
 adc = None
 
 act_timer = None
-last_cmd = -1
 left_speed_delta = 0
 right_speed_delta = 0
 relative_duration_ms = 0
@@ -473,13 +472,11 @@ def partial_action(duration_ms, axle_track_m, velocity_full_speed_mps, speed_lef
         return new_x_m, new_y_m, new_theta_rad
 
 
-def sweep(left_speed_in, right_speed_in, duration_in, last_cmd_in=-2):
+def sweep(left_speed_in, right_speed_in, duration_in):
 
     # all incoming parameters are floats
-    global left_pwm, right_pwm, last_cmd
+    global left_pwm, right_pwm
     global left_speed_delta, right_speed_delta, relative_duration_ms
-
-    last_cmd = int(last_cmd_in)
 
     if duration_in < 0:
         # special relative in-flight command
@@ -522,7 +519,11 @@ def readadc(_):
 
 def get_telemetry():
     # assemble string of telemetry values
-    tmplt = '{{"analogs": {}, "cutter1": {}, "cutter2": {}, "ssid": "{}", "rssi": {}, "dist": {}, "free-mb": {}, "last-update": {}, "last-cmd": {}}}'
+    tmplt = ('{{"analogs": {}, "cutter1": {}, "cutter2": {}, '
+             '"essid": "{}", "rssi": {}, "dist": {}, '
+             '"qual-essids": {}, "priority-essid": {}, "last-scan": {}, '
+             '"free-mb": {}, "last-update": {}}}'
+            )
     batt = readadc(None)
     cutter_state = int.from_bytes(cutter_state_bytes, 'big') // 256
 
@@ -533,9 +534,11 @@ def get_telemetry():
         'vssid',
         -25,
         5,
+        'null',
+        'null',
+        int(((time.time() - start_time) * 1000) - 10000),
         100,
-        (time.time() - start_time) * 1000,
-        last_cmd
+        int((time.time() - start_time) * 1000)
     )
 
 def cutter(addr_in, mode):
@@ -544,8 +547,6 @@ def cutter(addr_in, mode):
         or a channel index (modes 0 & 1) 
     '''
     global cutter_state_bytes
-    trace_virtual('Cutter addr:{} mode:{} intmode:{} type:{}'.format(
-        addr_in, mode, int(mode), type(mode)))
     cur_state = int.from_bytes(cutter_state_bytes, 'big') // 256
     addr = int(addr_in)
     mask = 2**addr
