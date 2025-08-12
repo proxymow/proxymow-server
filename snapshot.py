@@ -4,7 +4,7 @@ from itertools import count
 from enum import Enum
 from math import degrees, sin, cos, pi
 
-from poses import Pose
+from poses import Pose, PoseOrigination
 import constants
 
 
@@ -23,7 +23,6 @@ class Snapshot():
     # class variables
     location_stats = {}
     _ssid = count(0)
-    _consecutive_extrapolations = 0
 
     def __init__(self, container=None, ssid=None, logger=None):
         self._t_zero = time.time()
@@ -50,8 +49,9 @@ class Snapshot():
         # we haven't been added yet, so latest is p2 and penultimate is p1
         p1 = self._container.penultimate_pose()
         p2 = self._container.latest_pose()
-        p1e = self._container.penultimate_extrap_pose()
-        p2e = self._container.latest_extrap_pose()
+
+        s1 = self._container[list(self._container.keys())[-2]].ssid if len(self._container.keys()) > 1 else -1
+        s2 = self._container[list(self._container.keys())[-1]].ssid if len(self._container.keys()) > 0 else -1
 
         # first log all the ssids
         if self._logger:
@@ -61,19 +61,26 @@ class Snapshot():
                 [ss._pose.as_concise_str() if ss._pose is not None else
                  '|{0}|'.format(ss._extrapolated_pose.as_concise_str()) if ss._extrapolated_pose is not None else
                  'None' for ss in self._container.values()]))
-        # [p0, p1, p2] => p3
-        if p1 is not None and p2 is not None:
+        # [p1, p2] => p3
+        self._logger.debug('Potential Extrapolation sources: penultimate_pose => latest_pose {} {} {} => {} {} {}'.format(
+            s1, 
+            p1.as_concise_str() if p1 is not None else 'None', 
+            p1.origination if p1 is not None else '', 
+            s2, 
+            p2.as_concise_str() if p2 is not None else 'None',
+            p2.origination if p2 is not None else '' 
+            )
+        )
+        # Least restrictive without free-for-all
+        if (p1 is not None and 
+            p2 is not None and 
+            (p1.origination == PoseOrigination.DETECTED or p2.origination == PoseOrigination.DETECTED)):
             p_start = p1
             p_finish = p2
         else:
-            if p1 is None and p1e is not None:
-                p_start = p1e
-            else:
-                p_start = None
-            if p2 is None and p2e is not None:
-                p_finish = p2e
-            else:
-                p_finish = p2
+            p_start = None
+            p_finish = None
+
         self.extrapolate_pose(p_start, p_finish)
 
     def set_pose(self, pose):
@@ -86,7 +93,7 @@ class Snapshot():
         # assumes snapshots occur at regular intervals
 
         try:
-            if p_start is not None and p_finish is not None and self._consecutive_extrapolations < constants.CONSECUTIVE_EXTRAPOLATION_LIMIT:
+            if p_start is not None and p_finish is not None:
                 linear_displacement, angular_displacement = p_finish - p_start
                 if (
                     linear_displacement > constants.FROZEN_DISTANCE_THRESHOLD_METRES or
@@ -118,7 +125,7 @@ class Snapshot():
                             'Snapshot Constructor - calculating extrapolation landing ({0:.2f}, {1:.2f})'.format(p3_cxm, p3_cym))
                     self._extrapolated_pose = Pose(
                         p3_cxm, p3_cym, p_finish.arena.t_rad)
-                    self._consecutive_extrapolations += 1
+                    self._extrapolated_pose.origination = PoseOrigination.PREDICTED
                     if self._logger:
                         self._logger.debug('Snapshot Constructor - Posting Extrapolation {0}'.format(
                             self._extrapolated_pose.as_concise_str()))
@@ -126,15 +133,12 @@ class Snapshot():
                     if self._logger:
                         self._logger.debug(
                             'Snapshot Constructor - Unable to compute extrapolated pose - insufficient discrimination')
-                    self._extrapolated_pose = None
-                    self._consecutive_extrapolations = 0
-                    
+                    self._extrapolated_pose = None            
             else:
                 if self._logger:
                     self._logger.debug(
                         'Snapshot Constructor - Unable to compute extrapolated pose')
                 self._extrapolated_pose = None
-                self._consecutive_extrapolations = 0
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
