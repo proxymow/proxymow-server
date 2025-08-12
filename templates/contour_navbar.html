@@ -16,6 +16,11 @@
         <label>Next</label>
     {% endif -%}&nbsp;
     {% if eid > 0 -%}
+        <a href="?cid={{eid}}">Last</a>
+    {% else %}
+        <label>Last</label>
+    {% endif -%}&nbsp;
+    {% if eid > 0 -%}
         <a href="?cid=-1">Latest</a>&nbsp;
     {% else %}
         <label>Latest</label>

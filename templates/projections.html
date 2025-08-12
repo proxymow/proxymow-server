@@ -27,7 +27,7 @@
   <script>
     const autoFreezeMs = {{auto_freeze_ms}};
     //create image fetcher
-    let if1 = new HttpFetcher("/projection_analysis_img?projidx={{cid}}&ts=", 10000, true, true);
+    let if1 = new HttpFetcher("/projection_analysis_img?projidx={{cid}}&ts=", 15000, true, true);
     //listen for fetcher events
     if1.addEventListener('body-available', function(event) {
         document.getElementById('img1').src = event.detail;
