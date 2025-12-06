@@ -131,7 +131,7 @@ class Projection():
                 len(vertices)
             )
             morph_props_clusters = morph_props['clusters']
-            cluster_densities = {int(k): round(1000 * sum(areas) / len(areas), 3)
+            cluster_densities = {int(k): round(float(1000 * sum(areas) / len(areas)), 3)
                                  for (k, (_, areas)) in morph_props_clusters.items()}
             self.cluster_info = pprint.pformat(cluster_densities)
             massive_cluster_count = len(
