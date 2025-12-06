@@ -62,15 +62,16 @@ class Snapshot():
                  '|{0}|'.format(ss._extrapolated_pose.as_concise_str()) if ss._extrapolated_pose is not None else
                  'None' for ss in self._container.values()]))
         # [p1, p2] => p3
-        self._logger.debug('Potential Extrapolation sources: penultimate_pose => latest_pose {} {} {} => {} {} {}'.format(
-            s1, 
-            p1.as_concise_str() if p1 is not None else 'None', 
-            p1.origination if p1 is not None else '', 
-            s2, 
-            p2.as_concise_str() if p2 is not None else 'None',
-            p2.origination if p2 is not None else '' 
+        if self._logger:
+            self._logger.debug('Potential Extrapolation sources: penultimate_pose => latest_pose {} {} {} => {} {} {}'.format(
+                s1, 
+                p1.as_concise_str() if p1 is not None else 'None', 
+                p1.origination if p1 is not None else '', 
+                s2, 
+                p2.as_concise_str() if p2 is not None else 'None',
+                p2.origination if p2 is not None else '' 
+                )
             )
-        )
         # Least restrictive without free-for-all
         if (p1 is not None and 
             p2 is not None and 
