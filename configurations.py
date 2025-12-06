@@ -95,7 +95,15 @@ class Config():
             profiles = [node.attrib['name'] for node in profile_nodes]
             self.database['profiles'] = profiles
 
-            cur_profile = self.settings['profile']
+            req_profile = self.settings['profile']
+            if req_profile in profiles:
+                cur_profile = req_profile
+            elif len(profiles) > 0:
+                cur_profile = profiles[0]
+                self.logger.debug('Config parse - requested profile unavailable, using first: {}'.format(cur_profile))
+            else:
+                self.logger.debug('Config parse - no profiles available')
+                cur_profile = None
             self.logger.debug('Config parse - current profile: ' + cur_profile)
             self.database['current.profile'] = cur_profile
             profile_xpath = "./profiles/profile[@name='{0}']".format(
