@@ -679,7 +679,7 @@ class Config():
                 logger=self.logger,
                 debug=self.debug
             )
-            arena_matrix_javascript = [[j for j in i] for i in L]
+            arena_matrix_javascript = [[float(j) for j in i] for i in L]
             self.database['calib.img_matrix_inv'] = M
             self.database['calib.img_matrix'] = DN
             self.database['calib.arena_matrix'] = L
