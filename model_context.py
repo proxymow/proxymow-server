@@ -6,6 +6,8 @@ import socket
 import lxml.etree as ET
 from copy import deepcopy
 import markdown
+from itertools import pairwise
+from math import hypot
 
 import constants
 import toolpane_defs
@@ -59,9 +61,20 @@ def fencesvg(_host, _req_args, _req_kwargs):
 def routeview(_host, _req_args, _req_kwargs):
     return {}
 
-
-def routeviewsvg(_host, _req_args, _req_kwargs):
-    return {}
+def routeviewsvg(host, _req_args, _req_kwargs):
+    lanes = pairwise(host.config['lawn.route'])
+    lane_ends = [(l[0][0], l[0][1], l[1][0], l[1][1]) for l in lanes]
+    lane_deltas = [(le[2] - le[0], le[3] - le[1]) for le in lane_ends]
+    lane_lengths = [hypot(ld[0], ld[1]) for ld in lane_deltas]
+    return {
+        'stats': 'Number of Nodes: {} (~{:.2f}m)'.format(
+                len(host.config['lawn.route']),
+                sum(lane_lengths)
+            ),
+        'msg': '{}'.format(
+                host.config['lawn.route-exception']
+            )
+        }
 
 def route(_host, _req_args, _req_kwargs):
     return {}
