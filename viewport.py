@@ -317,7 +317,7 @@ class Viewport():
     
                     if logger is not None:
                         logger.info(
-                            'Find Contours - {} {:.2f}% Max\Range: {:.3f} Thresh: {:.3f} Whites: {} Tone: {:.6f} Num Contours: {}'.format(
+                            'Find Contours - {} {:.2f}% Max\\Range: {:.3f} Thresh: {:.3f} Whites: {} Tone: {:.6f} Num Contours: {}'.format(
                                 array.shape,
                                 self.footprint if self.footprint is not None else 100.0,
                                 intensity_range,
