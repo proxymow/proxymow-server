@@ -716,10 +716,17 @@ class Config():
 
                 pattern_logger = logging.getLogger('mow-patterns')
 
-                route_pc = module.calculate_route(
-                    fence_points, arena_width_m, arena_length_m, cutter_dia_m, pattern_logger)
-                route_m = route_pc_to_metres(
-                    arena_width_m, arena_length_m, route_pc, min_internode_dist_m=constants.MINIMUM_INTER_NODE_DISTANCE_M)
+                try:
+                    route_pc = module.calculate_route(
+                        fence_points, arena_width_m, arena_length_m, cutter_dia_m, pattern_logger, self.debug)
+                    route_m = route_pc_to_metres(
+                        arena_width_m, arena_length_m, route_pc, min_internode_dist_m=constants.MINIMUM_INTER_NODE_DISTANCE_M)
+                    self.database['lawn.route-exception'] = ''
+                except Exception as cre:
+                    route_m = []
+                    route_pc = []
+                    # make error message available
+                    self.database['lawn.route-exception'] = str(cre)
             else:
                 route_m = []
                 route_pc = []
@@ -858,12 +865,6 @@ class Config():
             err_line = sys.exc_info()[-1].tb_lineno
             self.logger.error('Error parsing Config: ' +
                               str(e2) + ' on line ' + str(err_line))
-
-    # def keys(self):
-    #     return list(self.database.keys())
-    #
-    # def items(self):
-    #     return list(self.database.items())
 
     def save_config(self):
         self.cfg_tree.write(self.cfg_file_path)
