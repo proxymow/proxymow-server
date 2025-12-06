@@ -161,7 +161,6 @@ function sleep (time) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
 function syncDropdownList(apiKey, ddKey, hasDefault) {
-    console.log(`synchronising drop-down: ${ddKey}`);
     try {
         getFromApi(apiKey, function(data) {
             var arr1 = JSON.parse(data);
@@ -169,21 +168,16 @@ function syncDropdownList(apiKey, ddKey, hasDefault) {
             const opts = selectWidget.options;
             const arr2 = Array.from(opts).map(el => el.value); 
             if (hasDefault) arr2.shift();
-            console.log(arr1);
-            console.log(arr2);
             var changed = !(arr1.length === arr2.length && arr1.every(function(value, index) { return value === arr2[index]}));
             if (changed) {
-                console.log('drop-down changed');
                 //dynamic update
                 //clear
                 while (selectWidget.options.length > hasDefault ? 1 : 0) {
                     var i = selectWidget.options.length - 1;              
-                    console.log(`removing option ${selectWidget.options[i].text}`);
                     selectWidget.remove(i);
                 }  
                 for(var i = 0; i < arr1.length; i++) {
                     var opt = arr1[i];
-                    console.log(`inserting option ${opt}`);
                     var el = document.createElement("option");
                     el.textContent = opt;
                     el.value = opt;
