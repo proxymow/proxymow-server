@@ -149,9 +149,6 @@ freezeButton = ToolPaneButton(
 settings_config = [saveButton, freezeButton]
 meas_settings_config = [saveButton]
 
-# contours buttons
-# contours_ctrl = [freezeButton]
-
 # calibration 4 point toolpane
 cal_quad_config = sel_btns + nudge_btns + [rst_btn, info_lbl]
 
@@ -443,7 +440,7 @@ tp_cockpit_state_1 = HtmlToolPane('cockpitstate', None, cockpit_state_config)
 
 # compute speed options
 robot_speed_opts = {'0.0': 'R0/0%'}
-speed_range = list(range(40, 80, 5)) + list(range(80, 110, 10))
+speed_range = list(range(40, 105, 5))
 for rot_spd in speed_range:
     for drv_spd in speed_range:
         opt_key = '{0}.{1}'.format(rot_spd, drv_spd)
