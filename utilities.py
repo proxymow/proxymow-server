@@ -103,22 +103,25 @@ def route_pc_to_metres(arena_width_m, arena_length_m, route_pc, min_internode_di
                         'i: {0} j: {1} inter node distance: {2}'.format(i, j, inter_node_dist))
             if inter_node_dist >= min_internode_dist_m:
                 route_m.append((x_m, y_m, att))
-                patt_logger.debug('including node ({:.2f}m, {:.2f}m) whose inter-node-distance: {:.3f} >= {:.3f}'.format(
-                    x_m,
-                    y_m,
-                    inter_node_dist,
-                    min_internode_dist_m
-                )
-                )
+                if debug:
+                    patt_logger.debug(
+                        'including node ({:.2f}m, {:.2f}m) whose inter-node-distance: {:.3f} >= {:.3f}'.format(
+                            x_m,
+                            y_m,
+                            inter_node_dist,
+                            min_internode_dist_m
+                            )
+                        )
                 j += 1
             else:
-                patt_logger.warning('skipping node ({:.2f}m, {:.2f}m) whose inter-node-distance: {:.3f} < {:.3f}'.format(
-                    x_m,
-                    y_m,
-                    inter_node_dist,
-                    min_internode_dist_m
-                )
-                )
+                patt_logger.warning(
+                    'skipping node ({:.2f}m, {:.2f}m) whose inter-node-distance: {:.3f} < {:.3f}'.format(
+                        x_m,
+                        y_m,
+                        inter_node_dist,
+                        min_internode_dist_m
+                        )
+                    )
     return route_m
 
 
