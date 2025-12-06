@@ -28,16 +28,16 @@ class Itinerary(object):
         self.destinations = []
         self.plan_only = plan_only
         self.logger = logger
+        self.dest_ptr = 0  # kicks things off
 
         self.launch_dest = None
         if launch_pose is not None:
             self.launch_dest = Destination(
                 launch_pose.arena.c_x_m, launch_pose.arena.c_y_m)
-
+        else:
+            self.dest_ptr = 1  # first path is [0] => [1]
         if dest_list is not None:
             self.add_destinations(dest_list)
-
-        self.dest_ptr = 0  # kicks things off
 
     @property
     def num_destinations(self):
@@ -52,7 +52,8 @@ class Itinerary(object):
         return self.num_destinations - self.dest_ptr
 
     def __str__(self):
-        return 'Destinations: {0}\n\tDestination Pointer: {1}'.format(
+        return 'Destinations: {}{}\n\tDestination Pointer: {}'.format(
+            len(self.destinations),
             ['{}=>({}, {})'.format(
                 d.attitude.name.replace('FORWARD', 'FWD').replace(
                     'REVERSE', 'REV').replace('DEFAULT', '').replace('DRIVE', 'DRV'),
