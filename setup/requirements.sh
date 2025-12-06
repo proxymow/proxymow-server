@@ -20,11 +20,9 @@ sudo apt -y -q install samba samba-common-bin
 (echo $PASS; echo $PASS) | sudo smbpasswd -s -a $USER
 sudo apt -y -q install libjpeg-dev
 sudo apt -y -q install libtiff5-dev
-sudo apt -y -q install libatlas-base-dev
 sudo apt -y -q install libxml2-dev libxslt-dev
 sudo apt -y -q install python3-lxml
 sudo apt -y -q install libgeos-dev
-sudo apt -y -q install python3-skimage
 # option for windows web-cam
 # sudo apt -y -q install python3-opencv
 
@@ -33,5 +31,6 @@ sudo pip3 install cherrypy --break-system-packages
 sudo pip3 install shapely==1.4.1 --break-system-packages
 sudo pip3 install markdown --break-system-packages
 
-echo 'Please Reboot...'
+sudo apt -y -q install python3-skimage
 
+echo 'Please Reboot...'
