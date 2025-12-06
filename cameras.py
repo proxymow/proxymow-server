@@ -144,7 +144,7 @@ class OpticalVirtual(BaseCamera):
         self.img_arr = None
         self.awb_bg_map = {
             'Off': 'black',
-            'Auto': 'white',
+            'Auto': 'bisque',
             'Incandescant': 'gold',
             'Tungsten': 'khaki',
             'Flourescent': 'thistle',
