@@ -2,7 +2,7 @@ import sys
 from destination import Attitude
 
 
-def calculate_route(_fence_points_pc, _arena_width_m, _arena_length_m, _cutter_dia_m, logger):
+def calculate_route(_fence_points_pc, _arena_width_m, _arena_length_m, _cutter_dia_m, logger, debug):
 
     # calculate the route that mows Hello {World}
     fence_polygon_pts_pc = []

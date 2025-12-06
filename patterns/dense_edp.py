@@ -3,9 +3,9 @@ from patterns import ever_decreasing_polygons
 from pattern_utils import densify
 
 
-def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger):
+def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger, debug):
 
-    calc_rte_debug = False
+    calc_rte_debug = debug
     max_seg_pc = 20
 
     try:

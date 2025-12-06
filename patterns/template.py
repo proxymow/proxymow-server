@@ -1,9 +1,9 @@
 import sys
 
 
-def calculate_route(fence_points_pc, _arena_width_m, _arena_length_m, _cutter_dia_m, logger):
+def calculate_route(fence_points_pc, _arena_width_m, _arena_length_m, _cutter_dia_m, logger, debug):
 
-    calc_rte_debug = False
+    calc_rte_debug = debug
 
     # calculate the route within the fence
     route_pc = []

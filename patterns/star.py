@@ -4,9 +4,9 @@ from math import cos, sin, radians
 from shapely.geometry import LineString, Polygon
 
 
-def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger):
+def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger, debug):
 
-    calc_rte_debug = False
+    calc_rte_debug = debug
 
     # calculate the route within the fence
     route_pc = []

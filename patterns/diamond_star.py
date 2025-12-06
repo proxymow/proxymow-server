@@ -5,9 +5,9 @@ from shapely.geometry import LineString, Polygon
 from shapely import affinity
 
 
-def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_m, logger):
+def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_m, logger, debug):
 
-    calc_rte_debug = True
+    calc_rte_debug = debug
 
     # calculate the route within the fence
     route_pc = []
