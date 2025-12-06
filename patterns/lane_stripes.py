@@ -5,9 +5,9 @@ from math import floor
 from pattern_utils import densify
 
 
-def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger, start_corner='SE', direction='V'):
+def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger, debug, start_corner='SE', direction='V'):
 
-    calc_rte_debug = True
+    calc_rte_debug = debug
 
     '''
         generic stripe module for all 8 permutations
@@ -54,18 +54,18 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         cutter_dia_m = 0.1
         if calc_rte_debug:
             logger.warning(
-                'stripes using default cutter width: {0}'.format(cutter_dia_m))
+                'using default cutter width: {}'.format(cutter_dia_m))
 
     # cutter_dia_m = 0.5 # temporarily override configured cutter for testing
 
     # using exact cutter dimension does not allow for any overlap
-    overlap_factor = 0.67
+    overlap_factor = 1.0
     cutter_lane_width_m = cutter_dia_m * overlap_factor
 
     # calculate cutter as percentage of arena
     cutter_lane_width_pc = 100 * cutter_lane_width_m / arena_width_m
     if calc_rte_debug:
-        logger.debug('stripes cutter as percentage of arena: {0:.1f}'.format(
+        logger.debug('cutter as percentage of arena: {:.1f}'.format(
             cutter_lane_width_pc))
 
     try:
@@ -77,54 +77,66 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
                 (fence_points_pc[i].x, fence_points_pc[i].y))
 
         fence_polygon = geometry.Polygon(fence_polygon_pts)
-        fence_min_x = min([p[0] for p in fence_polygon_pts])
-        fence_max_x = max([p[0] for p in fence_polygon_pts])
-        fence_min_y = min([p[1] for p in fence_polygon_pts])
-        fence_max_y = max([p[1] for p in fence_polygon_pts])
+        fence_min_x_pc = min([p[0] for p in fence_polygon_pts])
+        fence_max_x_pc = max([p[0] for p in fence_polygon_pts])
+        fence_min_y_pc = min([p[1] for p in fence_polygon_pts])
+        fence_max_y_pc = max([p[1] for p in fence_polygon_pts])
 
-        # estimate number of verticals across the arena
-        est_verts = floor(arena_width_m / cutter_lane_width_m)
+        fence_width_pc = fence_max_x_pc - fence_min_x_pc
+        fence_length_pc = fence_max_y_pc - fence_min_y_pc
         if calc_rte_debug:
             logger.debug(
-                'stripes estimated number of verticals: {0}'.format(est_verts))
+                'fence_width_pc: {:.1f}% fence_length_pc: {:.1f}'.format(fence_width_pc, fence_length_pc))
+
+        fence_width_m = fence_width_pc * arena_width_m / 100
+        fence_length_m = fence_length_pc * arena_length_m / 100
+        if calc_rte_debug:
+            logger.debug(
+                'fence_width_m: {:.3f} fence_length_m: {:.3f}'.format(fence_width_m, fence_length_m))
+
+        # estimate number of verticals across the fence
+        est_verts = floor(fence_width_m / cutter_lane_width_m)
+        if calc_rte_debug:
+            logger.debug(
+                'estimated number of verticals: {}'.format(est_verts))
 
         # ensure an even number of verticals to make valid rectangles!
         num_verts = (est_verts // 2) * 2
         if calc_rte_debug:
             logger.debug(
-                'stripes even number of verticals: {0}'.format(num_verts))
+                'even number of verticals: {}'.format(num_verts))
 
-        # estimate number of horizontals down the arena
-        est_hors = floor(arena_length_m / cutter_lane_width_m)
+        # estimate number of horizontals down the fence
+        est_hors = floor(fence_length_m / cutter_lane_width_m)
         if calc_rte_debug:
             logger.debug(
-                'stripes estimated number of horizontals: {0}'.format(est_hors))
+                'estimated number of horizontals: {}'.format(est_hors))
 
         # ensure an even number of horizontals to make valid rectangles!
         num_hors = (est_hors // 2) * 2
         if calc_rte_debug:
             logger.debug(
-                'stripes even number of horizontals: {0}'.format(num_hors))
+                'even number of horizontals: {}'.format(num_hors))
 
         # define some rectangular skeletons across the fence
 
         perm = start_corner + direction
         if perm == 'SEV':
-            verticals_x = np.linspace(fence_max_x, fence_min_x, num=num_verts)
+            verticals_x = np.linspace(fence_max_x_pc, fence_min_x_pc, num=num_verts)
         elif perm == 'SEH':
-            horizontals_y = np.linspace(fence_min_y, fence_max_y, num=num_hors)
+            horizontals_y = np.linspace(fence_min_y_pc, fence_max_y_pc, num=num_hors)
         elif perm == 'SWV':
-            verticals_x = np.linspace(fence_min_x, fence_max_x, num=num_verts)
+            verticals_x = np.linspace(fence_min_x_pc, fence_max_x_pc, num=num_verts)
         elif perm == 'SWH':
-            horizontals_y = np.linspace(fence_min_y, fence_max_y, num=num_hors)
+            horizontals_y = np.linspace(fence_min_y_pc, fence_max_y_pc, num=num_hors)
         elif perm == 'NWV':
-            verticals_x = np.linspace(fence_min_x, fence_max_x, num=num_verts)
+            verticals_x = np.linspace(fence_min_x_pc, fence_max_x_pc, num=num_verts)
         elif perm == 'NWH':
-            horizontals_y = np.linspace(fence_max_y, fence_min_y, num=num_hors)
+            horizontals_y = np.linspace(fence_max_y_pc, fence_min_y_pc, num=num_hors)
         elif perm == 'NEV':
-            verticals_x = np.linspace(fence_max_x, fence_min_x, num=num_verts)
+            verticals_x = np.linspace(fence_max_x_pc, fence_min_x_pc, num=num_verts)
         elif perm == 'NEH':
-            horizontals_y = np.linspace(fence_max_y, fence_min_y, num=num_hors)
+            horizontals_y = np.linspace(fence_max_y_pc, fence_min_y_pc, num=num_hors)
 
         end_crossings = []
         start_crossings = []
@@ -149,13 +161,13 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
                 start_crossing = crossings.coords[0]
                 end_crossing = crossings.coords[1]
                 if calc_rte_debug:
-                    logger.debug('horizontal stripes start crossing: {0} end crossing: {1}'.format(
+                    logger.debug('horizontal stripes start crossing: {} end crossing: {}'.format(
                         start_crossing, end_crossing))
                 if j % 2 == 1:
                     start_crossing = (start_crossing[0], start_crossing[1])
                     end_crossing = (end_crossing[0], end_crossing[1])
                     if calc_rte_debug:
-                        logger.debug('horizontal stripes offset start crossing: {0} end crossing: {1}'.format(
+                        logger.debug('horizontal stripes offset start crossing: {} end crossing: {}'.format(
                             start_crossing, end_crossing))
                 start_crossings.append(start_crossing)
                 end_crossings.append(end_crossing)
@@ -218,7 +230,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
             err_line = sys.exc_info()[-1].tb_lineno
             if calc_rte_debug:
                 logger.debug(
-                    'stripes exhausted space {0} on line {1}'.format(e1, err_line))
+                    'exhausted space {0} on line {1}'.format(e1, err_line))
             pass
 
         # max distance between nodes 40%
