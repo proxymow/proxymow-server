@@ -1,4 +1,4 @@
-from skimage.morphology import square
+import skimage.morphology as skm
 
 '''
     LOG_MAX_BYTES - maximum file size before log rotates
@@ -61,7 +61,10 @@ BLUR_SIGMA = 1
 '''
     CLOSING_FOOTPRINT - structuring element for closing filter, set to None to disable closing stage
 '''
-CLOSING_FOOTPRINT = square(3)
+if hasattr(skm, 'footprint_rectangle'):
+    CLOSING_FOOTPRINT = skm.footprint_rectangle((3, 3))
+else:
+    CLOSING_FOOTPRINT = skm.rectangle(3, 3)
 
 '''
     FENCE_MASKING - boolean indicating whether to mask beyond fence
@@ -165,6 +168,12 @@ CONTOUR_TABLE_MAX_ROWS = 12
     MOWER_TELEMETRY_PERIOD_SECS - period between requests for mower telemetry
 '''
 MOWER_TELEMETRY_PERIOD_SECS = 10
+
+'''
+    LANDING_TIME_OVERHEAD_SECS  - additional time added to duration when predicting landing
+                                - needs to allow for any velocity ramping in mower code
+'''
+LANDING_TIME_OVERHEAD_SECS = 1.5
 
 '''
     ENABLE_CONTOUR_LOGGING  [True | False]
