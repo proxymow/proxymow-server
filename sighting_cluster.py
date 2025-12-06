@@ -41,3 +41,32 @@ class SightingCluster():
             self.mean_pose_x, 
             self.mean_pose_y
             )
+
+if __name__ == '__main__':
+    '''
+        Class Tests
+    '''
+    threshold = 0.1 # m
+    pc = SightingCluster(threshold)
+    sighting_cluster_list = [pc]
+    p1 = (3.1, 2.1)
+    p2 = (3.15, 2.15)
+    p3 = (3.0, 2.0)
+    p4 = (3.125, 2.125)
+    poses = [p1, p2, p3, p4]
+    
+    for p in poses:
+        print('adding', p)
+        for pc in sighting_cluster_list:
+            acc = pc.accept(p)
+            if acc:
+                print('accepted')
+                print(pc)
+            else:
+                print('new cluster')
+                pc = SightingCluster(threshold)
+                sighting_cluster_list.append(pc)
+                pc.add(p)
+                print(pc)
+            break
+    print(sighting_cluster_list)
