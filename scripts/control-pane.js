@@ -146,6 +146,32 @@ class ControlPane {
         this.lastUpdateJsSecs = 0;
         this.minTimeSystemOffset = Number.MAX_SAFE_INTEGER;
 
+        //check mower list for any changes
+        window.setInterval(function(){ // Set interval for checking
+            try {
+                getFromApi('mowers', function(data) {
+                    var arr1 = JSON.parse(data);
+                    const opts = robotSelectWidget.options;
+                    const arr2 = Array.from(opts).map(el => el.value); 
+                    arr2.shift();
+                    var changed = !(arr1.length === arr2.length && arr1.every(function(value, index) { return value === arr2[index]}));
+                    if (changed) {
+                        //dynamic update
+                        //clear leaving first
+                        while (robotSelectWidget.options.length > 1) {                
+                                robotSelectWidget.remove(robotSelectWidget.options.length - 1);
+                        }  
+                        for(var i = 0; i < arr1.length; i++) {
+                            var opt = arr1[i];
+                            var el = document.createElement("option");
+                            el.textContent = opt;
+                            el.value = opt;
+                            robotSelectWidget.appendChild(el);
+                        }                    
+                    }
+                });
+            } catch { };
+        }, 15000); // Repeat every 15000 milliseconds (15 seconds)
     }//end constructor
     
     processTelemetryHeader(self, headerJson) {

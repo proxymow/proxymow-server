@@ -78,8 +78,9 @@
 	        if1.url = url;
 	        if1.refresh();
         }//end avail
-    });
-    
+        syncDropdownList('profiles', 'current.profile', false);
+        syncDropdownList('strategies', 'current.strategy', true);
+   });
     //listen for fetcher events
     if1.addEventListener('body-available', function(event) {
         document.getElementById('img1').src = event.detail;
@@ -99,7 +100,7 @@
         }//end widget defined        
 
 		sleep(5000).then(() => {
-		    // Do something after the sleep!
+		    //refresh
 		    if1.refresh();
 		});
     });
@@ -125,7 +126,6 @@
             updateClickPosition(e);
         }//end drive not in progress
     }//end drive to click position
-    
     //add action link to 'History' tab
     document.getElementById('history-tab').addEventListener("click", function() {
         const logName='last-cmds';

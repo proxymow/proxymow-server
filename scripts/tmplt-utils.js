@@ -39,7 +39,6 @@ function refreshComponent(routeName, elemId, callback, errcallback) {
     xhttp.send();
     return result;
 }//end refresh component
-
 function enableToolpane(toolPaneId, enabMask) {
     //enable where enabMask is a 1 for each widget in toolpane
     let bitMask = 1;
@@ -49,7 +48,6 @@ function enableToolpane(toolPaneId, enabMask) {
         bitMask *= 2;
     }//next button
 }//end enableToolpane
-
 function enableTool(toolPaneId, toolConst, enab) {
     //enable tool in toolpane
     //fails silently if widget unavailable
@@ -58,13 +56,11 @@ function enableTool(toolPaneId, toolConst, enab) {
         widget.disabled = !(enab);
     }
 }//end enableTool
-
 function getButton(toolPaneId, toolConst) {
     let index = Math.log2(toolConst);
     const toolPaneButtons = document.querySelectorAll('#' + toolPaneId + ' .widget');
     return toolPaneButtons[index];    
 }//end get button
-
 function getWidget(toolPaneId, toolKey) {
     let result = undefined;
     try {
@@ -79,7 +75,6 @@ function getWidget(toolPaneId, toolKey) {
     }
     return result;   
 }//end get widget
-
 function sendData(verb, endpoint, path, value, asynchronous, callback, errcallback) {
     if (typeof asynchronous === 'undefined') {
         asynchronous = true;// don't block request awaiting response
@@ -104,11 +99,9 @@ function sendData(verb, endpoint, path, value, asynchronous, callback, errcallba
     xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xhttp.send('value=' + value);
 }//end send data
-
 function getFromApi(keyName, callback, errorCallback) {
     getData("/api/" + keyName, callback, errorCallback);
 }//end get from api
-
 function getData(url, callback, errorCallback) {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -128,7 +121,6 @@ function getData(url, callback, errorCallback) {
     xhttp.send();
     
 }//end getData
-
 // First, checks if it isn't implemented yet.
 if (!String.prototype.format) {
   String.prototype.format = function() {
@@ -141,7 +133,6 @@ if (!String.prototype.format) {
     });
   };
 }//end format
-
 function getRenderedRect(img) {
     const cWidth =  img.width;
     const cHeight = img.height;
@@ -165,8 +156,40 @@ function getRenderedRect(img) {
         top: Math.round(top)
     };
 }//end get rendered size
-
 // sleep time expects milliseconds
 function sleep (time) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
+function syncDropdownList(apiKey, ddKey, hasDefault) {
+    console.log(`synchronising drop-down: ${ddKey}`);
+    try {
+        getFromApi(apiKey, function(data) {
+            var arr1 = JSON.parse(data);
+            const selectWidget = document.querySelectorAll(`[data-key='${ddKey}']`)[0];
+            const opts = selectWidget.options;
+            const arr2 = Array.from(opts).map(el => el.value); 
+            if (hasDefault) arr2.shift();
+            console.log(arr1);
+            console.log(arr2);
+            var changed = !(arr1.length === arr2.length && arr1.every(function(value, index) { return value === arr2[index]}));
+            if (changed) {
+                console.log('drop-down changed');
+                //dynamic update
+                //clear
+                while (selectWidget.options.length > hasDefault ? 1 : 0) {
+                    var i = selectWidget.options.length - 1;              
+                    console.log(`removing option ${selectWidget.options[i].text}`);
+                    selectWidget.remove(i);
+                }  
+                for(var i = 0; i < arr1.length; i++) {
+                    var opt = arr1[i];
+                    console.log(`inserting option ${opt}`);
+                    var el = document.createElement("option");
+                    el.textContent = opt;
+                    el.value = opt;
+                    selectWidget.appendChild(el);
+                }                    
+            }
+        });
+    } catch { };
+}//end refresh dropdown list

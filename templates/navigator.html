@@ -132,6 +132,8 @@
 	        if1.refresh();
 	        df2.refresh();
         }//end located
+        syncDropdownList('profiles', 'current.profile', false);
+        syncDropdownList('strategies', 'current.strategy', true);
     });
     df2.addEventListener('body-available', function(event) {
         const json = event.detail;
