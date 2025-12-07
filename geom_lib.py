@@ -68,7 +68,7 @@ def diff_angles(t1, t2, fmt=0):
     return diff + whole if diff < -half else diff
 
 
-def checkLineIntersection(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY):
+def check_line_intersection(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY):
 
     # if the lines intersect, the result contains the x and y of the intersection
     # (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
@@ -148,7 +148,7 @@ def percent_along_line(start_x, start_y, finish_x, finish_y, percentage):
     return mid_x, mid_y
 
 
-def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False):
+def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False, logger=None):
 
     # find the circle (x, y, radius) for which the 2 points are tangential
     # calculate arrival angle from path
@@ -164,8 +164,8 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
     sector_angle = 0
     sector_portion = 0
     try:
-        if debug:
-            print('get_circle_from_world_points x1: {}m y1: {}m t1: {}deg x2: {}m y2: {}m'.format(
+        if debug and logger:
+            logger.debug('get_circle_from_world_points x1: {}m y1: {}m t1: {}deg x2: {}m y2: {}m'.format(
                 x1,
                 y1,
                 degrees(t1),
@@ -174,40 +174,43 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
             )
         path_angle = get_angle_between_cartesian_points(x1, y1, x2, y2)
         if path_angle is not None:
-            if debug:
-                print('get_circle_from_world_points path angle {0} degrees'.format(
+            if debug and logger:
+                logger.debug('get_circle_from_world_points path angle {:.2f} degrees'.format(
                     degrees(path_angle)))
             path_distance = get_distance_between_points(x1, y1, x2, y2)
-            if debug:
-                print('get_circle_from_world_points path distance {0}'.format(
+            if debug and logger:
+                logger.debug('get_circle_from_world_points path distance {}'.format(
                     round(path_distance, 2)))
             arrival_angle = (2 * path_angle) - t1
             arrival_angle_norm = (
-                2 * pi) + arrival_angle if arrival_angle < 0 else arrival_angle
-            if debug:
-                print('get_circle_from_world_points arrival angle {0} normalised {1} degrees'.format(
+                2 * pi) + arrival_angle if arrival_angle < 0 else arrival_angle % (2*pi)
+            if debug and logger:
+                logger.debug('get_circle_from_world_points arrival angle {:.2f} normalised {:.2f} degrees'.format(
                     degrees(arrival_angle), degrees(arrival_angle_norm)))
             x, y, r = get_circle_from_world_tangents(
                 x1, y1, t1, x2, y2, arrival_angle_norm)
             if r is not None:
-                if debug:
-                    print('get_circle_from_world_points radius: {:.3f}'.format(r))
+                if debug and logger:
+                    logger.debug('get_circle_from_world_points radius: {:.3f}'.format(r))
                 try:
                     sector_angle = acos(
                         1 - (path_distance ** 2 / (2 * r ** 2)))
                 except Exception as e:
-                    print('Error in get_circle_from_world_points sector angle formula: {0} path_distance={1} r={2}'.format(
+                    logger.warning('Error in get_circle_from_world_points sector angle formula: {} path_distance={} r={}'.format(
                         e, path_distance, r))
                 sector_portion = sector_angle / (2 * pi)
-                if debug:
-                    print('get_circle_from_world_points sector portion: {}'.format(
+                if debug and logger:
+                    logger.debug('get_circle_from_world_points sector portion: {}'.format(
                         sector_portion)
                         )
-
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno
-        print('Error in get_circle_from_world_points: ' +
-              str(e) + ' on line ' + str(err_line))
+        msg = ('Error in get_circle_from_world_points: ' + 
+            str(e) + ' on line ' + str(err_line))
+        if logger:
+            logger.debug(msg)
+        else:
+            print(msg)
     if pragmatic:
         return (
             round(x, 3) if x is not None else -1,
@@ -220,7 +223,6 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
         )
     else:
         return x, y, r, arrival_angle_norm, sector_angle, sector_portion
-
 
 def get_circle_from_world_tangents(x1, y1, t1, x2, y2, t2):
 
@@ -243,7 +245,7 @@ def get_circle_from_world_tangents(x1, y1, t1, x2, y2, t2):
         x2b = x2 + sin(t2p)
         y2b = y2 - cos(t2p)
 
-        intersection = checkLineIntersection(
+        intersection = check_line_intersection(
             x1, y1, x1b, y1b, x2, y2, x2b, y2b)
 
         # finally calculate radius from pythag
