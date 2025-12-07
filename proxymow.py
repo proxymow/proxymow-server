@@ -105,7 +105,7 @@ class MowerProxy():
 
 class ProxymowServer(object):
 
-    VERSION_STRING = "1.0.11"
+    VERSION_STRING = "1.0.12"
 
     linux = (platform.system() == 'Linux')
 
@@ -1343,9 +1343,8 @@ class ProxymowServer(object):
             logger.error('Error in pxm buffer locate snapshot: ' +
                          str(e) + ' on line ' + str(err_line))
 
-    def estimate_landing_time(self, rule, fixed_overhead=0.80):
-        # note that durations may be negative for adaptive commands
-        # employ fixed overhead? i.e. time taken to transmit the command
+    def estimate_landing_time(self, rule, fixed_overhead=0.8):
+        # employ fixed overhead? i.e. time taken to transmit the command and ramp velocity
         landing_time = time.time()
         try:
             if (rule.duration_result is not None and
@@ -1356,7 +1355,7 @@ class ProxymowServer(object):
                     dur_delay = (rule.duration_result / 1000) + fixed_overhead
                     landing_time = time.time() + dur_delay
                 else:
-                    pass  # ignoring negative short duration of adaptive command
+                    pass
                 # allow the current command landing time to reign
             else:
                 dur_delay = fixed_overhead
@@ -1870,7 +1869,7 @@ class ProxymowServer(object):
 
                                         # calculate estimated landing time
                                         landing_time = self.estimate_landing_time(
-                                            selected_rule, fixed_overhead=1.0)
+                                            selected_rule, constants.LANDING_TIME_OVERHEAD_SECS)
                                         timesheet.add('landing time estimated')
 
                                         self.log_aug_cur_cmd(
@@ -2371,7 +2370,17 @@ class ProxymowServer(object):
                     self.telem,
                     True
                 )
-                timesheet.add('build rules engine context')
+                timesheet.add('build rules engine context 1')
+                
+                # context might need self-dependencies, so easiest to just run twice
+                self.rules_engine.build_context(
+                    locate_snapshot,
+                    self.itinerary,
+                    self.config,
+                    self.telem,
+                    True
+                )
+                timesheet.add('build rules engine context 2')
 
                 # update excursion log
                 self.update_excursion_log(pose, locate_snapshot, motivate_pose)
@@ -2595,7 +2604,7 @@ class ProxymowServer(object):
                 elif name == 'skip':
                     self.log('process_instruction - Skip Itinerary Node...')
                     self.drive["state"] = 'Skipping...'
-                    self.itinerary.advance_pointer()  # .advance_pointers()
+                    self.itinerary.advance_pointer()
                 elif name == 'capture':
                     cam_settings = self.camera.settings.clone(self.config)
                     cam_settings['queue'] = 'snap'
@@ -2642,7 +2651,6 @@ class ProxymowServer(object):
                             mower_cmd, self.udp_socket, host, port, await_response=True, max_attempts=1)
                         self.log(
                             'process_instruction - Direct Drive {0}:{1} Response {2}'.format(host, port, resp))
-                        self.telemetry_updated = 0  # force immediate update
                     else:
                         self.log(
                             'unable to process direct drive instruction - No host:port')
@@ -3426,16 +3434,50 @@ class ProxymowServer(object):
                             except Exception:
                                 pass
                         elif len(coords) == 3:
-                            # sensible circle
+                            # circle
                             try:
                                 # x, y, r
                                 x_coord = coords[0] * x_scale
                                 y_coord = img_height_px - (coords[1] * y_scale)
                                 x_rad = coords[2] * x_scale
                                 y_rad = coords[2] * y_scale
-                                if max(x_rad, y_rad) < np.hypot(img_height_px, img_width_px):
-                                    top_img_draw.ellipse(
-                                        [x_coord - x_rad, y_coord - y_rad, x_coord + x_rad, y_coord + y_rad], fill=None, outline=shape_colour, width=1)
+                                
+                                # number of points proportional to circumference
+                                num_points = int(2 * np.pi * max(x_rad, y_rad))
+
+                                # generate angles
+                                theta = np.linspace(0, 2 * np.pi, num_points)
+
+                                # calculate x and y coordinates
+                                raw_x = x_coord + (x_rad * np.cos(theta))
+                                raw_y = y_coord + (y_rad * np.sin(theta))
+                                
+                                # find extremities for mandatory inclusion so polygon closure doesn't draw over surface 
+                                min_x = np.min(raw_x)
+                                max_x = np.max(raw_x)
+                                min_y = np.min(raw_y)
+                                max_y = np.max(raw_y)
+                                
+                                # assemble composite condition
+                                condition = (
+                                                (raw_x == max_x) | 
+                                                (raw_x == min_x) | 
+                                                (raw_y == min_y) | 
+                                                (raw_y == max_y) | 
+                                                ((raw_x >= 0) & (raw_x <= img_width_px) & 
+                                                 (raw_y >= 0) & (raw_y < img_height_px)
+                                                )
+                                            )
+                                # apply condition to each axis
+                                x = raw_x[condition]
+                                y = raw_y[condition]                                
+                                
+                                # zip to flat list for plotting
+                                flat_points = list(np.vstack((x, y)).reshape((-1,),order='F').astype(int))
+                                
+                                # draw polygon
+                                top_img_draw.polygon(flat_points, fill=None, outline=shape_colour, width=1)
+                                
                             except Exception:
                                 pass
                         elif len(coords) == 4:
