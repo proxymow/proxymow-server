@@ -8,7 +8,7 @@ Proxymow differs from many robotic mowers:
 * Does not rely on vulnerable boundary wires
 * Does not use GPS or Bollards
 * Does not need to be taught a route, supports plug-in mowing patterns
-* Employs very low cost technology: Raspberry Pi, NodeMCU
+* Employs very low cost technology: Raspberry Pi, NodeMCU, RPi Pico, ESP32
 
 ## Getting started
 Use Raspberry Pi Imager to write the trixie-proxymow-shrunk.img.xz file to an SD Card (min 16GB).
