@@ -1,12 +1,14 @@
 import sys
-from math import degrees, radians, pi
+from math import degrees, radians, pi, acos, sin, cos
 import time
 import logging
-import numpy
+import numpy as np
 from collections import deque
 
 from utilities import trace_rules, get_safe_functions
-from geom_lib import get_circle_from_world_points, get_angle_between_cartesian_points, get_distance_between_points
+from geom_lib import get_circle_from_world_points, \
+                        get_angle_between_cartesian_points, \
+                        get_distance_between_points
 from odometry import MovementCode
 from forms.rule import RuleScope
 import geom_lib
@@ -86,9 +88,9 @@ class RulesEngine():
         # collect together all the useful terms for our conditions and expressions
         try:
             # might need some numpy math, or geometry functions...
-            self.context['np'] = numpy
+            self.context['np'] = np
             self.context['gl'] = geom_lib
-
+            
             # some are parameters passed in
             if snapshot is not None:
                 if trace:
@@ -219,15 +221,26 @@ class RulesEngine():
                 if trace:
                     self.logger.debug(
                         'build_context using target destination for end location')
-                x2 = tgt_dest.target_x  # .x_m
+                x2 = tgt_dest.target_x
                 self.context['x2'] = x2
-                y2 = tgt_dest.target_y  # .y_m
+                y2 = tgt_dest.target_y
                 self.context['y2'] = y2
                 if tgt_dest.attitude is not None:
                     a2 = tgt_dest.attitude.name
                 else:
                     a2 = Attitude.DEFAULT
                 self.context['att2'] = a2
+                
+                # path heading
+                if x1 is not None and y1 is not None and x2 is not None and y2 is not None:
+                    if trace:
+                        self.logger.debug(
+                            'build_context using x1, y1..x2, y2 for path heading')
+                        path_heading = get_angle_between_cartesian_points(x1, y1, x2, y2)
+                else:
+                    self.logger.debug('build_context NO path heading')
+                    path_heading = 0
+                self.context['ph'] = path_heading
 
                 # some will be calculations on base data
                 # distance to target [d]
@@ -244,7 +257,10 @@ class RulesEngine():
                 if trace:
                     trace_rules(
                         'build_context tgt_dest {0} d {1} c1 {2}'.format(tgt_dest, d, c))
-
+                    
+                stray_m = geom_lib.distance_to_line(x, y, x1, y1, x2, y2)
+                self.context['st'] = stray_m
+                
                 try:
                     lad = None
                     lax = lay = -1
@@ -253,7 +269,7 @@ class RulesEngine():
                         lad = self.context['lad']
                         # find look-ahead point using look-ahead distance
                         lap = geom_lib.line_circle_intersection(
-                            x, y, x1, y1, x2, y2, min(d, lad))
+                            x, y, x1, y1, x2, y2, min(d, lad), debug=True, logger=self.logger)
                         lax, lay = lap[0], lap[1]
                 except Exception as e:
                     err_line = sys.exc_info()[-1].tb_lineno
@@ -301,11 +317,13 @@ class RulesEngine():
                 self.context['ra'] = ra
 
                 # turn circle from current to destination
+                
                 # library function calculates the angle of arrival from the start and path angles
                 if trace:
                     trace_rules('get_circle_from_world_points x: {:.3f} y: {:.3f} c: {:.0f} tgt_x: {:.3f} tgt_y: {:.3f}'.format(x, y, degrees(c), tgt_x, tgt_y))
                 centre_x, centre_y, turn_circle_radius, arrival_angle, sector_angle, sector_portion = get_circle_from_world_points(
-                    x, y, c, tgt_x, tgt_y)
+                   x, y, c, tgt_x, tgt_y, debug=trace, logger=self.logger)
+                
                 self.context['tcx'] = centre_x
                 self.context['tcy'] = centre_y
                 if trace:
@@ -315,14 +333,14 @@ class RulesEngine():
                     if trace:
                         self.logger.debug(
                             'build_context using calculated turn circle')
-                    msg_tmplt = '\n  turn circle centre_x: {0:.2f}'
-                    msg_tmplt += '\n  turn circle centre_y: {1:.2f}'
-                    msg_tmplt += '\n  turn circle radius: {2:.2f}'
-                    msg_tmplt += '\n  turn circle circumference: {3:.2f}'
-                    msg_tmplt += '\n  arrival_angle: {4:.0f}'
-                    msg_tmplt += '\n  sector_angle: {5:.0f}'
-                    msg_tmplt += '\n  sector_portion: {6:.2f}'
-                    msg_tmplt += '\n  angular distance: {7:.2f}\n'
+                    msg_tmplt = '\n turn circle centre_x: {:.2f}'
+                    msg_tmplt += '\n turn circle centre_y: {:.2f}'
+                    msg_tmplt += '\n turn circle radius: {:.2f}'
+                    msg_tmplt += '\n turn circle circumference: {:.2f}'
+                    msg_tmplt += '\n arrival_angle: {:.2f}'
+                    msg_tmplt += '\n sector_angle: {:.2f}'
+                    msg_tmplt += '\n sector_portion: {:.2f}'
+                    msg_tmplt += '\n angular distance: {:.2f}\n'
                     msg = msg_tmplt.format(
                         centre_x,
                         centre_y,
@@ -339,6 +357,7 @@ class RulesEngine():
                     self.context['f'] = f
                     g = sector_portion
                     self.context['g'] = g
+                    
                     velocity_ratio, arc_length = geom_lib.get_velocity_ratio(
                         axle_track_m,
                         turn_circle_radius,
@@ -347,10 +366,26 @@ class RulesEngine():
                         debug=trace,
                         logger=self.logger
                     )
-
                     self.context['b'] = turn_circle_radius
                     self.context['j'] = velocity_ratio
                     self.context['l'] = arc_length  # arc length
+                    
+                    # how good is the landing pose?
+                    V_path = (-sin(path_heading), cos(path_heading))
+                    V_land = (-sin(arrival_angle), cos(arrival_angle))
+                    dot_prod = np.dot(V_path, V_land)
+                    mag1 = np.hypot(*V_path)
+                    mag2 = np.hypot(*V_land)
+                    cos_theta = abs(dot_prod / (mag1 * mag2))
+                    land_delta = acos(cos_theta)
+                    self.context['ld'] = land_delta
+                        
+                    trace_rules("arrival_angle {:.2f} path heading {:.2f} land_delta {:.2f}".format(
+                        degrees(arrival_angle), 
+                        degrees(path_heading),
+                        degrees(land_delta)
+                        )
+                    )
                 else:
                     if trace:
                         self.logger.debug(
@@ -384,6 +419,9 @@ class RulesEngine():
                 self.context['j'] = 1.0
                 self.context['l'] = -1
                 self.context['lap'] = (-1, -1)
+                self.context['st'] = 0
+                self.context['ph'] = 0
+                self.context['ld'] = 0
 
             # context needs to include user-defined expressions
             hyb_terms = [
