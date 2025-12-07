@@ -1,213 +1,145 @@
 <config>
-	<blueprints>
-		<profile name="" description="">
-			<connection host="192.0.2.0" port="3306"
-				database="proxymow" user="some_db_user" password="some_db_password"
-				formable="true" />
-			<lawn width_m="3.0" length_m="3.0" border_m="0.1">
-				<!-- Cartesian Clockwise from Bottom-Left 0 1 2 3 'n' -->
-				<calib width_m="3.0" length_m="3.0" module="point"
-					updatable="true" formable="false">
-					<point index="0" x="25" y="25" />
-					<point index="1" x="25" y="75" />
-					<point index="2" x="75" y="75" />
-					<point index="3" x="75" y="25" />
-				</calib>
-				<!-- Cartesian Clockwise from Bottom-Left 0 2 4 6 'n' -->
-				<fence module="point" updatable="true" extensible="true"
-					deletable="true" expandable="true" formable="false">
-					<point index="0" x="25" y="25" />
-					<point index="2" x="25" y="75" />
-					<point index="4" x="75" y="75" />
-					<point index="6" x="75" y="25" />
-				</fence>
-			</lawn>
-			<device channel="VirtualSettings" index="0">
-				<virtualSettings display_colour="false"
-					resolution="640x480" annotate="True" hflip="false" vflip="false"
-					undistort_strength="2.0" undistort_zoom="1.1" />
-			</device>
-			<hotspot name="" formable="true" />
-			<measures>
-				<scaled_measures module="measure" updatable="true"
-					extensible="false" deletable="false">
-					<scaled name="span" lower="0.1" scale="1.0" upper="0.1"
-						maxscore="20" />
-					<scaled name="area" lower="0.05" scale="1.0" upper="0.05"
-						maxscore="20" />
-				</scaled_measures>
-				<setpoint_measures module="measure" updatable="true" extensible="false" deletable="false">
-					<setpoint name="isoscelicity" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
-					<setpoint name="solidity" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
-					<setpoint name="fitness" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
-				</setpoint_measures>
-			</measures>
-		</profile>
-		<strategy description="" name="">
-			<user_terms module="term" updatable="true" extensible="true" deletable="true" />
-			<hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
-				<hybrid name="lad" description="look ahead distance" units="metres" expression="0.5" alt_expression="None" alt_units="" />
-			</hybrid_terms>
-			<rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true" />
-		</strategy>
+    <blueprints>
+        <profile name="" description="">
+            <connection host="192.0.2.0" port="3306" database="proxymow" user="some_db_user" password="some_db_password" formable="true" />
+            <lawn width_m="3.0" length_m="3.0" border_m="0.1">
+                <!-- Cartesian Clockwise from Bottom-Left 0 1 2 3 'n' -->
+                <calib width_m="3.0" length_m="3.0" module="point" updatable="true" formable="false">
+                    <point index="0" x="25" y="25" />
+                    <point index="1" x="25" y="75" />
+                    <point index="2" x="75" y="75" />
+                    <point index="3" x="75" y="25" />
+                </calib>
+                <!-- Cartesian Clockwise from Bottom-Left 0 2 4 6 'n' -->
+                <fence module="point" updatable="true" extensible="true" deletable="true" expandable="true" formable="false">
+                    <point index="0" x="25" y="25" />
+                    <point index="2" x="25" y="75" />
+                    <point index="4" x="75" y="75" />
+                    <point index="6" x="75" y="25" />
+                </fence>
+            </lawn>
+            <device channel="VirtualSettings" index="0">
+                <virtualSettings display_colour="false" resolution="640x480" annotate="True" hflip="false" vflip="false" undistort_strength="2.0" undistort_zoom="1.1" />
+            </device>
+            <hotspot name="" formable="true" />
+            <measures>
+                <scaled_measures module="measure" updatable="true" extensible="false" deletable="false">
+                    <scaled name="span" lower="0.1" scale="1.0" upper="0.1" maxscore="20" />
+                    <scaled name="area" lower="0.05" scale="1.0" upper="0.05" maxscore="20" />
+                </scaled_measures>
+                <setpoint_measures module="measure" updatable="true" extensible="false" deletable="false">
+                    <setpoint name="isoscelicity" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
+                    <setpoint name="solidity" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
+                    <setpoint name="fitness" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
+                </setpoint_measures>
+            </measures>
+        </profile>
+        <strategy description="" name="">
+            <user_terms module="term" updatable="true" extensible="true" deletable="true" />
+            <hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
+                <hybrid name="lad" description="look ahead distance" units="metres" expression="0.5" alt_expression="None" alt_units="" />
+            </hybrid_terms>
+            <rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true" />
+        </strategy>
         <rule description="" scope="0" name="" priority="-1" stage_complete="False">
             <condition/>
             <duration/>
             <left_speed/>
             <right_speed/>
         </rule>
-   	</blueprints>
-	<profiles module="profile" updatable="true" extensible="true"
-		deletable="true">
-		<profile name="virtual" description="The virtual profile">
-			<connection host="192.0.2.0" port="3306"
-				database="proxymow" user="some_db_user" password="some_db_password"
-				formable="false" />
-			<lawn width_m="6.0" length_m="6.0" border_m="0.1">
-				<!-- Cartesian Clockwise from Bottom-Left 0 1 2 3 'n' -->
-				<calib width_m="6.0" length_m="6.0" module="point"
-					updatable="true" formable="false">
-					<point index="0" x="23.61" y="23.31" />
-					<point index="1" x="27.61" y="76.86" />
-					<point index="2" x="72.95" y="76.73" />
-					<point index="3" x="76.56" y="23.17" />
-				</calib>
-				<!-- Cartesian Clockwise from Bottom-Left 0 2 4 6 'n' -->
-				<fence module="point" updatable="true" extensible="true"
-					deletable="true" expandable="true" formable="false">
-					<point index="0" x="25" y="25" />
-					<point index="2" x="25" y="75" />
-					<point index="4" x="75" y="75" />
-					<point index="6" x="75" y="25" />
-				</fence>
-			</lawn>
-			<device channel="VirtualSettings" index="0">
-				<virtualSettings display_colour="true"
-					resolution="1280x960" awb_mode="Auto" redgain="4.0"
-					bluegain="4.0" annotate="true" hflip="false" vflip="false"
-					undistort_strength="2.0" undistort_zoom="1.1" />
-			</device>
-			<hotspot name="ProxymowAP-00001" formable="true" />
-			<measures>
-				<scaled_measures module="measure" updatable="true"
-					extensible="false" deletable="false">
-					<scaled name="span" lower="0.1" scale="1.0" upper="0.1"
-						maxscore="20" />
-					<scaled name="area" lower="0.05" scale="1.0" upper="0.05"
-						maxscore="20" />
-				</scaled_measures>
-				<setpoint_measures module="measure"
-					updatable="true" extensible="false" deletable="false">
-					<setpoint name="isoscelicity" lower="0.35" setpoint="1.0"
-						upper="0.0" maxscore="20" />
-					<setpoint name="solidity" lower="0.35" setpoint="1.0"
-						upper="0.0" maxscore="20" />
-					<setpoint name="fitness" lower="0.35" setpoint="1.0"
-						upper="0.0" maxscore="20" />
-				</setpoint_measures>
-			</measures>
-		</profile>
-	</profiles>
-	<mowers module="mower" updatable="true" extensible="true"
-		deletable="true">
-		<mower name="virtual">
-			<identity ip="127.0.0.1" port="5005" type="virtual" />
-			<dimensions target_width_m="0.148" target_length_m="0.23"
-				target_radius_m="0.025" target_offset_pc="50" cutter1_dia_m="0.15"
-				cutter2_dia_m="0.15" body_width_m="0.3" body_length_m="0.5" />
-			<motion axle_track_m="0.2" wheel_dia_m="0.12"
-				motor_full_speed_rpm="30" set_rotation_speed_percent="60"
-				set_drive_speed_percent="70" />
-			<sensors name_list="Main[%], Loaded[%]"
-				factor_list="0.09775, 0.09775" />
-		</mower>
-	</mowers>
-	<navigation_strategies module="strategy"
-		updatable="true" extensible="true" deletable="true">
-		<system_terms>
-			<term description="current x coordinate" name="x" units="metres"
-				user_defined="False" scope="System" />
-			<term description="current y coordinate" name="y" units="metres"
-				user_defined="False" scope="System" />
-			<term description="start x coordinate" name="x1" units="metres"
-				user_defined="False" scope="System" />
-			<term description="start y coordinate" name="y1" units="metres"
-				user_defined="False" scope="System" />
-			<term description="finish x coordinate" name="x2" units="metres"
-				user_defined="False" scope="System" />
-			<term description="finish y coordinate" name="y2" units="metres"
-				user_defined="False" scope="System" />
-			<term description="finish attitude" name="att2" units=""
-				user_defined="False" scope="System" />
-			<term description="snapshot index number" name="ssid"
-				units="units" user_defined="False" scope="System" />
-			<term description="locate time" name="lt" units="python seconds"
-				user_defined="False" scope="System" />
-			<term name="a" description="absolute shortest delta"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term name="ra"
-				description="reverse absolute shortest delta angle" units="radians"
-				alt_units="degrees" user_defined="False" scope="System" />
-			<term description="turn circle radius" name="b" units="metres"
-				user_defined="False" scope="System" />
-            <term description="turn circle centre x" name="tcx" units="metres"
-                user_defined="False" scope="System"/>
-            <term description="turn circle centre y" name="tcy" units="metres"
-                user_defined="False" scope="System"/>
-			<term description="current compass angle [0-2pi]" name="c"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term name="rc" description="reverse compass angle [0-2pi]"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term description="target compass angle [0-2pi]" name="c2"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term description="distance to target" name="d" units="metres"
-				user_defined="False" scope="System" />
-			<term description="distance from start" name="k" units="metres"
-				user_defined="False" scope="System" />
-			<!-- e is reserved for math.e -->
-			<term description="turn sector angle" name="f" units="radians"
-				user_defined="False" scope="System" alt_units="degrees"
-				alt_expression="degrees" />
-			<term description="turn sector portion" name="g" units=""
-				user_defined="False" scope="System" />
-			<term description="route point index" name="i" units=""
-				user_defined="False" scope="System" />
-			<term description="velocity ratio" name="j" units=""
-				user_defined="False" scope="System" />
-			<term description="arc length" name="l" units="metres"
-				user_defined="False" scope="System" />
-			<!-- o -->
-			<term description="previous command" name="m" units=""
-				user_defined="False" scope="System" />
-			<term description="previous movement code" name="p" units=""
-				user_defined="False" scope="System" />
-			<term description="set rotation speed" name="n" units="percent"
-				user_defined="False" scope="System" />
-			<term description="set driving speed" name="s" units="percent"
-				user_defined="False" scope="System" />
-			<term description="delta angle [+/- 0-2pi]" name="t"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term name="rt" description="reverse delta angle"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term description="shortest delta angle [+/- 0-pi]" name="u"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term name="ru" description="reverse shortest delta angle"
-				units="radians" alt_units="degrees" user_defined="False"
-				scope="System" />
-			<term description="full speed velocity" name="v"
-				units="metres/sec" user_defined="False" scope="System" />
-			<term description="axle track" name="w" units="metres"
-				user_defined="False" scope="System" />
-			<term description="in flight" name="z" units=""
-				user_defined="False" scope="System" />
-		</system_terms>
+    </blueprints>
+    <profiles module="profile" updatable="true" extensible="true" deletable="true">
+        <profile name="virtual" description="The virtual profile">
+            <connection host="192.0.2.0" port="3306" database="proxymow" user="some_db_user" password="some_db_password" formable="false" />
+            <lawn width_m="6.0" length_m="6.0" border_m="0.1">
+                <!-- Cartesian Clockwise from Bottom-Left 0 1 2 3 'n' -->
+                <calib width_m="6.0" length_m="6.0" module="point" updatable="true" formable="false">
+                    <point index="0" x="23.61" y="23.31" />
+                    <point index="1" x="27.61" y="76.86" />
+                    <point index="2" x="72.95" y="76.73" />
+                    <point index="3" x="76.56" y="23.17" />
+                </calib>
+                <!-- Cartesian Clockwise from Bottom-Left 0 2 4 6 'n' -->
+                <fence module="point" updatable="true" extensible="true" deletable="true" expandable="true" formable="false">
+                    <point index="0" x="25" y="25" />
+                    <point index="2" x="25" y="75" />
+                    <point index="4" x="75" y="75" />
+                    <point index="6" x="75" y="25" />
+                </fence>
+            </lawn>
+            <device channel="VirtualSettings" index="0">
+                <virtualSettings display_colour="true" resolution="1280x960" awb_mode="Auto" redgain="4.0" bluegain="4.0" annotate="true" hflip="false" vflip="false" undistort_strength="2.0" undistort_zoom="1.1" />
+            </device>
+            <hotspot name="ProxymowAP-00001" formable="true" />
+            <measures>
+                <scaled_measures module="measure" updatable="true" extensible="false" deletable="false">
+                    <scaled name="span" lower="0.1" scale="1.0" upper="0.1" maxscore="20" />
+                    <scaled name="area" lower="0.05" scale="1.0" upper="0.05" maxscore="20" />
+                </scaled_measures>
+                <setpoint_measures module="measure" updatable="true" extensible="false" deletable="false">
+                    <setpoint name="isoscelicity" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
+                    <setpoint name="solidity" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
+                    <setpoint name="fitness" lower="0.35" setpoint="1.0" upper="0.0" maxscore="20" />
+                </setpoint_measures>
+            </measures>
+        </profile>
+    </profiles>
+    <mowers module="mower" updatable="true" extensible="true" deletable="true">
+        <mower name="virtual">
+            <identity ip="127.0.0.1" port="5005" type="virtual" />
+            <dimensions target_width_m="0.148" target_length_m="0.23" target_radius_m="0.025" target_offset_pc="50" cutter1_dia_m="0.15" cutter2_dia_m="0.15" body_width_m="0.3" body_length_m="0.5" />
+            <motion axle_track_m="0.2" wheel_dia_m="0.12" motor_full_speed_rpm="30" set_rotation_speed_percent="60" set_drive_speed_percent="70" />
+            <sensors name_list="Main[%], Loaded[%]" factor_list="0.09775, 0.09775" />
+        </mower>
+    </mowers>
+    <navigation_strategies module="strategy" updatable="true" extensible="true" deletable="true">
+        <system_terms>
+            <term description="current x coordinate" name="x" units="metres" user_defined="False" scope="System" />
+            <term description="current y coordinate" name="y" units="metres" user_defined="False" scope="System" />
+            <term description="start x coordinate" name="x1" units="metres" user_defined="False" scope="System" />
+            <term description="start y coordinate" name="y1" units="metres" user_defined="False" scope="System" />
+            <term description="finish x coordinate" name="x2" units="metres" user_defined="False" scope="System" />
+            <term description="finish y coordinate" name="y2" units="metres" user_defined="False" scope="System" />
+            <term description="finish attitude" name="att2" units="" user_defined="False" scope="System" />
+            <term description="snapshot index number" name="ssid" units="units" user_defined="False" scope="System" />
+            <term description="locate time" name="lt" units="python seconds" user_defined="False" scope="System" />
+            <term description="absolute shortest delta" name="a" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="reverse absolute shortest delta angle" name="ra" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="turn circle radius" name="b" units="metres" user_defined="False" scope="System" />
+            <term description="turn circle centre x" name="tcx" units="metres" user_defined="False" scope="System" />
+            <term description="turn circle centre y" name="tcy" units="metres" user_defined="False" scope="System" />
+            <term description="current compass angle [0-2pi]" name="c" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="reverse compass angle [0-2pi]" name="rc" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="target compass angle [0-2pi]" name="c2" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="distance to target" name="d" units="metres" user_defined="False" scope="System" />
+            <term description="distance from start" name="k" units="metres" user_defined="False" scope="System" />
+            <!-- e is reserved for math.e -->
+            <term description="turn sector angle" name="f" units="radians" user_defined="False" scope="System" alt_units="degrees" alt_expression="degrees" />
+            <term description="turn sector portion" name="g" units="" user_defined="False" scope="System" />
+            <term description="route point index" name="i" units="" user_defined="False" scope="System" />
+            <term description="velocity ratio" name="j" units="" user_defined="False" scope="System" />
+            <term description="arc length" name="l" units="metres" user_defined="False" scope="System" />
+            <term description="look-ahead point" name="lap" units="metres" user_defined="False" scope="System" />
+            <!-- o -->
+            <term description="previous command" name="m" units="" user_defined="False" scope="System" />
+            <term description="previous movement code" name="p" units="" user_defined="False" scope="System" />
+            <term description="robot attitude" name="rat" units="" user_defined="False" scope="System" />
+            <term description="set rotation speed" name="n" units="percent" user_defined="False" scope="System" />
+            <term description="set driving speed" name="s" units="percent" user_defined="False" scope="System" />
+            <term description="cutter 1 state" name="cut1" units="" user_defined="False" scope="System" />
+            <term description="cutter 2 state" name="cut2" units="" user_defined="False" scope="System" />
+            <term description="scaled sensor list" name="sens" units="" user_defined="False" scope="System" />
+            <term description="delta angle [+/- 0-2pi]" name="t" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="reverse delta angle" name="rt" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="shortest delta angle [+/- 0-pi]" name="u" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="reverse shortest delta angle" name="ru" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="full speed velocity" name="v" units="metres/sec" user_defined="False" scope="System" />
+            <term description="axle track" name="w" units="metres" user_defined="False" scope="System" />
+            <term description="in flight" name="z" units="" user_defined="False" scope="System" />
+            <term description="stray" name="st" units="metres" user_defined="False" scope="System" />
+            <term description="path heading" name="ph" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+            <term description="turn circle landing delta" name="ld" units="radians" alt_units="degrees" user_defined="False" scope="System" />
+        </system_terms>
         <strategy name="Rotate and Veer" description="Rotate towards destination, then veer">
             <user_terms module="term" updatable="true" extensible="true" deletable="true">
                 <term name="hs" description="home sector" expression="radians(12)" units="radians" alt_value="0.0524" alt_units="degrees" alt_expression="12"/>
@@ -303,21 +235,20 @@
         </strategy>
         <strategy name="Push Me Pull You Saw" description="saw pong">
             <user_terms module="term" updatable="true" extensible="true" deletable="true">
-                <term name="q" description="home sector" expression="radians(12)" units="radians" alt_value="0.0524" alt_units="degrees" alt_expression="12"/>
-                <term name="r" description="home radius..." units="metres" expression="0.1" alt_expression="None" alt_units=""/>
+                <term name="hs" description="home sector" expression="radians(12)" units="radians" alt_units="degrees" alt_expression="12"/>
+                <term name="hr" description="home radius..." units="metres" expression="0.15" alt_expression="None" alt_units="" colour="None"/>
                 <term name="rs" description="static radius" units="metres" expression="1.0" alt_expression="None" alt_units=""/>
                 <term name="via" description="path annotation" units="" expression="(x1,y1,x2,y2)" alt_expression="None" alt_units="" colour="blue"/>
-                <term name="tgt" description="home target annotation" units="" expression="(x2,y2,r)" alt_expression="None" alt_units="" colour="yellow"/>
-                <term name="rat-ann" description="robot attitude" units="" expression="rat" alt_expression="None" alt_units="" colour="maroon"/>
-                <term name="static radius ann" description="static radius annotation" expression="(x2, y2, rs)" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="olive"/><term name="tc annot" description="turn circle" expression="tcx, tcy, b" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="silver"/><term name="lap annot" description="look ahead point" expression="lap" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="aqua"/><term name="converge" description="points same side of path" expression="gl.same_side_of_line(x1, y1, x2, y2, x, y, tcx, tcy)" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="navy"/>
-                <term name="tc annot" description="turn circle" expression="tcx, tcy, b" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="silver"/>
+                <term name="tgt" description="home target annotation" units="" expression="(x2,y2,hr)" alt_expression="None" alt_units="" colour="yellow"/>
+                <term name="tc annot" description="turn circle" expression="tcx, tcy, b" result="None" units="" alt_expression="" alt_units="" colour="silver"/>
+                <term name="lap annot" description="look ahead point" expression="lap" result="None" units="" alt_expression="" alt_units="" colour="aqua"/>
             </user_terms>
             <hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
                 <hybrid name="lad" description="look ahead distance" units="metres" expression="0.5" alt_expression="None" alt_units="" colour="None"/>
             </hybrid_terms>
             <rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true">
                 <rule name="Stage Terminator" description="Stage Terminator" priority="0" scope="0" stage_complete="True">
-                    <condition><![CDATA[0 <= d <= r]]></condition>
+                    <condition><![CDATA[0 <= d <= hr]]></condition>
                     <duration><![CDATA[]]></duration>
                     <left_speed><![CDATA[]]></left_speed>
                     <right_speed><![CDATA[]]></right_speed>
@@ -341,21 +272,21 @@
                     <right_speed><![CDATA[]]></right_speed>
                 </rule>
                 <rule name="Static Rotate" description="Rotate quickest way" priority="4" scope="0" stage_complete="False">
-                    <condition><![CDATA[d > 0 and min(a, ra) > q]]></condition>
+                    <condition><![CDATA[d > 0 and min(a, ra) > hs]]></condition>
                     <left_speed><![CDATA[((((a < ra) ^ (u >= 0))) * 2 - 1) * n]]></left_speed>
                     <right_speed><![CDATA[((((a < ra) ^ (u >= 0))) * 2 - 1) * -n]]></right_speed>
-                    <duration><![CDATA[n and (1.3 * min(a, ra) * w * 50000 / (v * n)) or 1]]></duration>
+                    <duration><![CDATA[1.1 * min(a, ra) * w * 50000 / (v * n)]]></duration>
                 </rule>
                 <rule name="Static Veer" description="Veer near target" priority="5" scope="0" stage_complete="False">
-                    <condition><![CDATA[d > 0 and min(a, ra) <= q]]></condition>
-                    <left_speed><![CDATA[((-1) ** (a >= q)) * s * np.mean([j ** ((-1) ** (u < 0)), 1])]]></left_speed>
-                    <right_speed><![CDATA[((-1) ** (a >= q)) * s * np.mean([j ** ((-1) ** (u >= 0)), 1])]]></right_speed>
+                    <condition><![CDATA[d > 0 and min(a, ra) <= hs]]></condition>
+                    <left_speed><![CDATA[((-1) ** (a >= hs)) * s * np.mean([j ** ((-1) ** (u < 0)), 1])]]></left_speed>
+                    <right_speed><![CDATA[((-1) ** (a >= hs)) * s * np.mean([j ** ((-1) ** (u >= 0)), 1])]]></right_speed>
                     <duration><![CDATA[s and l * 100000 * 1.0 / (v * s) or 1]]></duration>
                 </rule>
                 <rule name="Dynamic Veer" description="Veer to Destination" priority="6" scope="1" stage_complete="False">
-                    <condition><![CDATA[d > rs and k > r and min(a, ra) <= q]]></condition>
-                    <left_speed><![CDATA[((-1) ** (a >= q)) * s * np.mean([j ** ((-1) ** (u < 0)), 1])]]></left_speed>
-                    <right_speed><![CDATA[((-1) ** (a >= q)) * s * np.mean([j ** ((-1) ** (u >= 0)), 1])]]></right_speed>
+                    <condition><![CDATA[d > rs and k > hr and min(a, ra) <= hs]]></condition>
+                    <left_speed><![CDATA[((-1) ** (a >= hs)) * s * np.mean([j ** ((-1) ** (u < 0)), 1])]]></left_speed>
+                    <right_speed><![CDATA[((-1) ** (a >= hs)) * s * np.mean([j ** ((-1) ** (u >= 0)), 1])]]></right_speed>
                     <duration><![CDATA[s and l * 100000 * 1.0 / (v * s) or 1]]></duration>
                 </rule>
             </rules>
@@ -422,7 +353,8 @@
                 <term name="cut1_ann" description="cutter 1 annotation" expression="cut1" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="fuchsia"/>
                 <term name="cut2_ann" description="cutter 2 annotation" expression="cut2" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="purple"/>
                 <term name="attitude" description="cutter attitude" expression="att2" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="navy"/>
-                <term name="dest-annotation" description="yellow target circle" expression="x2, y2, hr" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="yellow" cur_strategy="None"/></user_terms>
+                <term name="dest-annotation" description="yellow target circle" expression="x2, y2, hr" result="None" units="" alt_expression="" alt_result="None" alt_units="" colour="yellow" cur_strategy="None"/>
+            </user_terms>
             <hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
                 <hybrid name="lad" description="look ahead distance" units="metres" expression="0.0" alt_expression="None" alt_units="" colour="None"/>
             </hybrid_terms>
@@ -501,11 +433,8 @@
                 </rule>
             </rules>
         </strategy>
-   	</navigation_strategies>
-	<pairings module="pairing" updatable="true" extensible="true"
-		deletable="true">
-		<pairing name="Virtual/Virtual"
-			description="Virtual mower on virtual lawn" profile="virtual"
-			mower="virtual" strategy="Rotate and Veer" pattern="Fence" />
-	</pairings>
+    </navigation_strategies>
+    <pairings module="pairing" updatable="true" extensible="true" deletable="true">
+        <pairing name="Virtual/Virtual" description="Virtual mower on virtual lawn" profile="virtual" mower="virtual" strategy="Rotate and Veer" pattern="Fence" />
+    </pairings>
 </config>
