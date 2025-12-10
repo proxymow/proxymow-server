@@ -428,7 +428,7 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
     try:
         incoming = [x, y, x1, y1, x2, y2]
         msg = 'line circle intersection incoming: {}'.format(
-            [None if elem is None else round(elem, 3) for elem in incoming])
+            [None if elem is None else round(elem, 3) for elem in incoming + [look_ahead_distance]])
         if debug:
             if logger:
                 logger.debug(msg)
@@ -471,7 +471,7 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
             # pragmatic solution is closest point on line if no solution exists
             if pragmatic:
                 sol = closest_point_on_line(x1, y1, x2, y2, x, y)
-                msg = 'line circle intersection fallback solution ({:.2f}, {:.2f})'.format(
+                msg = 'line circle intersection fallback solution ({:.3f}, {:.3f})'.format(
                     *sol)
             else:
                 sol = None
@@ -482,7 +482,7 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
                 else:
                     print(msg)
 
-            # if discriminant is >= 0, there exist solutions
+            # if discriminant is >= 0, there exists solutions
             if discriminant >= 0:
 
                 # calculate the solutions
@@ -496,7 +496,7 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
                 # add currentX and currentY back to the solutions, offset the system back to its original position
                 sol1 = [sol_x1 + x, sol_y1 + y]
                 sol2 = [sol_x2 + x, sol_y2 + y]
-                msg = 'line circle intersection solution 1 ({:.2f}, {:.2f}) solution 2 ({:.2f}, {:.2f})'.format(
+                msg = 'line circle intersection solution 1 ({:.3f}, {:.3f}) solution 2 ({:.3f}, {:.3f})'.format(
                     *sol1, *sol2)
                 if debug:
                     if logger:
@@ -508,18 +508,23 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
                 sol1_tgt_dist = np.hypot(x2 - sol1[0], y2 - sol1[1])
                 sol2_tgt_dist = np.hypot(x2 - sol2[0], y2 - sol2[1])
                 if (sol1_tgt_dist < sol2_tgt_dist):
-                    msg = 'line circle intersection solution 1 ({:.2f}, {:.2f}) is closest to ({:.2f}, {:.2f})'.format(
+                    msg = 'line circle intersection solution 1 ({:.3f}, {:.3f}) is closest to ({:.3f}, {:.3f})'.format(
                         *sol1, x2, y2)
                     sol = sol1
                 else:
-                    msg = 'line circle intersection solution 2 ({:.2f}, {:.2f}) is closest to ({:.2f}, {:.2f})'.format(
+                    msg = 'line circle intersection solution 2 ({:.3f}, {:.3f}) is closest to ({:.3f}, {:.3f})'.format(
                         *sol2, x2, y2)
                     sol = sol2
-                if debug:
-                    if logger:
-                        logger.debug(msg)
-                    else:
-                        print(msg)
+            else:
+                # no solution
+                msg = 'line circle intersection no solutions'
+                
+            if debug:
+                if logger:
+                    logger.debug(msg)
+                else:
+                    print(msg)
+                
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno
         msg = 'Error processing line circle intersection: ' + \
