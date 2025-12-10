@@ -63,6 +63,16 @@
     text-anchor: middle;
     dominant-baseline: central;
 }
+.route-stat-text {
+    stroke: blue;
+    fill: blue;
+    font-size: 400px; /* not real pixels - hd percentage values (0-10000) */
+}
+.route-msg-text {
+    stroke: red;
+    fill: red;
+    font-size: 200px; /* not real pixels - hd percentage values (0-10000) */
+}
 .pt-selected + .selectable-point-text {
 	stroke: black;
 	fill: black;
