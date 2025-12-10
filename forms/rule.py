@@ -387,11 +387,6 @@ class Rule(Morphable):
                         # 2WR => 2WR
                         right_speed_steps = np.linspace(self._right_speed_result, copysign(
                             100, self._right_speed_result), num=num_steps, endpoint=endpts, dtype=int)
-                        # 2WR => 1WR - aimed at increasing rotational torque
-                        # this tactic is suspected to cause instability near target!
-                        # if we need it we are going to have to append it as a last resort
-                        # right_speed_steps = np.linspace(self._right_speed_result, 0, num=num_steps, endpoint=endpts, dtype=int)
-
                         max_speed_ratio = abs(
                             max(self._left_speed_result, self._right_speed_result) / 100)
                         start_dur = self._duration_result * max_speed_ratio
