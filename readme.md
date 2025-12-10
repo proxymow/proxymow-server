@@ -11,7 +11,7 @@ Proxymow differs from many robotic mowers:
 * Employs very low cost technology: Raspberry Pi, NodeMCU, RPi Pico, ESP32
 
 ## Getting started
-Use Raspberry Pi Imager to write the trixie-proxymow-shrunk.img.xz file to an SD Card (min 16GB).
+Use Raspberry Pi Imager to write the shrunk.img.xz file to an SD Card.
 The image file is an asset bundled with the release on GitHub. 
 The login details are pi/raspberry which you should change, and SSH is enabled.
 or
