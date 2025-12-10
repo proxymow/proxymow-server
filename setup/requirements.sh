@@ -23,6 +23,7 @@ sudo apt -y -q install libtiff5-dev
 sudo apt -y -q install libxml2-dev libxslt-dev
 sudo apt -y -q install python3-lxml
 sudo apt -y -q install libgeos-dev
+sudo apt -y -q install python3-skimage
 # option for windows web-cam
 # sudo apt -y -q install python3-opencv
 
