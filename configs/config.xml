@@ -241,10 +241,12 @@
                 <term name="via" description="path annotation" units="" expression="(x1,y1,x2,y2)" alt_expression="None" alt_units="" colour="blue"/>
                 <term name="tgt" description="home target annotation" units="" expression="(x2,y2,hr)" alt_expression="None" alt_units="" colour="yellow"/>
                 <term name="tc annot" description="turn circle" expression="tcx, tcy, b" result="None" units="" alt_expression="" alt_units="" colour="silver"/>
+                <term name="look-ahead" description="look ahead distance" expression="lad" result="None" units="m" alt_expression="" alt_units="" colour="maroon"/>
                 <term name="lap annot" description="look ahead point" expression="lap" result="None" units="" alt_expression="" alt_units="" colour="aqua"/>
             </user_terms>
             <hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
-                <hybrid name="lad" description="look ahead distance" units="metres" expression="0.5" alt_expression="None" alt_units="" colour="None"/>
+                <!-- tweak the expression values to invoke a merging veer -->
+                <hybrid name="lad" description="look ahead distance" units="metres" expression="0.275 if abs(st) &gt; 0.1 else 0.5" alt_expression="None" alt_units="" colour="None"/>
             </hybrid_terms>
             <rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true">
                 <rule name="Stage Terminator" description="Stage Terminator" priority="0" scope="0" stage_complete="True">
