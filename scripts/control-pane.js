@@ -522,7 +522,7 @@ class ControlPane {
     enrolHotSpot() {
         if (confirm('Are you sure you want to enroll exclusively in this hotspot?. Make sure the hotspot is available as this enrolment cannot be undone without restarting mower!')) {
             sendData('PUT', 'api', 'enrol-hotspot', 0, true, function(resp) {
-                if (resp !== 'ACK') {
+                if (!resp.startsWith('ACK')) {
                     alert('Problem enrolling in Hotspot: ' + resp);
                 }    
             });
