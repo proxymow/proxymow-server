@@ -20,7 +20,7 @@ class RulesEngine():
     Rules Engine to execute navigation strategies
     '''
 
-    def __init__(self, name, rules, terms, udp_socket, data_mapper):
+    def __init__(self, name, rules, terms, data_mapper):
         '''
         Constructor
         '''
@@ -39,7 +39,6 @@ class RulesEngine():
 
         self.stage_started_time = -1
         self.route_started_time = -1
-        self.udp_socket = udp_socket
         self.data_mapper = data_mapper
         self.logger = logging.getLogger('navigation')
         self.lclogger = logging.getLogger('last-cmds')
