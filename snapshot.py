@@ -2,7 +2,7 @@ import sys
 import time
 from itertools import count
 from enum import Enum
-from math import degrees, sin, cos, pi
+from math import degrees
 
 from poses import Pose, PoseOrigination
 import constants
@@ -95,6 +95,7 @@ class Snapshot():
 
         try:
             if p_start is not None and p_finish is not None:
+                # linear displacement is unsigned so only used to filter
                 linear_displacement, angular_displacement = p_finish - p_start
                 if (
                     linear_displacement > constants.FROZEN_DISTANCE_THRESHOLD_METRES or
@@ -110,23 +111,21 @@ class Snapshot():
                                 degrees(angular_displacement),
                                 time_displacement)
                         )
-                    x_displacement = linear_displacement * \
-                        sin((2 * pi) - p_finish.arena.t_rad)  # ccw
-                    y_displacement = linear_displacement * \
-                        cos((2 * pi) - p_finish.arena.t_rad)
+                    x_displacement = p_finish.arena.c_x_m - p_start.arena.c_x_m
+                    y_displacement = p_finish.arena.c_y_m - p_start.arena.c_y_m
                     if self._logger:
                         self._logger.debug(
                             'Snapshot Constructor - calculating extrapolation displacement ({0:.2f}, {1:.2f})'.format(x_displacement, y_displacement))
-                    p3_cxm = p_finish.arena.c_x_m + \
-                        (x_displacement * time_displacement)
-                    p3_cym = p_finish.arena.c_y_m + \
-                        (y_displacement * time_displacement)
+                    p3_cxm = p_finish.arena.c_x_m + x_displacement
+                    p3_cym = p_finish.arena.c_y_m + y_displacement
                     if self._logger:
                         self._logger.debug(
                             'Snapshot Constructor - calculating extrapolation landing ({0:.2f}, {1:.2f})'.format(p3_cxm, p3_cym))
                     self._extrapolated_pose = Pose(
                         p3_cxm, p3_cym, p_finish.arena.t_rad)
                     self._extrapolated_pose.origination = PoseOrigination.PREDICTED
+                    # project ahead
+                    self._extrapolated_pose.t_zero = t2 + time_displacement
                     if self._logger:
                         self._logger.debug('Snapshot Constructor - Posting Extrapolation {0}'.format(
                             self._extrapolated_pose.as_concise_str()))
