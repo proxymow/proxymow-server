@@ -27,11 +27,11 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
 
         construct sequence of parallel opposing paths
 
-        6            5
-                     |
-        3 ----       4
-        |
-        2  ----      1
+        6               5
+                       /
+        3    ----    4
+          \
+            2   ----    1
     '''
 
     # check start corner
