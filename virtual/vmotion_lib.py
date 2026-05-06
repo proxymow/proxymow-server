@@ -569,8 +569,8 @@ def cutter(addr_in, mode):
     return 3
 
 def get_pose():
-    # assemble pose string
-    return '{0},{1},{2}'.format(mower_xm, mower_ym, degrees(mower_t_rad))
+    # assemble pose json
+    return '[{0},{1},{2}]'.format(mower_xm, mower_ym, degrees(mower_t_rad))
 
 def set_pose(xm_in, ym_in, thetadeg_in, axle_track_m_in=None, tyre_velocity_mps_in=None):
     global mower_xm, mower_ym, mower_t_rad, axle_track_m, tyre_velocity_mps
