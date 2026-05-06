@@ -63,14 +63,14 @@ def main(work_folder_path):
     init()
 
     # initialise socket
-    HOST = '0.0.0.0'  # Standard loopback interface address (localhost)
+    IP_ADDR = '0.0.0.0'  # Standard loopback interface address (localhost)
     PORT = 5005        # Port to listen on (non-privileged ports are > 1023)
     ACK = 'ACK'
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setblocking(True)
-    s.bind((HOST, PORT))
-    log('listening on UDP Host {0}:{1}'.format(HOST, PORT))
+    s.bind((IP_ADDR, PORT))
+    log('listening on UDP Host {0}:{1}'.format(IP_ADDR, PORT))
     comms_went_offline = -1
     keep_going = True
     while keep_going:
