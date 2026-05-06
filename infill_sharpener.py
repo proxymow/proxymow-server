@@ -130,7 +130,12 @@ class Projection():
                 len(self.c_ch),
                 len(vertices)
             )
-            morph_props_clusters = morph_props['clusters']
+            if 'clusters' in morph_props:
+                morph_props_clusters = morph_props['clusters']
+            else:
+                if debug and logger:
+                    logger.warning('no clusters dict in morph_props')
+                morph_props_clusters = {}
             cluster_densities = {int(k): round(float(1000 * sum(areas) / len(areas)), 3)
                                  for (k, (_, areas)) in morph_props_clusters.items()}
             self.cluster_info = pprint.pformat(cluster_densities)
@@ -175,26 +180,30 @@ class Projection():
             vertex_angles = np.rint(vertex_angles_full_deg)  # 0..360 ccw
             if debug and logger:
                 logger.debug('vertex_angles: {0}'.format(vertex_angles))
-            cluster_area_sums = [sum(a[1])
-                                 for a in morph_props_clusters.values()]
-            if debug and logger:
-                logger.debug(
-                    'cluster_area_sums: {0}'.format(cluster_area_sums))
-            least_infilled_cluster_index = np.argmin(cluster_area_sums)
-            least_infilled_cluster_key = list(morph_props_clusters.keys())[
-                least_infilled_cluster_index]
-            if debug and logger:
-                logger.debug('least_infilled_cluster_index: {0}'.format(
-                    least_infilled_cluster_index))
-                logger.debug('least_infilled_cluster_key: {0}'.format(
-                    least_infilled_cluster_key))
-
-            angular_distance_from_least_infilled_to_vertex = abs(
-                vertex_angles - least_infilled_cluster_key)
-            if debug and logger:
-                logger.debug('angular_distance_from_least_infilled_to_vertex: {0}'.format(
-                    np.rint(angular_distance_from_least_infilled_to_vertex)))
-
+            try:
+                cluster_area_sums = [sum(a[1])
+                                     for a in morph_props_clusters.values()]
+                if debug and logger:
+                    logger.debug(
+                        'cluster_area_sums: {0}'.format(cluster_area_sums))
+                least_infilled_cluster_index = np.argmin(cluster_area_sums)
+                least_infilled_cluster_key = list(morph_props_clusters.keys())[
+                    least_infilled_cluster_index]
+                if debug and logger:
+                    logger.debug('least_infilled_cluster_index: {0}'.format(
+                        least_infilled_cluster_index))
+                    logger.debug('least_infilled_cluster_key: {0}'.format(
+                        least_infilled_cluster_key))
+    
+                angular_distance_from_least_infilled_to_vertex = abs(
+                    vertex_angles - least_infilled_cluster_key)
+                if debug and logger:
+                    logger.debug('angular_distance_from_least_infilled_to_vertex: {0}'.format(
+                        np.rint(angular_distance_from_least_infilled_to_vertex)))
+            except:
+                if debug and logger:
+                    logger.warning('unable to inspect - no clusters')
+                
             # identified vertices
             self.v1 = vertices[tip_index]
             self.v2 = vertices[v2_index]
