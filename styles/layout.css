@@ -42,6 +42,7 @@ header img {
 	display: grid;
     grid-auto-flow: column;
     grid-column-gap: 24px;
+    white-space: nowrap;
 }
 #hdr-nav-section {
     margin-right: 6px;
@@ -60,7 +61,7 @@ header img {
     flex-direction: column;
 }
 .content-container {
-    height: 90vh;
+    height: 88vh;
     background: var(--main-bg-color);
 }
 main {
