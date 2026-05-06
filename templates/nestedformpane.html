@@ -4,7 +4,7 @@
     {% for var_cls, tools in fieldset.items() %}
         {% set var_name, cls_name = var_cls.split("|") %}
  	    <fieldset data-class="{{cls_name}}" data-var="{{var_name}}">
-		    <legend>{{cls_name}}</legend>
+		    <legend>{{cls_name | replace("_"," ")}}</legend>
 		    {% for t in tools -%}
 		        {% set curval = t.cur_val %}
                 {% if nfpctr.append(1) %}{% endif %}
