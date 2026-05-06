@@ -6,6 +6,7 @@ from skimage.measure import find_contours
 import constants
 from utilities import get_mem_stats
 
+
 class Viewport():
     '''
         represents a resolution-independent window into a larger image array
@@ -279,7 +280,7 @@ class Viewport():
             if logger is not None:
                 logger.info(
                     'About to Find Contours - {} {}'.format(
-                        array.shape,
+                        '(0, 0)' if array is None else array.shape,
                         get_mem_stats()
                     )
                 )
@@ -289,7 +290,7 @@ class Viewport():
                 # so might as well pre-calculate for insight
                 # masking guarantees some black, so minimum will always be zero and range == max 
                 max_intensity = np.max(array).astype(float)
-                intensity_range = max_intensity  #  - min_intensity
+                intensity_range = max_intensity
                 threshold = max_intensity / 2
                 white_pixel_count = np.count_nonzero([array > threshold])
                 tonal_ratio = white_pixel_count / array.size
@@ -429,7 +430,7 @@ class Viewport():
             finishes = np.roll(sens_starts, -1, axis=0)
             sides = np.linalg.norm(finishes - sens_starts, axis=1)
             result = str(self.index) + ' ' + \
-                str([(round(c[1], 2), round(c[0], 2))
+                str([(round(float(c[1]), 2), round(float(c[0]), 2))
                     for c in self.corners]) + '\n'
             fmt_str = '[{0:.0f}%, {1:.0f}%]..[{6:.0f}%, {7:.0f}%]\n[{2:.0f}%, {3:.0f}%]..[{4:.0f}%, {5:.0f}%]\n'
             fmt_str += ' +\t{11:^3.0f}%\t +\n'
@@ -439,7 +440,7 @@ class Viewport():
                                      (np.hstack([sens_starts.flatten(), sides])))
             result += re.sub('(\\d+),', r'\1%,', str(self.slicer_info)
                              ) + ' [start, stop(excl), step]'
-            result += ' using {:.3f}Mb'.format(sys.getsizeof(self)/1e6)
+            result += ' using {:.3f}Mb'.format(sys.getsizeof(self) / 1e6)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             print('Error in viewport __repr__: ' + 
