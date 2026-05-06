@@ -38,6 +38,7 @@
 {% endblock %} 
 {% block foot %} 
     {{ super() }}
+    <script src="/scripts/tmplt-utils.js"></script>
     <script src="/scripts/settings-pane.js"></script>
     <script src="/scripts/http-fetcher.js"></script>
     <script>
@@ -73,6 +74,7 @@
             img.src = event.detail;
             stats['Elapsed-time'] = Math.round(event.elapsed) / 1000;
             refreshUrl();
+            syncDropdownList('profiles', 'current.profile', false);
         });
         hf1.addEventListener('body-unavailable', function() {
             img.src = '/icons/camera-error.png';
