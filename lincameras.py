@@ -169,17 +169,15 @@ class OpticalLusb(USBCamera):
                                       str(pc2_cap_arr[0:10, 0:10]))
 
                 if self.debug:
-                    cap_img = Image.fromarray(pc2_cap_arr)
-                    cap_img.save(
-                        '/dev/shm/pc2-usb-captured-{0}.jpg'.format(fmt))
+                    # Uncomment following lines for troubleshooting
+                    # cap_img = Image.fromarray(pc2_cap_arr)
+                    # cap_img.save(self.tmp + '/pc2-usb-captured-{0}.jpg'.format(fmt))
 
-                    if self.debug and self.logger:
+                    if self.logger:
                         self.logger.debug(
                             'size requested: {0},{1}'.format(width_px, height_px))
-                    if self.debug and self.logger:
                         self.logger.debug('array predicted: {0},{1}'.format(
                             array_height_px, array_width_px))
-                    if self.debug and self.logger:
                         self.logger.debug('pc2 captured: {} {} {} {}'.format(
                             pc2_cap_arr.shape,
                             pc2_cap_arr[:height_px, :width_px].shape,
@@ -527,15 +525,16 @@ class OpticalPi(BaseCamera):
                             'Starting picamera2 following change to configuration/controls')
                     self.picam2.start()
 
-                    pc2_cap_arr = self.picam2.capture_array()  # "main")
+                    pc2_cap_arr = self.picam2.capture_array()
                     if self.debug:
-                        cap_img = Image.fromarray(pc2_cap_arr)
-                        cap_img.save('/dev/shm/captured-{0}.jpg'.format(fmt))
+                        
+                        # Uncomment following lines for troubleshooting
+                        # cap_img = Image.fromarray(pc2_cap_arr)
+                        # cap_img.save(self.tmp + '/captured-{0}.jpg'.format(fmt))
 
-                        if self.debug and self.logger:
+                        if self.logger:
                             self.logger.debug(
                                 'size requested: {0},{1}'.format(width_px, height_px))
-                        if self.debug and self.logger:
                             self.logger.debug('pc2 captured: {0} {1} {2}'.format(
                                 pc2_cap_arr.shape,
                                 pc2_cap_arr[:height_px, :width_px].shape,
@@ -545,7 +544,7 @@ class OpticalPi(BaseCamera):
 
                     self.local_config_string = local_config_string
                 else:
-                    pc2_cap_arr = self.picam2.capture_array()  # "main")
+                    pc2_cap_arr = self.picam2.capture_array()
 
                 # annotation
                 if self.annotate:
@@ -612,9 +611,8 @@ class OpticalPi(BaseCamera):
                 gray_img_arr = np.array(dummy_img)
 
                 (gray_height_px, gray_width_px) = gray_img_arr.shape
-                if self.debug:
-                    print('picamera2 capture - gray shape:',
-                          (gray_width_px, gray_height_px))
+                if self.debug and self.logger:
+                    self.logger.debug('picamera2 capture - gray shape:{}x{}'.format(gray_width_px, gray_height_px))
 
                 # create a yuv plain grey image
                 # Estimate the actual array size (accounting for rounding of the resolution)
@@ -625,7 +623,7 @@ class OpticalPi(BaseCamera):
                 yuv_array_size = y_array_size * 1.5
                 if self.debug and self.logger:
                     self.logger.debug(
-                        'picamera2 capture - yuv_array_size: {0}'.format(yuv_array_size))
+                        'picamera2 capture - yuv_array_size: {}'.format(yuv_array_size))
 
                 lum_img = np.zeros((array_height_px, array_width_px), np.uint8)
                 lum_img[0:gray_height_px, 0:gray_width_px] = gray_img_arr
