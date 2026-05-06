@@ -25,6 +25,7 @@
 {% endblock %}
 {% block foot %}
   {{ super() }}
+  <script src="/scripts/tmplt-utils.js"></script>
   <script src="/scripts/pan-zoom.js"></script>
   <script src="/scripts/point-queue-lib.js"></script>
   <script src="/scripts/point-editor.js"></script>
@@ -53,5 +54,8 @@
     document.getElementById('route-view').addEventListener("click", function() {
         window.open(`/route?ts=${new Date().getTime()}`, 'route_view');
     });
+    window.setInterval(function() {
+        syncDropdownList('profiles', 'current.profile', false);
+    }, 15000);
   </script>
 {% endblock %}
