@@ -11,6 +11,7 @@ from skimage.morphology import closing
 from skimage.measure import find_contours
 from shapely.geometry.polygon import Polygon
 from copy import deepcopy
+import scipy.stats as stats
 
 import geom_lib
 import contour_lib as cl
@@ -440,7 +441,6 @@ def get_contour_source_array(
         if img_arr.shape == (0, 0):
             fence_masked_arr = None
         else:
-
             if debug_image_level >= 4 or abs(debug_image_level) == 4:
                 pre_img = Image.fromarray(img_arr)
                 pre_img.convert('RGB').save(tmp_folder_path + '{0}-filters-incoming.jpg'.format(
@@ -460,7 +460,7 @@ def get_contour_source_array(
                 blurred_arr = img_arr
 
             # sobel edge filter
-            edge_filtered_arr = filters.sobel(blurred_arr)  # blurred_arr
+            edge_filtered_arr = filters.sobel(blurred_arr)
             if logger is not None:
                 logger.info(
                     'get_contour_source_array sobel edge detection complete')
@@ -502,7 +502,7 @@ def get_contour_source_array(
                                     sub_samp_fence_arr.shape)
                                 )
                             fence_masked_arr = contour_source_arr * sub_samp_fence_arr
-                            if debug_image_level >= 4 or abs(debug_image_level) == 4:
+                            if debug_image_level >= 2 or abs(debug_image_level) == 2:
                                 sub_samp_fence_img = Image.fromarray(
                                     sub_samp_fence_arr)
                                 sub_samp_fence_img.save(tmp_folder_path + '{0}-sub_samp_fence.jpg'.format(
@@ -701,10 +701,18 @@ def get_prospect_list(
         # best filtering methodology available
         # mid-range * threshold, or lower
         count_threshold = constants.CONTOUR_POINT_COUNT_THRESHOLD
-        prospect_counts = [len(c) for c in prospect_cnts]
-        mid_range_count = (max(prospect_counts, default=0) + min(prospect_counts, default=0)) * count_threshold
+        prospect_counts = [
+            len(c) for c in prospect_cnts if len(c) < constants.LORES_CONTOUR_MAXIMUM_POINT_COUNT
+        ]
+        mid_range_count = (
+            max(prospect_counts, default=0) + 
+            min(prospect_counts, default=0)
+            ) * count_threshold
         min_pt_count = max(mid_range_count, constants.LORES_CONTOUR_MINIMUM_POINT_COUNT)
-        filtered_prospect_contours = [c for c in prospect_cnts if len(c) > min_pt_count]
+        filtered_prospect_contours = [
+            c for c in prospect_cnts if 
+                constants.LORES_CONTOUR_MAXIMUM_POINT_COUNT > len(c) > min_pt_count
+        ]
         
         # log point counts
         if logger and debug_level > 0:
@@ -762,9 +770,15 @@ def get_prospect_list(
         prospect_vps = []
         for vp in prosp_vps:
             vp.resize(2.0)
-            if (vp.footprint is None or vp.footprint <= constants.MAXIMUM_VIEWPORT_FOOTPRINT):
+            if logger and debug_level > 0:
+                logger.debug(
+                    'Checking prospect viewport footprint: fp {:.3f}% <= {:.3f}%'.format(
+                        vp.footprint, constants.MAXIMUM_VIEWPORT_FOOTPRINT
+                        )
+                    )
+            if vp.footprint is None or vp.footprint <= constants.MAXIMUM_VIEWPORT_FOOTPRINT:
                 if logger and debug_level > 0:
-                    logger.debug('Qualifying prospect viewport: fp {:.3f}%'.format(vp.footprint))
+                    logger.debug('Qualifying prospect viewport: footprint {:.3f}%'.format(vp.footprint))
                 prospect_vps.append(vp)
                 
         if logger and debug_level > 0:
@@ -897,6 +911,24 @@ def probe_prospect_list(
 
             vp.local_projections = []
             for j, cont in enumerate(vp.local_contours):
+                
+                # compute contrast here
+                cont_centroid = np.mean(cont, axis=0).astype(int)
+                central_intensity = vp.display_sub_array[cont_centroid[0], cont_centroid[1]]
+                
+                r1 = 0
+                c1 = 0
+                r2 = cont_centroid[1]
+                c2 = cont_centroid[0]
+                
+                # extract values on line from r1, c1 to r2, c2
+                num_points = 10
+                xvalues = np.linspace(c1, c2, num_points).astype(int)
+                yvalues = np.linspace(r1, r2, num_points).astype(int)
+                zvalues = vp.display_sub_array[xvalues, yvalues]
+                contrast_range = np.ptp(zvalues)
+                
+                logger.debug('probe contrast from: {} range: {} central: {}'.format(zvalues, contrast_range, central_intensity))
 
                 if len(cont) < constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT:
                     # keep local projections synchronised with contours
