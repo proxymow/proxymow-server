@@ -14,6 +14,7 @@ class Term(Morphable):
     name = TextSetting('Term Name', 'Name of the term', None,
                        '^.{1,}$', 'must have at least 1 character')
     description = TextSetting('Term Description', 'Term description')
+    tooltip = TextSetting('Term Tooltip', 'Term tooltip')
     expression = ExpressionSetting(
         'Term Expression', 'Term expression', char_width=30)
     units = TextSetting('Units', 'Term units')
@@ -28,6 +29,7 @@ class Term(Morphable):
             dictionary=None,
             name=None,
             description=None,
+            tooltip=None,
             expression=None,
             units=None,
             alt_expression=None,
@@ -44,6 +46,7 @@ class Term(Morphable):
         else:
             self.name = name
             self.description = description
+            self.tooltip = tooltip
             self.expression = expression
             self.result = None
             self.units = units
@@ -78,6 +81,8 @@ class Term(Morphable):
         row_attributes = {}
         row_attributes[hidden_col_prefix +
                        '@row_class'] = 'row-{}'.format(variant.lower())
+        row_attributes[hidden_col_prefix +
+                       '@row_title'] = '{0}'.format(self.tooltip if self.tooltip is not None else '')
 
         if variant == 'Term':
             xpath = "navigation_strategies/strategy[@name='{0}']/user_terms/term[@name='{1}']".format(
@@ -116,7 +121,6 @@ class Term(Morphable):
         dkdict.update(extra_items)
 
         return dkdict
-
 
 class User_Term(Term):
     pk_att_name = 'name'
