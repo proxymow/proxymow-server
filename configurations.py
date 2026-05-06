@@ -281,9 +281,18 @@ class Config():
                 dimensions_node = mower_node.find('dimensions')
                 motion_node = mower_node.find('motion')
                 sensors_node = mower_node.find('sensors')
-                self.database['mower.ip'] = identity_node.attrib['ip']
-                self.database['mower.port'] = int(identity_node.attrib['port'])
-                self.database['mower.type'] = identity_node.attrib['type']
+                mower_ip = identity_node.attrib['ip']
+                mower_port = identity_node.attrib['port']
+                mower_type = identity_node.attrib['type']
+                self.database['mower.ip'] = mower_ip 
+                self.database['mower.port'] = int(mower_port)
+                self.database['mower.type'] = mower_type
+                if 'ble' in mower_type:
+                    # bluetooth low energy
+                    self.database['mower.transport'] = 'ble'
+                else:
+                    # http udp transport
+                    self.database['mower.transport'] = 'udp'
 
                 axle_track_m = float(motion_node.attrib['axle_track_m'])
                 # m - the distance between wheels (from centre-to-centre along the length of the axle)
@@ -378,6 +387,7 @@ class Config():
                 self.database['mower.motion.set_drive_speed_percent'] = 0
                 self.database['mower.velocity_full_speed_mps'] = 0
                 self.database['mower.axle_track_m'] = 0
+                self.database['mower.transport'] = None
 
             # lawn dimensions
             lawn_node = profile_node.find('lawn')
@@ -773,6 +783,10 @@ class Config():
                     name = var_node.attrib['name']
                     description = var_node.attrib['description']
                     units = var_node.attrib['units']
+                    if 'tooltip' in var_node.attrib:
+                        ttip = var_node.attrib['tooltip']
+                    else:
+                        ttip = None
                     if 'alt_units' in var_node.attrib:
                         alt_units = var_node.attrib['alt_units']
                     else:
@@ -790,6 +804,7 @@ class Config():
                             None,
                             name,
                             description,
+                            ttip,
                             expression,
                             units,
                             alt_expression,
@@ -802,6 +817,7 @@ class Config():
                             None,
                             name,
                             description,
+                            ttip,
                             expression,
                             units,
                             alt_expression,
@@ -814,6 +830,7 @@ class Config():
                             None,
                             name,
                             description,
+                            ttip,
                             expression,
                             units,
                             alt_expression,
@@ -1020,8 +1037,11 @@ class Config():
                         if att_node is not None:
                             self.logger.debug(
                                 'Updating: ' + key + ' to attribute value: ' + str(value))
-                            att_node.attrib[att_name] = str(value)
-                            commit = True
+                            if att_name in att_node.attrib:
+                                att_node.attrib[att_name] = str(value)
+                                commit = True
+                            else:
+                                raise RecordNotFoundException(att_name)
                 except Exception as e:
                     err_line = sys.exc_info()[-1].tb_lineno
                     self.logger.error(
@@ -1510,3 +1530,14 @@ class Config():
         if len(elements) > 0:
             element = elements[0]
         return element
+    
+    def update_query_xpath_att(self, xpath_query, att_name, new_val):
+        element = None
+        elements = self.cfg_root.xpath(xpath_query)
+        if len(elements) > 0:
+            element = elements[0]
+        if att_name in element.attrib:
+            element.attrib[att_name] = new_val
+            self.schedule_save()  # xml => file
+            self.parse()  # reload xml => database
+

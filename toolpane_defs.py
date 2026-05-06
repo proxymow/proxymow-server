@@ -138,6 +138,17 @@ info_lbl = ToolPaneReadout(
     None
 )
 
+# comms last scan label
+last_scan_lbl = ToolPaneReadout(
+    'LastScan',
+    None,
+    'Last Scan',
+    'Last Bluetooth/Ping Scan',
+    True,
+    {'class': 'readonly btn-string-tool', 'width': '100%', 'style': 'text-align: center'},
+    None
+)
+
 # settings pane buttons
 #    type | id | label | tooltip  | action | disabled state| html_options | data_options | icon
 saveButton = ToolPaneButton(
@@ -353,6 +364,8 @@ CAM_SET_BTNS = HtmlToolPane(
     'camsettings', hor_class + ' ' + dual_class, settings_config)
 CONTOUR_BTNS = HtmlToolPane(
     'contourctrl', hor_class + ' ' + dual_class, [freezeButton])
+COMMS_BTNS = HtmlToolPane(
+    'commsctrl', hor_class + ' ' + dual_class, [last_scan_lbl, freezeButton])
 MEAS_SET_BTNS = HtmlToolPane(
     'meassettings', hor_class + ' ' + dual_class, meas_settings_config)
 
@@ -501,7 +514,7 @@ for itm in dir_cmd_list:
 
 # compute direct drive options
 dir_drv_dict = {
-    "": "Please Choose...",
+    "": "",
     "F+0.1": "Fwd 0.1",
     "F+0.2": "Fwd 0.2",
     "F+0.25": "Fwd 0.25",
@@ -635,7 +648,7 @@ cockpit_control_driveto_config = [
         'direct.drive',
         None,
         None,
-        'Direct Commands',
+        'Direct Navigation',
         None,
         False,
         {'style': 'width: 18px'},

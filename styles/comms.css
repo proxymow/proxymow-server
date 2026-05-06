@@ -1,0 +1,97 @@
+main {
+    height: 100%;
+}
+.fig-grid-body {
+    height: calc(100% - 2em);/* from figure minus (caption + padding) */
+    overflow-y: auto;
+    border: 2px solid var(--pxm-highlight-grey);
+    text-align: center;
+}
+#commsctrl {
+	margin-top: -50px;
+    position: absolute;
+}
+.row-mower {
+   cursor: pointer;
+}
+.mower-grid {
+    border-collapse: collapse;
+    border: 1px solid #777;
+    background-color: #fefae0;
+    font-size: 1.2em;
+}
+.hdg-cell:not(.hdg-cell ~ .hdg-cell) {
+    font-size: xx-small;
+    background-color: #ccd5ae;
+    color: #ccd5ae;
+    border-left: 0;
+    border-top: 0;
+}
+.mower-grid th, td {
+	border: 1px solid #777;
+    padding: 4px;
+    user-select: none;
+}
+.mower-grid thead tr {
+    text-align: center;
+	position: sticky;
+    top: 0;
+    z-index: 9999;
+    background-color: #ccd5ae;
+}
+.row-disabled {
+   background-color: #DDD;
+}
+.row-selected {
+   font-weight: bold;
+}
+.cell-numeric {
+	text-align: right;
+}
+.cell-tick {
+    background-position: center;
+    background-image: url('../icons/tick.png');
+    background-repeat: no-repeat;
+}
+.cell-sel {
+    background-position: center;
+    background-image: url('../icons/rightArrow.png');
+    background-repeat: no-repeat;
+}
+.row-btdis {
+    background-color: #eee;
+}
+.row-virtual {
+    background-color: #fff0d4;
+}
+.row-hybrid-udp, .row-physical-udp {
+    background-color: #d7f9f8;
+}
+.row-hybrid-ble, .row-physical-ble {
+    background-color: #d6e6ff;
+}
+/* ADDITIONAL rules for smaller footprints */
+@media all and (max-width: 1500px) {
+    header {
+        grid-template-columns: 20% 10% 1fr 15% 2%;
+    }
+}    
+@media all and (max-width: 1200px) {
+    #comp-name, #feat-name {
+        visibility: hidden;
+    }
+    header {
+        grid-template-columns: 20% 0% 1fr 0% 2%;
+    }
+}      
+@media all and (max-width: 1000px) {
+    header {
+        grid-template-columns: 0% 0% 1fr 0% 2%;
+    }
+}
+@media all and (max-width: 768px) {
+	#commsctrl {
+	    position: relative;
+	    margin: 10px;
+	}
+}

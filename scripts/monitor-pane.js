@@ -220,7 +220,11 @@ class MonitorPane {
                 }
                 let onlineMsg = 'Mower Online@' + essid + '<br />';
                 onlineMsg += 'RSSI: ' + rssi + ' [' + qual + ']<br />';
-                onlineMsg += 'Last: ' + last_fetched + ' uptime: ' + upt;
+                onlineMsg += 'last: ' + last_fetched + ' uptime: ' + upt;
+                onlineMsg += '<br />quality: {0}% from {1} xchgs'.format(
+                    telJson['comms_quality'].toFixed(2),
+                    telJson['comms_stat_count']
+                );
                 onlineAnn.innerHTML = onlineMsg;
                 onlineWidget.title = onlineMsg.split('<br />').join('\r');
 

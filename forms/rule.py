@@ -5,7 +5,7 @@ from math import copysign
 from enum import Enum
 
 import constants
-from utilities import trace_rules, trace_command, despatch_to_mower_udp
+from utilities import trace_rules, trace_command
 from dupe_key_dict import DupeKeyDict
 from forms.morphable import Morphable
 from setting import TextSetting, ExpressionSetting, BooleanSetting, EnumerationSetting
@@ -21,7 +21,6 @@ class RuleScope(Enum):
 class Rule(Morphable):
     '''
         a navigation strategy rule
-
     '''
 
     pk_att_name = 'name'
@@ -442,7 +441,7 @@ class Rule(Morphable):
 
         return cmd
 
-    def execute(self, config, udp_socket, trace=False):
+    def execute(self, host, trace=False):
         # execute the rule
         resp = None
         try:
@@ -453,7 +452,7 @@ class Rule(Morphable):
                 trace_rules(msg)
                 trace_command(msg)
 
-            resp = self.despatch(cmd, config, udp_socket)
+            resp = self.despatch(cmd, host)
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -462,12 +461,9 @@ class Rule(Morphable):
 
         return self.stage_complete, resp
 
-    def despatch(self, cmd, config, udp_socket):
+    def despatch(self, cmd, host):
 
-        host = config['mower.ip']
-        port = config['mower.port']
-        resp = despatch_to_mower_udp(
-            cmd, udp_socket, host, port, await_response=True, max_attempts=1)
+        resp = host.despatcher.despatch(cmd) if host.despatcher is not None else None
         return resp
 
     def cleardown(self):

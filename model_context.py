@@ -91,7 +91,6 @@ def vision(host, _req_args, _req_kwargs):
         'settings_buttons_toolpane': toolpane_defs.CAM_SET_BTNS
     }
 
-
 def scoring(host, _req_args, _req_kwargs):
 
     # create/refresh the working target snapshot for scorecard parameter adjustments
@@ -101,10 +100,14 @@ def scoring(host, _req_args, _req_kwargs):
     host.log_debug('scoring: min progress requested: {0} {1}'.format(
         min_progress,
         [(s.ssid, s._growth.value) for s in selected_snapshots]
-    )
+        )
     )
     if len(selected_snapshots) > 0:
-        host.cached_scoring_snapshot = deepcopy(selected_snapshots[-1])
+        try:
+            scoring_snapshot = deepcopy(selected_snapshots[-1])
+        except RuntimeError as re:
+            host.log_error("Error with scoring_snapshot: {} {}".format(scoring_snapshot, re))
+        host.cached_scoring_snapshot = scoring_snapshot
         host.log_debug('scoring: selected requested snapshot: {0}'.format(
             host.cached_scoring_snapshot.ssid))
         proj_ssids = [
@@ -179,6 +182,17 @@ def navigator(host, _req_args, _req_kwargs):
         'auto_freeze_ms': constants.NAVIGATOR_AUTO_FREEZE_MS,
         'add_term_xpath': add_term_xpath,
         'add_rule_xpath': add_rule_xpath
+    }
+    return context_dict
+
+def comms(host, _req_args, _req_kwargs):
+    # use a dummy 'fully populated' object to obtain headings
+    dummy_row = dict.fromkeys(host.scanner.col_names, '')
+    col_hdgs = [m.title() for m in host.scanner.render_row(dummy_row)]
+    context_dict = {
+        'comms_hdr': col_hdgs,
+        'auto_freeze_ms': constants.NAVIGATOR_AUTO_FREEZE_MS,
+        'comms_control_toolpane': toolpane_defs.COMMS_BTNS
     }
     return context_dict
 

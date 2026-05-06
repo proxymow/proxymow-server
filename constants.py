@@ -77,7 +77,7 @@ FENCE_MASKING = True
 MAX_SNAPSHOT_ID = 9999
 
 '''
-    RNF_MITIGATION - make an assumption about the pose if Robot Not Found
+    RNF_MITIGATION - extrapolate the pose if Robot Not Found
 '''
 RNF_MITIGATION = True
 
@@ -148,6 +148,11 @@ MAXIMUM_VIEWPORT_FOOTPRINT = 15
     LORES_CONTOUR_MINIMUM_POINT_COUNT - minimum point count for lo-res contours
 '''
 LORES_CONTOUR_MINIMUM_POINT_COUNT = 10
+
+'''
+    LORES_CONTOUR_MAXIMUM_POINT_COUNT - maximum point count for lo-res contours
+'''
+LORES_CONTOUR_MAXIMUM_POINT_COUNT = 100
 
 '''
     HIRES_CONTOUR_MINIMUM_POINT_COUNT - minimum point count for hi-res contours
@@ -240,7 +245,7 @@ WAIT_FOR_CAMERA_SECS = 0.0
 '''
     THROTTLE_CAMERA_SNAP_SECS - throttle camera snap seconds
 '''
-THROTTLE_CAMERA_SNAP_SECS = 0.75  # 1.5 to simulate usb speeds
+THROTTLE_CAMERA_SNAP_SECS = 0.75 # 1.5 to simulate usb speeds
 
 '''
     RESET_LAST_VISITED_NODE_ON_PROFILE_CHANGE - Flag to indicate last visited node will be reset
@@ -253,9 +258,14 @@ RESET_LAST_VISITED_NODE_ON_PROFILE_CHANGE = False
 RESIZE_POSE_TO_VIEWPORT = 5.0
 
 '''
+    RESIZE_VIEWPORT_FOR_ESCAPEE - scale factor to grow viewport searching for escaped target
+'''
+RESIZE_VIEWPORT_FOR_ESCAPEE = 1.2
+
+'''
     OVERLAY_EXTRAPOLATED_POSE - overlay extrapolated pose on arena image
 '''
-OVERLAY_EXTRAPOLATED_POSE = False
+OVERLAY_EXTRAPOLATED_POSE = True
 
 '''
     CLOSE_TO_HOME_RADIUS_M - distance below which rotations towards destination are unsafe
