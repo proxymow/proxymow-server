@@ -127,7 +127,6 @@ def morph_contour_to_polygon(contour, num_vertices, max_iterations=10, debug=Tru
             morph_props['num_iterations'] = i
             i += 1
     except Exception as e:
-
         err_line = sys.exc_info()[-1].tb_lineno
         msg = 'Error in morph_contour_to_polygon: ' + \
             str(e) + ' on line ' + str(err_line)
