@@ -4,20 +4,17 @@ from setting import TextSetting, IntSetting, EnumerationSetting
 
 class Identity(Morphable):
     '''
-    represents a mower identity form
-
-    ip: str = '0.0.0.0'                     # identity 1
-    port: int = 5005                        # identity 2
+        represents a mower identity form
     '''
     ip = TextSetting('IP Address',
                      'IP Address on network',
                      None,
-                     '^(?!0)(?!.*\\.$)((1?\\d?\\d|25[0-5]|2[0-4]\\d)(\\.|$)){4}$',
+                     '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
                      'must be in 1.2.3.4 format'
                      )
     port = IntSetting('Port', 'Network Port', None, 0, 65565, 1)
     type = EnumerationSetting(
-        'Type', 'Type of Mower', ['virtual', 'hybrid', 'physical'], {})
+        'Type', 'Type of Mower', ['virtual', 'hybrid-udp', 'physical-udp', 'hybrid-ble', 'physical-ble'], {})
 
     def __init__(self):
         self.ip = '0.0.0.0'
