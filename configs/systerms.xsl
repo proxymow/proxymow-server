@@ -29,6 +29,7 @@
             <tr>
                 <th>Name</th>
                 <th>Description</th>
+                <th>Tooltip</th>
                 <th>Units</th>
                 <th>Alt Units</th>
             </tr>
@@ -41,6 +42,7 @@
         <tr>
             <td><xsl:value-of select="@name" /><br /></td>
             <td><xsl:value-of select="@description" /><br /></td>
+            <td><xsl:value-of select="@tooltip" /><br /></td>
             <td><xsl:value-of select="@units" /><br /></td>
             <td><xsl:value-of select="@alt_units" /><br /></td>
         </tr>
