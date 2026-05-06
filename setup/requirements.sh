@@ -6,9 +6,10 @@ echo Please enter the password for the pi user...
 read PASS
 
 # these may be required...
-# sudo apt -y -q update
-# sudo apt -y -q full-upgrade
-sudo apt -y -q install python3-pip
+sudo apt -y -q update
+sudo apt -y -q full-upgrade
+# sudo apt -y -q install python3-pip
+sudo apt -y -q install python3-numpy
 sudo apt -y -q install python3-scipy
 sudo apt -y -q install libmariadb-dev
 sudo apt -y -q install python3-picamera2
@@ -18,20 +19,25 @@ echo "samba-common samba-common/dhcp boolean false" | sudo debconf-set-selection
 echo "samba-common samba-common/do_debconf boolean true" | sudo debconf-set-selections
 sudo apt -y -q install samba samba-common-bin
 (echo $PASS; echo $PASS) | sudo smbpasswd -s -a $USER
-sudo apt -y -q install libjpeg-dev
-sudo apt -y -q install libtiff5-dev
-sudo apt -y -q install libxml2-dev libxslt-dev
-sudo apt -y -q install python3-lxml
-sudo apt -y -q install libgeos-dev
+
 sudo apt -y -q install python3-skimage
+
 # option for windows web-cam
 # sudo apt -y -q install python3-opencv
 
-sudo pip3 install mariadb --break-system-packages
-sudo pip3 install cherrypy --break-system-packages
-sudo pip3 install shapely==1.4.1 --break-system-packages
-sudo pip3 install markdown --break-system-packages
+# create virtual environment with access to site packages
+python -m venv --system-site-packages /home/pi/pxm-venv/
 
-sudo apt -y -q install python3-skimage
+# activate virtual environment
+source /home/pi/pxm-venv/bin/activate
 
-echo 'Please Reboot...'
+# install into environment
+pip install mariadb
+pip install cherrypy
+pip install jinja2
+pip install shapely
+pip install markdown
+pip install bleak
+pip install ping3
+
+echo 'Please Reboot, then start proxymow (in debug mode) with "/home/pi/pxm-venv/bin/python /home/pi/proxymow-server/proxymow.py -d"'
