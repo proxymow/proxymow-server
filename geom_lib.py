@@ -228,15 +228,14 @@ def get_circle_from_world_tangents(x1, y1, t1, x2, y2, t2):
 
     # find the circle (x, y, radius) for which the 2 points are tangential
     # if t1 ~= t2 i.e. driving straight, then the radius will be very large approaching infinity
-    intersection = {}
-    intersection['x'] = None
-    intersection['y'] = None
+    
+    isx = None
+    isy = None
     r = None
 
     try:
 
         # find the equations of lines perpendicular to the poses
-
         t1p = t1 + (pi / 2)
         x1b = x1 + sin(t1p)
         y1b = y1 - cos(t1p)
@@ -248,13 +247,17 @@ def get_circle_from_world_tangents(x1, y1, t1, x2, y2, t2):
         intersection = check_line_intersection(
             x1, y1, x1b, y1b, x2, y2, x2b, y2b)
 
-        # finally calculate radius from pythag
+        # calculate radius from pythag
         r = sqrt((intersection['x'] - x1) ** 2 + (intersection['y'] - y1) ** 2)
-
+        
+        # convert to plain floats
+        isx = float(intersection['x'])
+        isy = float(intersection['y'])
+        
     except Exception as e:
         print('Error calculating circle from tangents: ' + str(e))
 
-    return intersection['x'], intersection['y'], r
+    return isx, isy, r
 
 
 def make_equilateral_triangle(r, theta=0, offset=(0, 0)):
@@ -494,8 +497,8 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
                 sol_y2 = (-D * dx - abs(dy) * np.sqrt(discriminant)) / dr ** 2
 
                 # add currentX and currentY back to the solutions, offset the system back to its original position
-                sol1 = [sol_x1 + x, sol_y1 + y]
-                sol2 = [sol_x2 + x, sol_y2 + y]
+                sol1 = [float(sol_x1 + x), float(sol_y1 + y)]
+                sol2 = [float(sol_x2 + x), float(sol_y2 + y)]
                 msg = 'line circle intersection solution 1 ({:.3f}, {:.3f}) solution 2 ({:.3f}, {:.3f})'.format(
                     *sol1, *sol2)
                 if debug:
