@@ -1,6 +1,7 @@
 import sys
 import random
 import numpy as np
+import cmath
 from scipy import stats
 from math import ceil
 
@@ -22,7 +23,6 @@ def reduce_contour_points(c_in, max_point_count, auto_step=False):
         c_spaced = c_in[spaced_index]
     else:
         c_spaced = c_in
-
     return c_spaced
 
 
@@ -37,7 +37,7 @@ def overlay_contours(contours, draw, scale, fill_col, font=None):
             draw.text((max(flat_points[:2]) + random.randint(10, 100), max(flat_points[1::2]) + random.randint(10, 100)), '{0}:{1}'.format(
                 n, len(contour)), fill=fill_col, font=font)
 
-def dedupe_contour_list(cnts, idx=0, logger=None, debug=True):
+def dedupe_contour_list(cnts, max_gap, idx=0, logger=None, debug=True):
     '''
         assumes cnts list is ordered outer to inner
         removes inner contour(1):
@@ -86,14 +86,33 @@ def dedupe_contour_list(cnts, idx=0, logger=None, debug=True):
         if logger and debug:
             logger.debug(
                 'dedupe_contour_list coincident: {0}'.format(coincident))
-        bbox_min = np.min(outer, axis=0)
-        bbox_max = np.max(outer, axis=0)
-        contained = np.all((bbox_min < inner_centroid) &
-                           (inner_centroid < bbox_max))
+        out_bbox_min = np.min(outer, axis=0)
+        out_top, out_left = out_bbox_min
+        out_bbox_max = np.max(outer, axis=0)
+        out_bottom, out_right = out_bbox_max
+        in_bbox_min = np.min(inner, axis=0)
+        in_top, in_left = in_bbox_min
+        in_bbox_max = np.max(inner, axis=0)
+        in_bottom, in_right = in_bbox_max
+        
+        top_gap = int(in_top - out_top)
+        left_gap = int(in_left - out_left)
+        bottom_gap = int(out_bottom - in_bottom)
+        right_gap = int(out_right - in_right)
+        all_gaps = [top_gap, left_gap, bottom_gap, right_gap]
+        if logger and debug:
+            logger.debug('dedupe_contour_list all gaps: {} {}'.format(idx, all_gaps))
+        small_gaps = [0 < g < max_gap for g in all_gaps]
+        if logger and debug:
+            logger.debug('dedupe_contour_list small gaps: {} {}'.format(idx, small_gaps))
+        edges_contained = int(np.count_nonzero(small_gaps))
+        if logger and debug:
+            logger.debug('dedupe_contour_list edges contained: {} {}'.format(idx, edges_contained))
+        contained = edges_contained >= 3
+            
         if logger and debug:
             logger.debug(
                 'dedupe_contour_list contained: {0}'.format(contained))
-        # if coincident:
         if contained:
             if logger and debug:
                 logger.debug(
@@ -106,7 +125,7 @@ def dedupe_contour_list(cnts, idx=0, logger=None, debug=True):
                 logger.debug(
                     'dedupe_contour_list advancing pointer to: {0}'.format(idx + 1))
             idx += 1
-        dedupe_contour_list(cnts, idx, logger, debug)
+        dedupe_contour_list(cnts, max_gap, idx, logger, debug)
 
 
 def morph_contour_to_polygon(contour, num_vertices, max_iterations=10, debug=True, logger=None):
@@ -218,48 +237,50 @@ def reduce(c_in, clusters, debug=True, logger=None):
                 logger.debug('contour with deleted point: {0}'.format(
                     np.round(c_in, 3).tolist()))
 
-            # add the area to one of the clusters of infills, keyed on angle
-            midpoint = central_midpoints[smallest_appendage_area_idx]
-            # numpy arctan2 takes a y, x vector
-            midpoint_angle = np.rint(np.mod(np.rad2deg(np.arctan2(
-                midpoint[1] - centroid[1], midpoint[0] - centroid[0]) - np.pi / 2), 360))  # 0..360 ccw
-            if debug and logger:
-                logger.debug(
-                    'infill midpoint angle: {0}'.format(midpoint_angle))
-
-            # check existing cluster keys to find nearest
-            assigned = False
-            if debug and logger:
-                logger.debug('infill cluster keys: {0}'.format(
-                    np.rint(list(clusters.keys()))))
-            for k in list(clusters.keys()):
-                if debug and logger:
-                    logger.debug('infill checking midpoint: {0} against mean angle: {1}'.format(
-                        midpoint_angle, k))
-                angular_distance_to_midpoint = int(
-                    abs(gl.diff_angles(k, midpoint_angle, fmt=1)))
-                if debug and logger:
-                    logger.debug('infill angular_distance_to_midpoint: {0}'.format(
-                        angular_distance_to_midpoint))
-                # angular distance is half sector bandpass
-                if angular_distance_to_midpoint < 30 and not assigned:  # t degree cluster key sectors
-                    # create new entry
-                    new_angles = clusters[k][0] + [midpoint_angle]
-                    new_areas = clusters[k][1] + [smallest_appendage_area]
-                    # recalculate mean
-                    new_angle_mean = stats.circmean(new_angles, high=360)
-                    # add new entry
-                    clusters[new_angle_mean] = (new_angles, new_areas)
-                    # remove old entry
-                    del clusters[k]
-                    assigned = True
-            if not assigned:
-                # add new cluster
-                clusters[midpoint_angle] = (
-                    [midpoint_angle], [smallest_appendage_area])
+            # clustering - not essential but informative and expensive
+            if debug:
+                # add the area to one of the clusters of infills, keyed on angle
+                midpoint = central_midpoints[smallest_appendage_area_idx]
+                # numpy arctan2 takes a y, x vector
+                midpoint_angle = np.rint(np.mod(np.rad2deg(np.arctan2(
+                    midpoint[1] - centroid[1], midpoint[0] - centroid[0]) - np.pi / 2), 360))  # 0..360 ccw
                 if debug and logger:
                     logger.debug(
-                        'infill cluster new key added: {0}'.format(midpoint_angle))
+                        'infill midpoint angle: {0}'.format(midpoint_angle))
+    
+                # check existing cluster keys to find nearest
+                assigned = False
+                if debug and logger:
+                    logger.debug('infill cluster keys: {0}'.format(
+                        np.rint(list(clusters.keys()))))
+                for k in list(clusters.keys()):
+                    if debug and logger:
+                        logger.debug('infill checking midpoint: {0} against mean angle: {1}'.format(
+                            midpoint_angle, k))
+                    angular_distance_to_midpoint = int(
+                        abs(gl.diff_angles(k, midpoint_angle, fmt=1)))
+                    if debug and logger:
+                        logger.debug('infill angular_distance_to_midpoint: {0}'.format(
+                            angular_distance_to_midpoint))
+                    # angular distance is half sector bandpass
+                    if angular_distance_to_midpoint < 30 and not assigned:  # t degree cluster key sectors
+                        # create new entry
+                        new_angles = clusters[k][0] + [midpoint_angle]
+                        new_areas = clusters[k][1] + [smallest_appendage_area]
+                        # recalculate mean
+                        new_angle_mean = stats.circmean(new_angles, high=360)
+                        # add new entry
+                        clusters[new_angle_mean] = (new_angles, new_areas)
+                        # remove old entry
+                        del clusters[k]
+                        assigned = True
+                if not assigned:
+                    # add new cluster
+                    clusters[midpoint_angle] = (
+                        [midpoint_angle], [smallest_appendage_area])
+                    if debug and logger:
+                        logger.debug(
+                            'infill cluster new key added: {0}'.format(midpoint_angle))
 
         except ValueError:
             smallest_appendage_area_idx = central_edge_idx = -1
@@ -300,7 +321,7 @@ def sobel_compensation(cont_in, shrink_by=3, shift_by=2):
 
 def fitness(c_in, vertices):
     
-    # reduce size for testing?
+    # reduce size?
     c = reduce_contour_points(c_in, 99)
     
     centroid = np.mean(c, axis=0)
@@ -333,6 +354,53 @@ def fitness(c_in, vertices):
     
     return fitness
 
+def radius(c):
+    height, width = np.ptp(c, axis=0)
+    return (height + width) / 4
+
+def area(c):
+    # Shoelace formula implementation
+    return 0.5 * np.abs(np.dot(c[:,0], np.roll(c[:,1], 1)) - 
+                        np.dot(c[:,1], np.roll(c[:,0], 1)))
+
+def perimeter(c):
+    '''
+        Calculates perimeter by summing distance between points.
+        Assumes contour is shaped correctly (n, 2)
+    '''
+    
+    # Calculate distances between sequential points (x2-x1)^2 + (y2-y1)^2
+    # Shift array to align point i with point i+1
+    diffs = np.diff(c, axis=0, append=c[0:1])
+    
+    # Euclidean distance: sqrt(dx^2 + dy^2)
+    distances = np.sqrt(np.sum(diffs**2, axis=1))
+    
+    # Sum all distances
+    return np.sum(distances)
+
+def circularity(c, logger=None, debug=True):
+    '''
+        circularity defined as:
+            how close perimeter to area ratio matches 2 / r
+    '''
+    r = radius(c)
+    p = perimeter(c)
+    a = area(c)
+    two_over_radius = 2 / r
+    par = p / a
+    circ = two_over_radius / par 
+    if debug and logger:
+        logger.debug(
+            ('circularity - radius: {:.3f} ' + 
+            'area: {:.3f} ' +
+            'perimeter: {:.3f} ' + 
+            'two_over_radius: {:.3f} <==> ' +
+            'par: {:.3f} => ' +
+            'circularity: {:.3f}').format(r, a, p, two_over_radius, par, circ)
+        )
+    return circ
+    
 def edginess(c, threshold=1.0, min_pt_cnt=6):
     '''
         Calculate edginess as ratio:
@@ -372,3 +440,67 @@ def edginess(c, threshold=1.0, min_pt_cnt=6):
     e = num_pts_on_lines / pt_count
     
     return e
+
+def aspect_ratio(c):
+    height, width = np.ptp(c, axis=0)
+    return min(height, width) / max(height, width)
+
+def radial_deviation(c, logger=None, debug=True):
+    '''
+        calculate standard deviation of radials
+    '''
+
+    # find centre
+    cy, cx = (np.max(c, axis=0) + np.min(c, axis=0)) / 2
+
+    radials = np.hypot(c[:, 0] - cy, c[:, 1] - cx)
+    if debug and logger:
+        logger.debug('radials: {}'.format(radials))
+    sd = np.std(radials)
+    if debug and logger:
+        logger.debug('std dev: {}'.format(sd))
+    score = sd / np.max(radials)
+    if debug and logger:
+        logger.debug('score: {}'.format(score))
+    
+    return score
+
+def center_of_mass(c):
+    # calculate center of mass of a closed polygon
+    x = c[:,0]
+    y = c[:,1]
+    g = (x[:-1]*y[1:] - x[1:]*y[:-1])
+    A = 0.5*g.sum()
+    cx = ((x[:-1] + x[1:])*g).sum()
+    cy = ((y[:-1] + y[1:])*g).sum()
+    return 1./(6*A)*np.array([cx,cy])
+
+def is_P_InSegment_P0P1(P, P0,P1):
+    p0 = P0[0]- P[0], P0[1]- P[1]
+    p1 = P1[0]- P[0], P1[1]- P[1]
+
+
+    det = (p0[0]*p1[1] - p1[0]*p0[1])
+    prod = (p0[0]*p1[0] + p0[1]*p1[1])
+    
+    return (det == 0 and prod < 0) or (p0[0] == 0 and p0[1] == 0) or (p1[0] == 0 and p1[1] == 0)
+
+
+def is_inside_polygon(P: tuple, Vertices: list, validBorder=False) -> bool:
+
+
+    sum_ = complex(0,0)
+
+
+    for i in range(1, len(Vertices) + 1):
+        v0, v1 = Vertices[i-1] , Vertices[i%len(Vertices)]
+
+
+        if is_P_InSegment_P0P1(P,v0,v1):
+            return validBorder
+
+
+        sum_ += cmath.log( (complex(*v1) - complex(*P)) / (complex(*v0) - complex(*P)) )
+
+    # return abs(sum_) > 1
+    return sum_
