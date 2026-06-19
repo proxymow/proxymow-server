@@ -288,10 +288,9 @@ class Viewport():
             if array is not None and len(array.shape) >= 2 and array.shape[0] > 4 and array.shape[1] > 4:
                 # if no threshold is specified, skimage is going to use (max(image) + min(image)) / 2
                 # so might as well pre-calculate for insight
-                # masking guarantees some black, so minimum will always be zero and range == max 
                 max_intensity = np.max(array).astype(float)
-                intensity_range = max_intensity
-                threshold = max_intensity / 2
+                min_intensity = np.min(array).astype(float)
+                threshold = (max_intensity + min_intensity) / 2
                 white_pixel_count = np.count_nonzero([array > threshold])
                 tonal_ratio = white_pixel_count / array.size
 
@@ -321,7 +320,7 @@ class Viewport():
                             'Find Contours - {} {:.2f}% Max\\Range: {:.3f} Thresh: {:.3f} Whites: {} Tone: {:.6f} Num Contours: {}'.format(
                                 array.shape,
                                 self.footprint if self.footprint is not None else 100.0,
-                                intensity_range,
+                                max_intensity - min_intensity,
                                 threshold,
                                 white_pixel_count,
                                 tonal_ratio,
