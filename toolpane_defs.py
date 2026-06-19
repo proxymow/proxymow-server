@@ -364,6 +364,8 @@ CAM_SET_BTNS = HtmlToolPane(
     'camsettings', hor_class + ' ' + dual_class, settings_config)
 CONTOUR_BTNS = HtmlToolPane(
     'contourctrl', hor_class + ' ' + dual_class, [freezeButton])
+SCORECARD_BTNS = HtmlToolPane(
+    'scorecardctrl', hor_class + ' ' + dual_class, [freezeButton])
 COMMS_BTNS = HtmlToolPane(
     'commsctrl', hor_class + ' ' + dual_class, [last_scan_lbl, freezeButton])
 MEAS_SET_BTNS = HtmlToolPane(
