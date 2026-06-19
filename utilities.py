@@ -1,15 +1,22 @@
+import platform
 import time
 import sys
 import os
+import re
 import psutil
 from datetime import datetime
 import numpy as np
 import logging
 import math
 from types import ModuleType, FunctionType
+from io import BytesIO
 from gc import get_referents
-from destination import Attitude
 from ping3 import ping
+from PIL import Image
+import base64
+import subprocess
+
+from destination import Attitude
 
 np.seterr(all='raise')
 
@@ -126,13 +133,26 @@ def get_mem_usage():
     '''
     memory_usage = process.memory_info().rss / 1E6
     memory_avail = psutil.virtual_memory().available / 1E6
-    return memory_usage, memory_avail
-
+    cma_stats = ['0', '0']
+    linux = (platform.system() == 'Linux')
+    if linux:
+        try:
+            cma_details = subprocess.run(['grep Cma /proc/meminfo'], stdout=subprocess.PIPE, shell=True)
+            cma_usage_str = str(cma_details.stdout)
+            cma_stats = re.findall(r'\d+', cma_usage_str)
+            if len(cma_stats) == 0:
+                raise Exception('Not Available')
+        except:
+            pass
+        
+    total_cma, free_cma = int(cma_stats[0]), int(cma_stats[1])
+    
+    return memory_usage, memory_avail, total_cma, free_cma
 
 def get_mem_stats():
-    memory_usage, memory_avail = get_mem_usage()
-    mem_stats = (' Mem Used: {0:.1f} MB Available: {1:.1f} MB'.format(
-        memory_usage, memory_avail))
+    memory_usage, memory_avail, total_cma, free_cma = get_mem_usage()
+    mem_stats = (' Mem Used: {:.1f} MB Available: {:.1f} MB Free CMA: {:.1f}/{:.1f} MB'.format(
+        memory_usage, memory_avail, free_cma/1000, total_cma/1000))
     return mem_stats
 
 
@@ -198,3 +218,11 @@ def ping_server(host):
     r = ping(host)
     result = r is not None and r is not False
     return result
+
+def convert_array_to_base64(sub_array, size):
+    b64_buffer = BytesIO()
+    b64_img_raw = Image.fromarray(sub_array)
+    b64_img = b64_img_raw.resize(size)
+    b64_img.convert('RGB').save(b64_buffer, format="JPEG")
+    b64_bytes = base64.b64encode(b64_buffer.getvalue())
+    return b64_bytes.decode() # convert bytes to string
