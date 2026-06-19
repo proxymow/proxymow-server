@@ -47,14 +47,6 @@ main {
 .stats-grid div:nth-child(4n-1), .stats-grid div:nth-child(4n) {
     backdrop-filter: brightness(85%);/* striping */
 }
-.add-bar {
-    display: none;/* hide address bar */
-	color: black; 
-	height: 32px; 
-	border: 1px inset gray; 
-	box-sizing: border-box; 
-	padding: 4px;
-}
 @media all and (max-width: 768px) {
     /* ADDITIONAL rules for smaller footprints */
     .figbody {
