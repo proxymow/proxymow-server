@@ -26,7 +26,7 @@ class Dimensions(Morphable):
         self.target_width_m = 0.2
         self.target_length_m = 0.3
         self.target_radius_m = 0.020
-        self.target_offset_pc = 0
+        self.target_offset_pc = 50
         self.cutter1_dia_m = 0.2
         self.cutter2_dia_m = 0.2
         self.body_width_m = 0.25
