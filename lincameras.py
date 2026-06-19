@@ -77,7 +77,7 @@ class OpticalLusb(USBCamera):
             # snap to rgb array
             img_array = self.capture(cap_fmt)
             chans = len(img_array.shape)
-            if self.debug:
+            if self.debug and self.logger:
                 if chans == 3:
                     self.logger.debug(
                         'lusb snap {2}x{1}x{0}'.format(*img_array.shape))
@@ -87,8 +87,12 @@ class OpticalLusb(USBCamera):
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            print('Error in picamera II usb snap: ' +
-                  str(e) + ' on line ' + str(err_line))
+            msg = ('Error in picamera II usb snap: ' + 
+                str(e) + ' on line ' + str(err_line))
+            if self.logger:
+                self.logger.error(msg)
+            else:
+                print(msg)
 
         return img_array
 
@@ -132,11 +136,6 @@ class OpticalLusb(USBCamera):
                     if self.debug and self.logger:
                         self.logger.debug(
                             'Requested config:' + str(capture_config['main']))
-                    if self.debug and self.logger:
-                        self.logger.debug(
-                            'Revised config:' + str(capture_config['main']))
-
-                    if self.debug and self.logger:
                         self.logger.info(
                             'Stopping picamera2 to change configuration/controls')
                     self.picam2.stop()  # in case left running
@@ -332,6 +331,7 @@ class OpticalPi(BaseCamera):
 
             self.framerate = 0
             self._resolution = CamRes()
+            self._elapsed = 0
 
             # Flip Image?
             self.hflip = False
@@ -434,6 +434,21 @@ class OpticalPi(BaseCamera):
 
         try:
 
+            # artificially throttle camera capture time based on previous elapsed capture time
+            throttle_delay_secs = constants.THROTTLE_CAMERA_SNAP_SECS - self._elapsed
+            if throttle_delay_secs > 0:
+                time.sleep(throttle_delay_secs)
+                if self.debug:
+                    self.logger.debug(
+                        'OpticalPi capture throttle - slept for {:.3f} seconds'.format(
+                            throttle_delay_secs)
+                        )
+            else:
+                if self.debug:
+                    self.logger.debug(
+                        'OpticalPi capture throttle not required'
+                    )
+
             start = time.time()
 
             local_config_string = ''.join({k: str(v) for k, v in self.settings.get_settings_as_dict(
@@ -449,7 +464,6 @@ class OpticalPi(BaseCamera):
 
             # Take a frame
             try:
-                start = time.time()
 
                 if local_config_string != self.local_config_string:
 
@@ -576,22 +590,15 @@ class OpticalPi(BaseCamera):
                         pc2_cap_arr[margin_px:banner_height_px + margin_px,
                                     margin_px:width_px] = np.array(overlay_img)
 
-                # artificially extend camera capture time...
-                extra_delay_secs = await_elapsed(
-                    time.time(), start + constants.THROTTLE_CAMERA_SNAP_SECS)  # blocks
-                if self.debug:
-                    if extra_delay_secs > 0:
-                        self.logger.debug(
-                            'OpticalPi capture throttle - slept for {0} seconds'.format(extra_delay_secs))
-                    else:
-                        self.logger.debug(
-                            'OpticalPi capture throttling not required')
+                if self.debug and self.logger:
+                    self.logger.info(
+                        'OpticalPi physical capture completed in {:.3f}secs'.format(time.time() - start))
 
                 end = time.time()
-                elapsed = round(end - start, 3)  # seconds
+                self._elapsed = round(end - start, 3)  # seconds
                 if self.debug:
                     self.logger.debug(
-                        'OpticalPi capture - captured in {0:.2f} seconds'.format(elapsed))
+                        'OpticalPi capture - captured in {0:.2f} seconds'.format(self._elapsed))
 
             except Exception as e1:
                 err_line = sys.exc_info()[-1].tb_lineno
