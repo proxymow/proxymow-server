@@ -8,6 +8,7 @@ from copy import deepcopy
 import markdown
 from itertools import pairwise
 from math import hypot
+import numpy as np
 
 import constants
 import toolpane_defs
@@ -17,6 +18,8 @@ from forms.rule import Rule
 from forms.settings import MeasureSettings
 import vis_lib
 from snapshot import SnapshotGrowth
+from whittler import Whittler 
+import contour_lib as cl
 
 
 def global_ctx(host, compname, _req_args, _req_kwargs):
@@ -107,6 +110,9 @@ def scoring(host, _req_args, _req_kwargs):
             scoring_snapshot = deepcopy(selected_snapshots[-1])
         except RuntimeError as re:
             host.log_error("Error with scoring_snapshot: {} {}".format(scoring_snapshot, re))
+        except Exception as e:
+            host.log_error("Error with scoring_snapshot: {}".format(e))
+            scoring_snapshot = selected_snapshots[-1]
         host.cached_scoring_snapshot = scoring_snapshot
         host.log_debug('scoring: selected requested snapshot: {0}'.format(
             host.cached_scoring_snapshot.ssid))
@@ -146,17 +152,62 @@ def supervisor(host, _req_args, _req_kwargs):
         'arena_length_m': arena_length_m
     }
 
+def scorecard(host, _req_args, _req_kwargs):
+    arena_width_m = host.config['arena.width_m']
+    arena_length_m = host.config['arena.length_m']
 
-def contours(host, _req_args, _req_kwargs):
+    return {
+        'cockpit_monitor_toolpane': toolpane_defs.tp_cockpit_state_1,
+        'scorecard_control_toolpane': toolpane_defs.SCORECARD_BTNS,
+        'contour_target_hdr': vis_lib.render_contour_hdr(),
+        'arena_width_m': arena_width_m,
+        'arena_length_m': arena_length_m,
+        'auto_freeze_ms': constants.UI_AUTO_FREEZE_MS
+    }
+
+def contours_old(host, _req_args, _req_kwargs):
     rnd_score_props = {k: [round(itm, 6) for itm in v] for k, v in host.score_props.items()}
     return {
         'cockpit_monitor_toolpane': toolpane_defs.tp_cockpit_state_1,
         'contour_control_toolpane': toolpane_defs.CONTOUR_BTNS,
-        'contour_target_hdr': vis_lib.render_contour_hdr(),
         'contour_target_subhdr': str(rnd_score_props),
         'auto_freeze_ms': constants.UI_AUTO_FREEZE_MS
     }
 
+def contoursvg(host, _req_args, req_kwargs):
+    contours = []
+    contour_points = []
+    ss_index = int(req_kwargs['ssid']) if 'ssid' in req_kwargs else -1
+    if ss_index in host.snapshot_buffer:
+        locate_snapshot = host.snapshot_buffer[ss_index]    
+        # locate_snapshot = host.snapshot_buffer.latest() # latest but needs syncing with ssid
+        fs_contours = locate_snapshot._contours
+        if len(fs_contours) > 0:
+            num_pts = 16
+            contours = [cl.reduce_contour_points(c_in, num_pts).astype(int) for c_in in fs_contours]
+            contour_points = [' '.join(map(str, a)) for a in np.array(np.flip(contours, axis=2)).reshape(-1, num_pts * 2)]
+    return {
+        'contours': contours,
+        'contour_points': contour_points
+        }
+    
+
+def contours(host, _req_args, _req_kwargs):
+    rnd_score_props = {k: [round(itm, 6) for itm in v] for k, v in host.score_props.items()}
+    # use a dummy 'fully populated' object to obtain headings
+    dw = Whittler()
+    dummy_row = dict.fromkeys(dw.assessment_names(True), '')
+    col_hdgs = [m.title() for m in dw.render_row(dummy_row)]
+
+    return {
+        'cockpit_monitor_toolpane': toolpane_defs.tp_cockpit_state_1,
+        'contour_control_toolpane': toolpane_defs.CONTOUR_BTNS,
+        'contour_target_hdr': col_hdgs,
+        'contour_target_subhdr': str(rnd_score_props),
+        'auto_freeze_ms': constants.UI_AUTO_FREEZE_MS,
+        'optical_width': host.config['optical.width'],
+        'optical_height': host.config['optical.height']
+    }
 
 def navigator(host, _req_args, _req_kwargs):
     arena_width_m = host.config['arena.width_m']
@@ -195,7 +246,6 @@ def comms(host, _req_args, _req_kwargs):
         'comms_control_toolpane': toolpane_defs.COMMS_BTNS
     }
     return context_dict
-
 
 def form_shell(_host, _req_args, req_kwargs):
     ok_msg = 'The action has been completed successfully'
