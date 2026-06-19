@@ -151,6 +151,7 @@ class BlueProxy():
                 finally:
                     self.client = None
                     self.device_name = None
+                    self.devices = [] # force a rescan
                     self.logger.debug('disconnecting releasing lock...')
                     self.lock.release()
         
