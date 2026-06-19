@@ -106,10 +106,7 @@ class BaseCamera():
                         'Error in camera apply setting: {0} on line {1}'.format(e, err_line))
 
         if changed:
-            delay_secs = 0
-            self.logger.info(
-                'apply_settings Settings changed - pausing for {0} secs...'.format(delay_secs))
-            time.sleep(delay_secs)
+            self.logger.info('apply_settings Settings changed')
 
         return trace, changed
 
@@ -139,6 +136,7 @@ class OpticalVirtual(BaseCamera):
         self._vlawn_bollards_pc = vlawn_bollards_pc
         self._distortion = distortion
         self._distort_mapper = distort_mapper
+        self._elapsed = 0
         self.debug = debug
         self.virtual = True
         self.img_arr = None
@@ -160,15 +158,25 @@ class OpticalVirtual(BaseCamera):
         '''
         try:
 
+            if self.debug:
+                self.logger.debug(
+                    'OpticalVirtual capture generating new {} image...'.format(fmt))
+
+            # artificially throttle camera capture time based on previous elapsed capture time
+            throttle_delay_secs = constants.THROTTLE_VIRTUAL_CAMERA_SNAP_SECS - self._elapsed
+            if throttle_delay_secs > 0:
+                time.sleep(throttle_delay_secs)
+                if self.debug:
+                    self.logger.debug(
+                        'OpticalVirtual capture throttle - slept for {:.3f} seconds'.format(
+                            throttle_delay_secs)
+                        )
+            else:
+                if self.debug:
+                    self.logger.debug(
+                        'OpticalVirtual capture throttle not required'
+                    )
             start = time.time()
-
-            if self.debug:
-                self.logger.debug(
-                    'OpticalVirtual capture - incoming fmt: {0}'.format(fmt))
-
-            if self.debug:
-                self.logger.debug(
-                    'OpticalVirtual capture generating new image...')
 
             # Obtain the requested image size
             img_width_px = int(self.resolution.split('x')[0])
@@ -238,7 +246,7 @@ class OpticalVirtual(BaseCamera):
             img_arr = self._distort_mapper.transform_image(plan_img_arr)
 
             out_arr = img_arr.astype(np.uint8)
-            if self.debug:
+            if self.debug and self.logger:
                 if fmt.lower() == 'yuv':
                     out_img = Image.fromarray(out_arr)
                     out_img.save(self.tmp + "/virtual_cam_debug_grey.jpg")
@@ -246,20 +254,15 @@ class OpticalVirtual(BaseCamera):
                     out_img = Image.fromarray(out_arr, 'RGB')
                     out_img.save(self.tmp + "/virtual_cam_debug_col.jpg")
 
-            extra_delay_secs = await_elapsed(
-                time.time(), start + constants.THROTTLE_CAMERA_SNAP_SECS)  # blocks
-            if self.debug:
-                if extra_delay_secs > 0:
-                    self.logger.debug(
-                        'OpticalVirtual capture throttle - slept for {0} seconds'.format(extra_delay_secs))
-                else:
-                    self.logger.debug(
-                        'OpticalVirtual capture throttling not required')
+            if self.debug and self.logger:
+                self.logger.info(
+                    'OpticalVirtual capture completed in {:.3f}secs'.format(time.time() - start))
+
             end = time.time()
-            elapsed = round(end - start, 3)  # seconds
+            self._elapsed = round(end - start, 3)  # seconds
             if self.debug:
                 self.logger.debug(
-                    'OpticalVirtual capture - captured in {0:.2f} seconds'.format(elapsed))
+                    'OpticalVirtual capture - captured in {0:.2f} seconds'.format(self._elapsed))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
