@@ -148,10 +148,11 @@ class Config():
                 'absolute patterns path: {0}'.format(abs_patt_path))
             patt_names_0 = [os.path.basename(x)[0:-3]
                             for x in abs_patt_path.glob('*.py')]
-            patt_names = [' '.join(word.title() for word in patt_name.split(
-                '_')) for patt_name in patt_names_0]
+            patt_names = [' '.join(word.title() if not word.isupper() 
+                                   else word for word in patt_name.split(
+                                       '_')) for patt_name in patt_names_0]
             patt_names.remove('Template')
-            self.database['patterns'] = patt_names
+            self.database['patterns'] = sorted(patt_names)
 
             # determine navigation strategy and mowing pattern from pairing?
             if cur_profile != self.prev_profile or cur_mower != self.prev_mower:
@@ -709,8 +710,8 @@ class Config():
                 cur_pattern is not None and 
                 cur_pattern != 'None'):
 
-                # from Current Pattern Name - obtain module_name
-                rel_pat_mod_name = cur_pattern.replace(' ', '_').lower()
+                # from Current Pattern Name - obtain module_name, preserving all-upper-case acronymous phrases
+                rel_pat_mod_name = '_'.join([word if word.isupper() else word.lower() for word in cur_pattern.split()])
                 try:
                     file_path = os.path.join(
                         abs_patt_path, rel_pat_mod_name) + '.py'
