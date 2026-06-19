@@ -454,12 +454,6 @@ def partial_action(duration_ms, axle_track_m, velocity_full_speed_mps, speed_lef
             str(round(new_x_m, 2)) + ', ' + str(round(new_y_m, 2)) + ')'
         if debug:
             trace_virtual('\t' + msg)
-        sleep_secs = 0
-        msg = 'effectively sleeping for: ' + str(sleep_secs)
-        if debug:
-            trace_virtual('\t' + msg)
-
-        sleep(sleep_secs)
 
         # write back and save pose
         msg = 'VMotion partial - setting virtual mower position x_m: ' + \
@@ -520,9 +514,9 @@ def readadc(_):
 def get_telemetry():
     # assemble string of telemetry values
     tmplt = ('{{"analogs": {}, "cutter1": {}, "cutter2": {}, '
-             '"essid": "{}", "rssi": {}, "dist": {}, '
+             '"essid": "{}", "rssi": {}, '
              '"qual-essids": {}, "priority-essid": {}, "last-scan": {}, '
-             '"free-mb": {}, "last-update": {}}}'
+             '"last-update": {}}}'
             )
     batt = readadc(None)
     cutter_state = int.from_bytes(cutter_state_bytes, 'big') // 256
