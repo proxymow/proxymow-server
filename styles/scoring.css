@@ -55,11 +55,6 @@ main {
     border: 1px solid #777;
     padding: 4px;
 }
-.contour-thumbnail-widget {
-    width: 48px;
-    height: 48px;
-    background-repeat: no-repeat;
-}
 .contour-bar-widget {
     border: 1px solid black;
     text-align: center;
