@@ -5,10 +5,6 @@ main {
     gap: 4px;
     padding: 4px;
 }
-.figbody {
-    text-align: center;
-    border: 2px solid var(--pxm-highlight-grey);
-}
 .fig-grid-body {
     height: calc(100% - 2em);/* from figure minus (caption + padding) */
     overflow-y: auto;
@@ -17,11 +13,6 @@ main {
 .fig-img-body {
     height: calc(100% - 2em);/* from figure minus (caption + padding) */
     border: 2px solid var(--pxm-highlight-grey);
-}
-.fig-img-body img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
 }
 .monitor {
     justify-self: center;
@@ -53,26 +44,34 @@ main {
    font-weight: bold;
    text-transform: capitalize;
 }
-.cont-grid tbody tr:nth-child(even):not(.row-disabled) {
-   background-color: #F0F0D0;
-}
 .cont-grid th, td {
     border: 1px solid #777;
     padding: 4px;
 }
-.contour-thumbnail-widget {
-	width: 48px;
-	height: 48px;
-	background-repeat: no-repeat;
+.row-accepted {
+    background-color: #5CB85C;
+    font-weight: bolder;
 }
-.contour-bar-widget {
-    border: 1px solid black;
-	text-align: center;
+.row-rejected {
+    background-color: #D9534F;
 }
-.contour-bar-widget > div {
-    background-color: green;
-    height: 100%;
+.cell-rejected {
+     text-decoration: line-through;
 }
+img {
+	vertical-align: text-bottom;
+}
+.filled-contour {
+	fill: yellow;
+}
+.contour-point {
+    stroke: orange;
+    fill: orange;
+}
+.hidden {
+	opacity: 0;
+}
+
 @media all and (max-width: 768px) {
     /* ADDITIONAL rules for smaller footprints */
 
