@@ -64,6 +64,7 @@ class Projection():
             if debug and logger:
                 logger.debug(
                     'target incoming contour point count: {0}'.format(num_pts))
+            self.timesheet.add('points counted')
 
             # incoming bounding-box centre
             self.bbcx, self.bbcy = np.min(
@@ -89,9 +90,10 @@ class Projection():
             self.centroid_x, self.centroid_y = centroid
             self.timesheet.add('centroid calculated')
             
-            # evaluate edginess
-            self.edginess = cl.edginess(c_raw_in)
-
+            # caclulate perimeter
+            self.perimeter = cl.perimeter(c_raw_in)
+            self.timesheet.add('perimeter calculated')
+            
             # point reduction?
             # we can be quite aggressive here without much loss of accuracy
             c_red = cl.reduce_contour_points(
@@ -104,7 +106,7 @@ class Projection():
                 For 2-D convex hulls, the vertices are in counterclockwise order.
                 For other dimensions, they are in input order
             '''
-            ch_obj = ConvexHull(c_red)
+            ch_obj = ConvexHull(c_red, qhull_options='QJ')
             num_pts = len(ch_obj.vertices)
             if debug and logger:
                 logger.debug(
@@ -122,8 +124,9 @@ class Projection():
             self.timesheet.add('hull area calculated')
 
             # unidentified vertices
+            morph_debug = debug and constants.DEBUG_LOCATE_LEVEL >= 4 # verbose
             vertices, morph_props = cl.morph_contour_to_polygon(
-                self.c_ch, 3, max_iterations=255, debug=False, logger=logger)
+                self.c_ch, 3, max_iterations=255, debug=morph_debug, logger=logger)
             self.pyramid = '{0}|{1}|{2}|{3}'.format(
                 len(c_raw_in),
                 len(c_red),
@@ -213,6 +216,7 @@ class Projection():
             
             # assess fit of original contour to triangle
             self.fitness = cl.fitness(c_raw_in, [self.v1, self.v2, self.v3])
+            self.timesheet.add('fitness')
 
             # simple tail from vague vertices
             self.tail = np.mean((self.v2, self.v3), axis=0)
@@ -242,19 +246,26 @@ class Projection():
                 logger.debug('heading: {0:.0f} degrees'.format(
                     degrees(self.heading)))
 
+            self.timesheet.add('tip/tail/centres')
+
             self.isoscelicity = geom_lib.triangle_isoscelicity(
                 [self.v1, self.v2, self.v3], 0, 1, 2, 0.6)
+
+            self.timesheet.add('isoscelicity')
 
             self.area = geom_lib.triangle_area(self.v1, self.v2, self.v3)
             self.solidity = self.ch_area / self.area
 
-            self.timesheet.add('tip/tail/centres')
+            self.timesheet.add('solidity')
 
             # calculate elapsed time
             self.elapsed_secs = time.time() - self.start_time_secs
             
             # calculate memory footprint
             self.mem_footprint = utilities.getsize(self)
+            
+            # if debug and logger:
+            #     logger.debug(str(self.timesheet))            
 
         except ValueError as vex:
             self.valid = False
@@ -279,7 +290,7 @@ class Projection():
         tmplt += 'pyramid: {}\tsides: {}\n'
         tmplt += 'clusters: {}\n'
         tmplt += 'area: {:.3f}\t\tspan: {:.3f}\t\t\theading: {} degrees\n'
-        tmplt += 'isoscelicity: {:.3f}\tsolidity: {:.3f}\tfitness: {:.3f}\tedginess:{:.3f}\n'
+        tmplt += 'isoscelicity: {:.3f}\tsolidity: {:.3f}\tfitness: {:.3f}\n'
         tmplt += '{} ({}%)\tvalid: {}\tin {:.3f}secs using {:.3f}Mb'
         result = tmplt.format(
             self.ssid,
@@ -296,7 +307,6 @@ class Projection():
             self.isoscelicity,
             self.solidity,
             self.fitness,
-            self.edginess,
             self.assessment(True).replace('&harr;', '~'),
             self.conf_pc,
             self.valid,
@@ -487,8 +497,12 @@ class Projection():
 
             # score sums and products
             # convert score product to percentage confidence
-            self.score_product = int(self.span_score * self.area_score *
-                                     self.isoscelicity_score * self.solidity_score * self.fitness_score)
+            self.score_product = int((self.span_score if score_props['span'][3] > 0 else 1) * 
+                                     (self.area_score if score_props['area'][3] > 0 else 1) *
+                                     (self.isoscelicity_score if score_props['isoscelicity'][3] > 0 else 1) * 
+                                     (self.solidity_score if score_props['solidity'][3] > 0 else 1) * 
+                                     (self.fitness_score if score_props['fitness'][3] > 0 else 1)
+                                     )
             prod_conf_pc = round(self.score_product /
                                  self.max_score_product * 100, 2)
 
