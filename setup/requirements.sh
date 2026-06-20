@@ -8,7 +8,7 @@ read PASS
 # these may be required...
 sudo apt -y -q update
 sudo apt -y -q full-upgrade
-# sudo apt -y -q install python3-pip
+
 sudo apt -y -q install python3-numpy
 sudo apt -y -q install python3-scipy
 sudo apt -y -q install libmariadb-dev
