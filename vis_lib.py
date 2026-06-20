@@ -1,8 +1,6 @@
 import logging
 import io
-from io import BytesIO
 import sys
-import base64
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from skimage import transform as tf
@@ -10,19 +8,18 @@ from skimage import filters
 from skimage.morphology import closing
 from skimage.measure import find_contours
 from shapely.geometry.polygon import Polygon
-from copy import deepcopy
-import scipy.stats as stats
 
 import geom_lib
 import contour_lib as cl
-import utilities
+import utilities as ut
 from infill_sharpener import Projection
 import constants
 import poses
 from viewport import Viewport, merge_adjacent_viewports
 from diagram_lib import plot_projection_img
 from dashed_image_draw import DashedImageDraw
-from timesheet import Timesheet, Timesheet2
+from timesheet import Timesheet
+from whittler import Whittler 
 
 
 def matrices_from_quad_points(
@@ -351,7 +348,16 @@ def translate_pixel_point(pt, matrix, dp=3, debug=False):
         print('translate_pixel_point numpy de-projected:', res)
     return (np.round(res[0][0], dp), np.round(res[1][0], dp))
 
-
+# def render_filter_hdr():
+#     return [
+#         'ident',
+#         'point count',
+#         'X',
+#         'Y',
+#         'aspect ratio',
+#         'uncircularity'
+#         ]
+    
 def render_contour_hdr():
     return [
         'thumbnail',
@@ -366,14 +372,36 @@ def render_contour_hdr():
         'confidence[%]'
     ]
 
+# def render_contour_row(ident, ctuple, logger):
+#
+#     try:
+#
+#         tmplt = '''
+#             <div style="text-align: center;">{}</div>'''
+#
+#         html_row = [
+#             tmplt.format(ident),
+#             tmplt.format(ctuple[0]),
+#             tmplt.format(int(ctuple[1][0])),
+#             tmplt.format(int(ctuple[1][1])),
+#             tmplt.format(round(ctuple[2], 3)),
+#             tmplt.format(round(ctuple[3], 3))
+#         ]
+#
+#     except Exception as ex:
+#         err_line = sys.exc_info()[-1].tb_lineno
+#         logger.error('Error in Render Contour Row: ' +
+#                      str(ex) + 'on line: ' + str(err_line))
+#
+#     return html_row
 
-def render_contour_row(proj, logger):
+def render_projection_row(proj, logger):
 
     try:
 
         thumb_tmplt = '''
             <div style="text-align: center;">
-                <img src="data:image/jpeg;charset=utf-8;base64,{0}" alt="Thumbnail" />
+                <img src="data:image/jpeg;charset=utf-8;base64,{}" alt="Thumbnail" />
             </div>'''
 
         meter_tmplt = '''
@@ -412,7 +440,7 @@ def render_contour_row(proj, logger):
 
     except Exception as ex:
         err_line = sys.exc_info()[-1].tb_lineno
-        logger.error('Error in Render Contour Row: ' +
+        logger.error('Error in Render Projection Row: ' +
                      str(ex) + 'on line: ' + str(err_line))
 
     return html_row
@@ -818,6 +846,105 @@ def get_prospect_list(
         else:
             print(err_msg)
 
+def get_contours_from_viewport(host, vp, img_arr, fence_mask_arr, debug_image_level, timesheet, logger):
+    sub_array = img_arr[vp.slicer(img_arr.shape)]
+    vp.display_sub_array = sub_array
+
+    # filter and closing
+    prep_img_arr = get_contour_source_array(
+        '{0}'.format(vp.index),
+        sub_array,
+        fence_mask_arr,
+        vp,
+        1,
+        debug_image_level,
+        host.tmp_folder_path,
+        logger,
+        pre_filter=True,
+        post_close=True
+    )
+    vp.analysis_sub_array = prep_img_arr
+    timesheet.add('contour source')
+
+    local_contours, _local_margins, _local_edginess = vp.find_contours(
+        prep_img_arr, logger)
+    timesheet.add('find contours')
+    return local_contours
+
+def add_contour_to_log(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted):
+    in_motion = host.drive['path'] is not None
+    empty_buffer = len(host.contours_buffer) < 5
+    if constants.ENABLE_CONTOUR_LOGGING and ((in_motion and not host.drive_pause) or empty_buffer):
+        # assemble message into a single line - so it stays together
+        # we may be able to allow full size images as they are lo-res
+        msg = ut.make_contour_entry(
+            ivp.display_sub_array, 
+            ivp.analysis_sub_array, 
+            c_unwarped_undistorted, 
+            '{0}'.format(ivp.index), 
+            j, 
+            ivp, 
+            img_arr.shape, 
+            True)
+        if debug_level > 3:
+            logger.info('fcc contour single entry length: {0} bytes estimated buffer usage: {1:.2f} mB'.format(
+                    len(msg), 
+                    len(msg) * host.contours_buffer.maxlen / 1000000))
+        contour_logger = logging.getLogger('contours')
+        contour_logger.info(msg)
+        
+        # add to buffer
+        host.contours_buffer.append(msg)
+
+def post_projection(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted):
+    tgt = None
+    try:
+        tgt = Projection(
+            '{}-{}'.format(ivp.index, j), 
+            j, 
+            c_unwarped_undistorted, 
+            hide_confidence=False, 
+            logger=logger, 
+            debug=(debug_level > 3)
+        )
+        tgt.assess(host.score_props)
+        # track thumbnails for contour analysis, and viewport for coarse location
+        sub_array = img_arr[ivp.slicer(img_arr.shape)]
+        tgt.cont_img_arr = sub_array
+        tgt.cont_img_b64 = ut.convert_array_to_base64(sub_array, (48, 48))
+        if tgt.conf_pc >= constants.SCORE_THRESHOLD:
+            ivp.local_projections.append(tgt)
+    except Exception as e:
+        err_line = sys.exc_info()[-1].tb_lineno
+        msg = 'Error posting projection: ' + str(e) + ' on line ' + str(err_line)
+        if logger:
+            logger.error(msg)
+        else:
+            print(msg)
+    return tgt
+
+def get_vp_from_contour_index(vp_prospect_list, ci, logger=None):
+    '''
+        |    vp0 (3)|    vp1(2) |    vp2(1) |
+        | c0 c1 c2      c3 c4        c6     |
+    '''
+    try:
+        vp_idx = 0
+        vp = vp_prospect_list[vp_idx]
+        sum_of_contours = len(vp.local_contours)
+        while ci >= sum_of_contours:
+            vp_idx += 1
+            vp = vp_prospect_list[vp_idx]
+            sum_of_contours += len(vp.local_contours)
+    except Exception as e:
+        err_line = sys.exc_info()[-1].tb_lineno
+        msg = 'Error looking up index: ' + str(e) + ' on line ' + str(err_line)
+        if logger:
+            logger.error(msg)
+        else:
+            print(msg)
+                
+    return vp
 
 def probe_prospect_list(
     host,
@@ -832,218 +959,123 @@ def probe_prospect_list(
         loop through the incoming list of prospect viewports
         and find contours in the hi-res image
     '''
-    timesheet = Timesheet2('Probe Prospect List')
+    timesheet = Timesheet('Probe Prospect List')
+
+    prospect_viewports = vp_prospect_list
+    filtered_projections = []
+    pose = None
+    
+    whittler = Whittler()
+    
     try:
+        
         fence_mask_arr = np.asarray(host.fence_mask_img, bool)
-        prospect_viewports = []
-        for _pid, vp in enumerate(vp_prospect_list):
-            timesheet.restart()
-            sub_array = img_arr[vp.slicer(img_arr.shape)]
-            vp.display_sub_array = sub_array
-
-            # filter and closing
-            prep_img_arr = get_contour_source_array(
-                '{0}'.format(vp.index),
-                sub_array,
-                fence_mask_arr,
-                vp,
-                1,
-                debug_image_level,
-                host.tmp_folder_path,
-                logger,
-                pre_filter=True,
-                post_close=True
+        min_pt_count = constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT
+        for vp in vp_prospect_list:
+            vp.local_projections = [] # clear in anticipation
+            vp.local_contours = get_contours_from_viewport(
+                host, 
+                vp, 
+                img_arr, 
+                fence_mask_arr, 
+                debug_image_level, 
+                timesheet, 
+                logger
             )
-            vp.analysis_sub_array = prep_img_arr
-            timesheet.add('contour source')
-
-            local_contours, local_margins, local_edginess = vp.find_contours(
-                prep_img_arr, logger)
-            timesheet.add('find contours')
-
-            if logger and debug_level > 0:
-                logger.debug('local point counts: {0}'.format(
-                    [len(c) for c in local_contours]))
-
-            # best filtering methodology available
+            # Sift contours using basic tools, before Whittling
+            
+            # best filtering methodology
             # mid-range * threshold, or lower
             count_threshold = constants.CONTOUR_POINT_COUNT_THRESHOLD
-            local_counts = [len(c) for c in local_contours]
+            local_counts = [len(c) for c in vp.local_contours]
             mid_range_count = (max(local_counts, default=0) + min(local_counts, default=0)) * count_threshold
             min_pt_count = max(mid_range_count, constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT)
-            filtered_local_contours = [c for c in local_contours if len(c) > min_pt_count]
-
-            
-            if logger and debug_level > 0:
-                logger.debug('Number of filtered local contours [len > {}]: {}'.format(
-                    min_pt_count, len(filtered_local_contours)))
-
-            if logger and debug_level > 0:
-                logger.debug('probe: {0} pre-de-dupe contour count: {1} {2}'.format(
-                    vp.index, len(filtered_local_contours), [len(c) for c in filtered_local_contours]))
+            # update list in-place
+            vp.local_contours[:] = [c for c in vp.local_contours if len(c) > min_pt_count]
 
             # de-duplicate contour list in-place, by removing inner
-            cl.dedupe_contour_list(
-                filtered_local_contours, 0, logger=logger, debug=False)
-            timesheet.add('contours de-duped')
+            cl.dedupe_contour_list(vp.local_contours, constants.CONTOUR_DEDUPE_MAX_GAP, 0, logger=logger, debug=True)
 
-            vp.local_contours = filtered_local_contours
-            vp.local_margins = local_margins
-            vp.local_edginess = local_edginess
+        timesheet.add('de-duped sifted contours posted')
+
+        # assemble all global contours
+        vp_offset_mult = np.array(img_arr.shape) / 100
+        full_global_contours = [
+             c + (vp.origin * vp_offset_mult) for vp in vp_prospect_list if vp is not None for c in vp.local_contours]
+        timesheet.add('full contours assembled')
+        
+        # annotate
+        if debug_image_level >= 2 or abs(debug_image_level) == 2:
+            hires_img = Image.fromarray(img_arr).convert('RGB')
+            hires_draw = ImageDraw.Draw(hires_img)
+            sm_font = ImageFont.truetype(host.font_path, 12)
+            # overlay global contours in orange
+            cl.overlay_contours(
+                full_global_contours, hires_draw, (1, 1), 'orange', sm_font)
+            hires_img.save(host.tmp_folder_path + 'hires.jpg')
+
+        global_contours = [cl.reduce_contour_points(
+            c, constants.CAPPED_POINT_COUNT) for c in full_global_contours]
+        timesheet.add('contours points reduced')
+                
+        if logger and debug_level > 0:
+            logger.debug('Number of filtered global contours [len > {}]: {} Point Counts: {}'.format(
+                min_pt_count, len(global_contours), [len(c) for c in global_contours]))
+
+        whittler.process(global_contours, img_arr)
+        if logger: logger.debug('\n' + str(whittler) + '\n')
+        timesheet.add('contours whittled')
+            
+        # complete further processing on accepted whittled contours only
+        for j, ci in enumerate(whittler.accepted_index):
+            
+            cont = global_contours[ci]
+            
+            # identify viewport
+            ivp = get_vp_from_contour_index(vp_prospect_list, ci)
+
+            # apply sobel compensation
+            comp_cont = cl.sobel_compensation(cont)
+
+            # use mapper to undistort & unwarp contour to metres...
+            c_unwarped_undistorted = host.data_mapper.transform_contour(
+                comp_cont)  # y,x order in, x,y out
+            
+            # add to log? will only log contours during excursions...
+            add_contour_to_log(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted)
+
+            # create and post projection on viewport
+            proj = post_projection(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted)
+            
             if logger and debug_level > 0:
-                logger.debug('probe: {0} post-de-dupe contour count: {1} {2}'.format(
-                    vp.index, len(filtered_local_contours), [len(c) for c in filtered_local_contours]))
+                logger.debug(str(proj.timesheet)) 
+                            
+            # assemble projections - without pre-filtering
+            filtered_projections.append(proj)
+            
+            if ((debug_image_level >= 5 or abs(debug_image_level) == 5) or
+                    ((debug_image_level >= 6 or abs(debug_image_level) == 6) and 
+                        proj.conf_pc > constants.SCORE_THRESHOLD)):
 
-            # global contour offset
-            offset = np.array(vp.origin) * np.array(img_arr.shape) / 100
+                # initialise response
+                img_buf = io.BytesIO()
 
-            # annotate
-            if debug_image_level >= 2 or abs(debug_image_level) == 2:
-                hires_img = Image.fromarray(img_arr).convert('RGB')
-                hires_draw = ImageDraw.Draw(hires_img)
-                sm_font = ImageFont.truetype(host.font_path, 12)
-                # overlay global contours in orange
-                global_contours = [c + offset for c in local_contours]
+                # overlay contour
+                disp_img = Image.fromarray(ivp.display_sub_array).convert('RGB')
+                disp_draw = ImageDraw.Draw(disp_img)
                 cl.overlay_contours(
-                    global_contours, hires_draw, (1, 1), 'orange', sm_font)
-                hires_img.save(host.tmp_folder_path +
-                               '{0}-hires.jpg'.format(vp.index))
+                    ivp.local_contours, disp_draw, (1, 1), 'orange', None)
 
-            vp.local_projections = []
-            for j, cont in enumerate(vp.local_contours):
-                
-                # compute contrast here
-                cont_centroid = np.mean(cont, axis=0).astype(int)
-                central_intensity = vp.display_sub_array[cont_centroid[0], cont_centroid[1]]
-                
-                r1 = 0
-                c1 = 0
-                r2 = cont_centroid[1]
-                c2 = cont_centroid[0]
-                
-                # extract values on line from r1, c1 to r2, c2
-                num_points = 10
-                xvalues = np.linspace(c1, c2, num_points).astype(int)
-                yvalues = np.linspace(r1, r2, num_points).astype(int)
-                zvalues = vp.display_sub_array[xvalues, yvalues]
-                contrast_range = np.ptp(zvalues)
-                
-                logger.debug('probe contrast from: {} range: {} central: {}'.format(zvalues, contrast_range, central_intensity))
+                plot_projection_img(
+                    proj, ivp.index, ivp.analysis_sub_array, disp_img, img_buf, logger)
 
-                if len(cont) < constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT:
-                    # keep local projections synchronised with contours
-                    vp.local_projections.append(None)
-                else:
-                    # we need global contours
-                    global_cont = cont + offset
+                # save debug plot image
+                plot_img = Image.open(img_buf)
+                plot_img.save(host.tmp_folder_path +
+                              '{0}-{1}-proj.jpg'.format(ivp.index, j))
 
-                    # apply sobel compensation
-                    comp_cont = cl.sobel_compensation(global_cont)
-
-                    # use mapper to undistort & unwarp contour to metres...
-                    c_unwarped_undistorted = host.data_mapper.transform_contour(
-                        comp_cont)  # yx order in, xy out
-
-                    # add to log? will only log contours during excursions...
-                    in_motion = host.drive['path'] is not None
-                    exceeded_rnf_count = False
-                    empty_buffer = len(host.contours_buffer) < 5
-                    if constants.ENABLE_CONTOUR_LOGGING and ((in_motion and not exceeded_rnf_count and not host.drive_pause) or empty_buffer):
-                        # assemble message into a single line - so it stays together
-                        # we may be able to allow full size images as they are lo-res
-                        msg = utilities.make_contour_entry(
-                            sub_array,
-                            prep_img_arr,
-                            c_unwarped_undistorted,
-                            '{0}'.format(vp.index),
-                            j,
-                            vp,
-                            img_arr.shape,
-                            True
-                        )
-                        if debug_level > 3:
-                            logger.info('fcc contour single entry length: {0} bytes estimated buffer usage: {1:.2f} mB'.format(
-                                len(msg),
-                                len(msg) * host.contours_buffer.maxlen / 1000000
-                            )
-                            )
-                        contour_logger = logging.getLogger('contours')
-                        contour_logger.info(msg)
-                        # add to buffer
-                        host.contours_buffer.append(msg)
-
-                    tgt = Projection(
-                        '{0}-{1}'.format(vp.index, j),
-                        j,
-                        c_unwarped_undistorted,
-                        hide_confidence=False,
-                        logger=logger,
-                        debug=(debug_level > 3)
-                    )
-                    tgt.assess(host.score_props)
-
-                    # track thumbnails for contour analysis, and viewport for coarse location
-                    tgt.cont_img_arr = sub_array
-                    b64_buffer = BytesIO()
-                    b64_img_raw = Image.fromarray(sub_array)
-                    b64_img = b64_img_raw.resize((48, 48))
-                    b64_img.convert('RGB').save(b64_buffer, format="JPEG")
-                    b64_bytes = base64.b64encode(b64_buffer.getvalue())
-                    tgt.cont_img_b64 = b64_bytes.decode()    # convert bytes to string
-
-                    # pre-filter
-                    if tgt.conf_pc > constants.SCORE_THRESHOLD:
-                        vp.local_projections.append(tgt)
-                    
-                    if logger and debug_level > 1:
-                        logger.debug(tgt.timesheet)
-
-                    if ((debug_image_level >= 5 or abs(debug_image_level) == 5) or
-                            ((debug_image_level >= 6 or abs(debug_image_level) == 6) and tgt.conf_pc > constants.SCORE_THRESHOLD)):
-
-                        # initialise response
-                        img_buf = io.BytesIO()
-
-                        # overlay contour
-                        disp_img = Image.fromarray(sub_array).convert('RGB')
-                        disp_draw = ImageDraw.Draw(disp_img)
-                        cl.overlay_contours(
-                            [cont], disp_draw, (1, 1), 'orange', None)
-
-                        plot_projection_img(
-                            tgt, vp.index, prep_img_arr, disp_img, img_buf, logger)
-
-                        # save debug plot image
-                        plot_img = Image.open(img_buf)
-                        plot_img.save(host.tmp_folder_path +
-                                      '{0}-{1}-proj.jpg'.format(vp.index, j))
-
-            prospect_viewports.append(deepcopy(vp))
-
-        # assemble all global contours - at reduced point count
-        all_big_contours = [
-            c + offset for vp in vp_prospect_list if vp is not None for c in vp.local_contours]
-        all_contours = [cl.reduce_contour_points(
-            c, 24) for c in all_big_contours]
-        if logger and debug_level > 0:
-            logger.debug('Assembled {0} contour(s) into all_contours: {1}'.format(
-                len(all_contours),
-                [len(c) for c in all_contours]
-            ))
-
-        # assemble filtered global contour dictionary index i => len(c)
-        filtered_contour_index = {i: len(c) for i, c in enumerate(
-            all_big_contours) if len(c) > constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT}
-
-        # assemble projections
-        filtered_projections = [
-            p for vp in vp_prospect_list if vp is not None for p in vp.local_projections if p is not None]
-        if logger and debug_level > 0:
-            logger.debug('Assembled {0} projection(s) into filtered_projections: {1}'.format(
-                len(filtered_projections),
-                [f.conf_pc for f in filtered_projections]
-            )
-            )
+            
+        timesheet.add('projections assembled')
 
         # sort projections
         filtered_projections.sort(key=lambda p: p.conf_pc, reverse=True)
@@ -1051,9 +1083,13 @@ def probe_prospect_list(
             logger.debug('Sorted projection(s): {0}'.format(
                 [f.conf_pc for f in filtered_projections]))
 
+        timesheet.add('projections sorted')
+
         # the highest scoring projection
         best_projection = filtered_projections[0] if len(
             filtered_projections) > 0 and filtered_projections[0].conf_pc > constants.SCORE_THRESHOLD else None
+
+        timesheet.add('best projection identified')
 
         if best_projection is not None and best_projection.valid:
 
@@ -1068,7 +1104,9 @@ def probe_prospect_list(
 
         else:
             pose = None
-
+        
+        timesheet.add('pose calculated')
+        
         # check here for Null Pose, and use extrapolation if possible
         if (
             pose is None and
@@ -1082,11 +1120,11 @@ def probe_prospect_list(
                 host.extrapolation_incidents)
             )
 
+        timesheet.add('extrapolation considered')            
+                
         if logger and debug_level >= 0:
             logger.debug(timesheet)
-
-        return prospect_viewports, all_contours, filtered_contour_index, filtered_projections, pose
-
+            
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno
         err_msg = 'Error in probe_prospect_list: ' + \
@@ -1095,8 +1133,9 @@ def probe_prospect_list(
             logger.error(err_msg)
         else:
             print(err_msg)
-
-
+            
+    return prospect_viewports, global_contours, filtered_projections, pose, whittler
+    
 def lores_contours(analysis_array, zoom_scale_factor=4, min_pt_count=10, debug=False, logger=None):
 
     right_sizables = -1

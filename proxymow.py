@@ -42,8 +42,9 @@ import lxml.etree as ET
 import traceback
 import mariadb
 import markdown
-from blue_proxy import BlueProxy
 
+from blue_proxy import BlueProxy
+from whittler import Whittler 
 import utilities
 import constants
 from cameras import RemoteOpticalPi
@@ -52,7 +53,8 @@ from dashed_image_draw import DashedImageDraw
 import configurations
 from vis_lib import get_fence_mask_surface, \
     grid_intersections_camera, get_polygons_from_pc, matrices_from_quad_points, \
-    get_prospect_list, probe_prospect_list, render_contour_row, lores_contours
+    get_prospect_list, probe_prospect_list, \
+    render_projection_row, lores_contours
 from geom_lib import annot_arrow, annot_axle, distance_to_line, diff_angles
 from utilities import trace_rules, trace_command, trace_location, \
     LOCATION_CSV_HEADER, get_mem_stats
@@ -94,7 +96,7 @@ class MowerProxy():
 
 class ProxymowServer(object):
 
-    VERSION_STRING = "2.0.1"
+    VERSION_STRING = "2.1.1"
     
     linux = (platform.system() == 'Linux')
 
@@ -206,14 +208,14 @@ class ProxymowServer(object):
         self.vision_logger.setLevel(self.log_level)
 
         # locator log
-        locator_logger = logging.getLogger('locator')
+        self.locator_logger = logging.getLogger('locator')
         # create handler
         locator_log_handler = RotatingFileHandler(
             locator_log_file_name, maxBytes=self.LOG_MAX_BYTES, backupCount=self.LOG_BACKUP_COUNT)
         # add formatter to handler
         locator_log_handler.setFormatter(log_formatter)
-        locator_logger.addHandler(locator_log_handler)
-        locator_logger.setLevel(self.log_level)
+        self.locator_logger.addHandler(locator_log_handler)
+        self.locator_logger.setLevel(self.log_level)
 
         # navigation log
         navigation_logger = logging.getLogger('navigation')
@@ -404,6 +406,9 @@ class ProxymowServer(object):
             self.camera_snap_queue = queue.Queue(maxsize=-1)
             self.camera_raw_queue = queue.Queue(maxsize=-1)
             
+            # initialise Whittler class
+            Whittler.init(self.locator_logger, constants.CONTOUR_WHITTLER_SHORT_CIRCUIT)
+            
             # create mower proxy
             self.shared = MowerProxy(self)
 
@@ -467,7 +472,8 @@ class ProxymowServer(object):
             self.unwarp_mapper.clear()
             self.data_mapper.clear()
             self.log('re_init about to garbage collect...', True)  # log memory
-            gc.collect()
+            collected = gc.collect()
+            self.log('re_init collected {} objects'.format(collected))
             self.log('re_init about to populate mappers...', True)  # log memory
 
             self.undistort_unwarp_mapper.populate(
@@ -1925,6 +1931,14 @@ class ProxymowServer(object):
                             # update frame time
                             cur_snapshot.run_elapsed_secs = time.time() - start_time
                         timesheet.add('locate snapshot committed')
+                        
+                        self.log("\nGarbage Objects:")
+                        for x in gc.garbage:
+                            s = str(x)
+                            self.log('\t' + type(x) + ' ' + s[:80])
+                        collected = gc.collect()
+                        self.log('governor collected {} objects'.format(collected), True) # log memory
+                        timesheet.add('garbage collected')
 
                         self.log_debug(timesheet)
 
@@ -2073,7 +2087,7 @@ class ProxymowServer(object):
                     # get latest snapshot for pose and windowing calculations
                     latest_snapshot = self.snapshot_buffer.latest()
 
-                    if (latest_snapshot is not None and latest_snapshot._pose is not None):
+                    if constants.TRACKING_VIEWPORT and (latest_snapshot is not None and latest_snapshot._pose is not None):
                         # viewport from pose
                         logger.info('pxm locate fixing viewport around valid pose...')
                         hsid = '{0}B'.format(sid)
@@ -2093,7 +2107,7 @@ class ProxymowServer(object):
                         else:
                             vp_prospect_list = []
                         timesheet.add('viewport prepared')
-                    elif self.viewport is not None and not self.viewport.isnull:
+                    elif constants.TRACKING_VIEWPORT and self.viewport is not None and not self.viewport.isnull:
                         # viewport expansion chasing escaped target
                         logger.info('pxm locate about to expand viewport looking for escaped target...')
                         logger.info('pxm locate viewport {:.0f}x{:.0f} footprint: {:.2f}%'.format(self.viewport.height, self.viewport.width, self.viewport.footprint))
@@ -2143,7 +2157,7 @@ class ProxymowServer(object):
                         timesheet.add('get prospect list')
 
                     # now we can probe the prospects in full res looking for the target...
-                    prospect_viewports, all_contours, filtered_contour_index, filtered_projections, pose = probe_prospect_list(
+                    prospect_viewports, all_contours, filtered_projections, pose, whittler = probe_prospect_list(
                         self,
                         sid,
                         vp_prospect_list,
@@ -2176,7 +2190,7 @@ class ProxymowServer(object):
 
                     # contours
                     locate_snapshot._contours = all_contours
-                    locate_snapshot._fltrd_contour_index = filtered_contour_index
+                    locate_snapshot._whittler = whittler
                     
                     # projections
                     locate_snapshot._fltrd_projections = filtered_projections
@@ -2217,7 +2231,7 @@ class ProxymowServer(object):
                     locate_snapshot.extrapolation_incidents = self.extrapolation_incidents
 
                     # contour count
-                    locate_snapshot.fltrd_count = len(filtered_contour_index)
+                    locate_snapshot.fltrd_count = whittler.num_accepted
                     locate_snapshot.cont_count = len(all_contours)
 
                     timesheet.add('json snapshotted')
@@ -2329,11 +2343,21 @@ class ProxymowServer(object):
                     ssid,
                     rssi
                 )
-                # Get Cursor? only route and fence drives establish connection
-                if self.db_connection is not None:
-                    cur = self.db_connection.cursor()
-                    cur.execute(query)
-                    self.db_connection.commit()
+                try:
+                    cur = None
+                    # Get Cursor? only route and fence drives establish connection
+                    if self.db_connection is not None:
+                        cur = self.db_connection.cursor()
+                        cur.execute(query)
+                        self.db_connection.commit()
+                except Exception as e:
+                    err_line = sys.exc_info()[-1].tb_lineno
+                    self.log_error('Error in db transaction: ' + 
+                                   str(e) + ' on line ' + str(err_line))
+                finally:
+                    if cur:
+                        cur.close()
+                    # don't close connection...
 
                 # update visual pose history
                 if constants.VISUAL_POSE_HISTORY:
@@ -2535,6 +2559,9 @@ class ProxymowServer(object):
                     self.scanner.reset_stats()
                     if self.despatcher is not None:
                         self.despatcher.reset_stats()
+                        
+                    # re-initialise Whittler class
+                    Whittler.init(self.locator_logger, constants.CONTOUR_WHITTLER_SHORT_CIRCUIT)
                     
                 elif name == 'plan':
                     # values will arrive as json list
@@ -2947,7 +2974,7 @@ class ProxymowServer(object):
                     # use the score properties to assess target...
                     proj.assess(score_props)
 
-                    scorecard = render_contour_row(proj, self.pxm_logger)
+                    scorecard = render_projection_row(proj, self.pxm_logger)
 
                     resp = json.dumps([scorecard]).replace("NaN", "null").replace(
                         "-Infinity", "null").replace("Infinity", "null")
@@ -3028,7 +3055,7 @@ class ProxymowServer(object):
         return resp.encode('utf8')
 
     @cherrypy.expose
-    def contours_json(self, ssid=-1, **_kwargs):
+    def projections_json(self, ssid=-1, **_kwargs):
 
         resp = '{}'  # empty response
 
@@ -3044,10 +3071,46 @@ class ProxymowServer(object):
                     locate_snapshot._fltrd_projections is not None):
                         for proj in locate_snapshot._fltrd_projections[-max_row_count:]:
                             rendered_projections.append(
-                                render_contour_row(proj, self.pxm_logger))
+                                render_projection_row(proj, self.pxm_logger))
 
                 # convert to json
                 resp = json.dumps(rendered_projections).replace("NaN", "null").replace(
+                    "-Infinity", "null").replace("Infinity", "null")
+            else:
+                locate_snapshot = None
+                self.log_warning(
+                    'Problem in projections_json: No content Warning Http 204')
+                cherrypy.response.status = '204'  # No Content Warning
+
+            cherrypy.response.headers['Content-Type'] = 'application/json'
+
+        except Exception as ex:
+            err_line = sys.exc_info()[-1].tb_lineno
+            self.log_error('Error in projections_json: ' +
+                           str(ex) + ' on line ' + str(err_line))
+
+        return resp.encode('utf8')
+    
+    @cherrypy.expose
+    def contours_json(self, ssid=-1, **_kwargs):
+
+        resp = '{}'  # empty response
+
+        try:
+            ss_index = int(ssid)
+            if ss_index in self.snapshot_buffer:
+                locate_snapshot = self.snapshot_buffer[ss_index]
+                
+                # render table
+                max_row_count = constants.CONTOUR_TABLE_MAX_ROWS
+                
+                if (locate_snapshot is not None and
+                    '_whittler' in vars(locate_snapshot) and
+                    locate_snapshot._whittler is not None):
+                        rendered_contours = locate_snapshot._whittler.render(ss_index)
+                        
+                # convert to json
+                resp = json.dumps(rendered_contours[:max_row_count]).replace("NaN", "null").replace(
                     "-Infinity", "null").replace("Infinity", "null")
             else:
                 locate_snapshot = None
@@ -3624,7 +3687,6 @@ class ProxymowServer(object):
                 # current time
                 img_width_px, img_height_px, padding, line_height, _margin, _left_x, font = self.get_draw_metrics(
                     img_arr)
-                sm_font = ImageFont.truetype(self.font_path, 12)
 
                 self.annotate(
                     0,
@@ -3652,38 +3714,6 @@ class ProxymowServer(object):
                     1  # align right
                 )
                 timesheet.add('location time overlaid')
-
-                # overlay all raw contours
-                adr = self.config['optical.analysis_display_ratio']
-
-                fill_col = 'yellow'
-                if '_contours' in vars(locate_snapshot) and locate_snapshot._contours is not None:
-                    for n, contour in enumerate(locate_snapshot._contours):
-
-                        # convert to flat list for plotting
-                        flat_points = list(
-                            np.flip(np.array(contour / [adr, adr]).flatten().astype(int)))
-
-                        # sketch outline
-                        cont_img_draw.line(flat_points, fill=fill_col, width=1)
-
-                    # overlay filtered body contours
-                    fill_col = 'orange'
-                    if '_fltrd_contour_index' in vars(locate_snapshot) and locate_snapshot._fltrd_contour_index is not None:
-                        for n, contour in enumerate(locate_snapshot._contours):
-
-                            if n in locate_snapshot._fltrd_contour_index.keys():
-
-                                # convert to flat list for plotting
-                                fltrd_flat_points = list(
-                                    np.flip(np.array(contour / [adr, adr]).flatten().astype(int)))
-
-                                # sketch outline
-                                cont_img_draw.line(
-                                    fltrd_flat_points, fill=fill_col, width=1)
-                                cont_img_draw.text((max(fltrd_flat_points[::2]) + random.randint(10, 100), max(fltrd_flat_points[1::2]) + random.randint(10, 100)), '{0}:{1}'.format(
-                                    n, locate_snapshot._fltrd_contour_index[n]), fill=fill_col, font=sm_font)
-                timesheet.add('contours overlaid')
 
                 if locate_snapshot._pose is None:
                     self.annotate(
@@ -4592,6 +4622,7 @@ class ProxymowServer(object):
 
     def overlay_virtual_noise(self, rgb_draw):
         mode = constants.VIRTUAL_NOISE
+        mower_xm = mower_ym = mower_t_deg = None
         try:
             if mode > 0:
                 shared_pose = self.shared.get()
@@ -4602,62 +4633,65 @@ class ProxymowServer(object):
                 # construct temp pose?
                 if mower_xm is not None and mower_ym is not None and mower_t_deg is not None:
                     p = poses.Pose(mower_xm, mower_ym, radians(mower_t_deg))
-                    span_px = np.hypot(
-                        p.cam.tail_x_px - p.cam.tip_x_px, p.cam.tail_y_px - p.cam.tip_y_px)
-                    x_base_offset, y_base_offset = 16 * span_px / 3, 12 * span_px / 3
-                    if mode == 1:
-                        for angle in range(0, 360, 45):
-                            # spiral around target?
-                            x_offset = sin(radians(angle)) * \
-                                x_base_offset * ((angle / 720) + 0.5)
-                            y_offset = cos(radians(angle)) * \
-                                y_base_offset * ((angle / 720) + 0.5)
-                            offset_centre_x_px = p.cam.c_x_px + x_offset
-                            offset_centre_y_px = p.cam.c_y_px + y_offset
-                            self.random_shape(
-                                rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
-                    elif mode == 2:
+                else:
+                    p = poses.Pose(2, 2, 0)
+                    
+                span_px = np.hypot(
+                    p.cam.tail_x_px - p.cam.tip_x_px, p.cam.tail_y_px - p.cam.tip_y_px)
+                x_base_offset, y_base_offset = 16 * span_px / 3, 12 * span_px / 3
+                if mode == 1:
+                    for angle in range(0, 360, 45):
+                        # spiral around target?
+                        x_offset = sin(radians(angle)) * \
+                            x_base_offset * ((angle / 720) + 0.5)
+                        y_offset = cos(radians(angle)) * \
+                            y_base_offset * ((angle / 720) + 0.5)
+                        offset_centre_x_px = p.cam.c_x_px + x_offset
+                        offset_centre_y_px = p.cam.c_y_px + y_offset
+                        self.random_shape(
+                            rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
+                elif mode == 2:
+                    offset_centre_x_px = random.randint(
+                        0, self.config['optical.width'])
+                    offset_centre_y_px = random.randint(
+                        0, self.config['optical.height'])
+                    self.random_shape(
+                        rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
+                elif mode == 3:
+                    offset_centre_x_px = int(
+                        2 * self.config['optical.width'] / 3)
+                    offset_centre_y_px = int(
+                        1 * self.config['optical.height'] / 3)
+                    self.fixed_shape(
+                        rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
+                elif mode == 4:
+                    for _n in range(0, 10):
                         offset_centre_x_px = random.randint(
                             0, self.config['optical.width'])
                         offset_centre_y_px = random.randint(
                             0, self.config['optical.height'])
-                        self.random_shape(
+                        self.random_ellipse(
                             rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
-                    elif mode == 3:
-                        offset_centre_x_px = int(
-                            2 * self.config['optical.width'] / 3)
-                        offset_centre_y_px = int(
-                            2 * self.config['optical.height'] / 3)
+                elif mode == 5:
+                    x_base_offset, y_base_offset = 5 * span_px / 2, 5 * span_px / 2
+                    for angle in range(0, 360, 180):
+                        # spiral around target
+                        x_offset = sin(radians(angle)) * \
+                            x_base_offset * ((angle / 720) + 0.5)
+                        y_offset = cos(radians(angle)) * \
+                            y_base_offset * ((angle / 720) + 0.5)
+                        offset_centre_x_px = p.cam.c_x_px + x_offset
+                        offset_centre_y_px = p.cam.c_y_px + y_offset
                         self.fixed_shape(
                             rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
-                    elif mode == 4:
-                        for _n in range(0, 10):
-                            offset_centre_x_px = random.randint(
-                                0, self.config['optical.width'])
-                            offset_centre_y_px = random.randint(
-                                0, self.config['optical.height'])
-                            self.random_ellipse(
-                                rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
-                    elif mode == 5:
-                        x_base_offset, y_base_offset = 5 * span_px / 2, 5 * span_px / 2
-                        for angle in range(0, 360, 180):
-                            # spiral around target
-                            x_offset = sin(radians(angle)) * \
-                                x_base_offset * ((angle / 720) + 0.5)
-                            y_offset = cos(radians(angle)) * \
-                                y_base_offset * ((angle / 720) + 0.5)
-                            offset_centre_x_px = p.cam.c_x_px + x_offset
-                            offset_centre_y_px = p.cam.c_y_px + y_offset
-                            self.fixed_shape(
-                                rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
-                    elif mode == 6:
-                        if random.randint(0, 20) == 5:
-                            offset_centre_x_px = random.randint(
-                                0, self.config['optical.display_width'] * 2)
-                            offset_centre_y_px = random.randint(
-                                0, self.config['optical.display_height'] * 2)
-                            self.random_ellipse(
-                                rgb_draw, span_px * 4, offset_centre_x_px, offset_centre_y_px)
+                elif mode == 6:
+                    if random.randint(0, 20) == 5:
+                        offset_centre_x_px = random.randint(
+                            0, self.config['optical.display_width'] * 2)
+                        offset_centre_y_px = random.randint(
+                            0, self.config['optical.display_height'] * 2)
+                        self.random_ellipse(
+                            rgb_draw, span_px * 4, offset_centre_x_px, offset_centre_y_px)
             if constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0:
                 width_px = self.config['optical.width'] - 1
                 height_px = self.config['optical.height'] - 1
@@ -4719,11 +4753,12 @@ class ProxymowServer(object):
     
                 # decide if any overlays are needed...
                 virtual_mower = 'virtual_mower' in cam_settings and cam_settings['virtual_mower']
+                virtual_noise = constants.VIRTUAL_NOISE > 0 or constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0
                 self.log('get_chan_arrays capture rgb virtual robot mode: {0}'.format(
                     virtual_mower is not None and virtual_mower))
                 annotate = (
                     'annotate' in cam_settings and cam_settings['annotate'])
-                overlaying = (virtual_mower or annotate)
+                overlaying = (virtual_mower or virtual_noise or annotate)
     
                 rgb_img = Image.fromarray(img_arr)
                 self.log(
@@ -4739,9 +4774,8 @@ class ProxymowServer(object):
                     elif display_chan == 'gray':
                         ovl_draw = ImageDraw.Draw(rgb_img)
     
-                    if virtual_mower:
-                        if constants.VIRTUAL_NOISE > 0 or constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0:
-                            self.overlay_virtual_noise(ovl_draw)
+                    if virtual_noise:
+                        self.overlay_virtual_noise(ovl_draw)
     
                     # overlaid image back to array
                     img_arr = np.array(rgb_img)

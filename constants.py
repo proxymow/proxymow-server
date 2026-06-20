@@ -157,7 +157,7 @@ LORES_CONTOUR_MAXIMUM_POINT_COUNT = 100
 '''
     HIRES_CONTOUR_MINIMUM_POINT_COUNT - minimum point count for hi-res contours
 '''
-HIRES_CONTOUR_MINIMUM_POINT_COUNT = 35
+HIRES_CONTOUR_MINIMUM_POINT_COUNT = 50
 
 '''
     CONTOUR_POINT_COUNT_THRESHOLD - proportion of mid-range
@@ -245,7 +245,12 @@ WAIT_FOR_CAMERA_SECS = 0.0
 '''
     THROTTLE_CAMERA_SNAP_SECS - throttle camera snap seconds
 '''
-THROTTLE_CAMERA_SNAP_SECS = 0.75 # 1.5 to simulate usb speeds
+THROTTLE_CAMERA_SNAP_SECS = 0.0 # simulate slow cameras
+
+'''
+    THROTTLE_VIRTUAL_CAMERA_SNAP_SECS - throttle virtual camera snap seconds
+'''
+THROTTLE_VIRTUAL_CAMERA_SNAP_SECS = 0.0 # 1.5 to simulate usb camera speeds
 
 '''
     RESET_LAST_VISITED_NODE_ON_PROFILE_CHANGE - Flag to indicate last visited node will be reset
@@ -282,3 +287,23 @@ DIGITAL_SHADOW_DELTA_INTENSITY = 0
     VISUAL_POSE_HISTORY - display kite tails
 '''
 VISUAL_POSE_HISTORY = True
+
+'''
+    TRACKING_VIEWPORT - [True | False] - Track the target with a constrained Viewport
+'''
+TRACKING_VIEWPORT = True
+
+'''
+    CONTOUR_WHITTLER_SHORT_CIRCUIT - stop assessing as soon as contour has been rejected 
+'''
+CONTOUR_WHITTLER_SHORT_CIRCUIT = True
+
+'''
+    CAPPED_POINT_COUNT - working point count after original count has been assessed
+'''
+CAPPED_POINT_COUNT = 24
+
+'''
+    CONTOUR_DEDUPE_MAX_GAP - maximum gap in pixels on any side for contour to be considered inside another
+'''
+CONTOUR_DEDUPE_MAX_GAP = 15
