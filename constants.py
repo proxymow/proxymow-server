@@ -250,7 +250,7 @@ THROTTLE_CAMERA_SNAP_SECS = 0.0 # simulate slow cameras
 '''
     THROTTLE_VIRTUAL_CAMERA_SNAP_SECS - throttle virtual camera snap seconds
 '''
-THROTTLE_VIRTUAL_CAMERA_SNAP_SECS = 0.0 # 1.5 to simulate usb camera speeds
+THROTTLE_VIRTUAL_CAMERA_SNAP_SECS = 0.75 # 1.5 to simulate usb camera speeds
 
 '''
     RESET_LAST_VISITED_NODE_ON_PROFILE_CHANGE - Flag to indicate last visited node will be reset
