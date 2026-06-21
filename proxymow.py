@@ -343,12 +343,10 @@ class ProxymowServer(object):
                 # tell Bleak we are using a graphical user interface that has been properly
                 # configured to work with asyncio
                 allow_sta()
-            except ImportError:
-                # other OSes and older versions of Bleak will raise ImportError which we
-                # can safely ignore
+            except Exception:
+                # other OSes and older versions of Bleak will raise ImportError
+                # which we can safely ignore
                 pass
-            except Exception as blke:
-                self.log_warning(str(blke))
                 
             try:
                 self.blue_proxy = BlueProxy(self.comms_logger)
