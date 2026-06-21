@@ -11,7 +11,6 @@ import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.figure import Figure
 import matplotlib.patches as mpatches
-import poses
 from infill_sharpener import Projection
 import contour_lib as cl
 
@@ -101,7 +100,7 @@ def plot_excursion(excursion_log_file_path, srid=1, erid=1, crid=1, arrow_length
                 outer_circle = mpatches.Circle(
                     (x2_m, y2_m), tgt_radius_m * 2, fill=False)
                 path_arc = mpatches.Arc(
-                    (x1_m, y1_m), path_length_m * 2, path_length_m * 2, path_angle_deg, -20, 20, linestyle='--')
+                    (x1_m, y1_m), path_length_m * 2, path_length_m * 2, angle=path_angle_deg, theta1=-20, theta2=20, linestyle='--')
                 ax.add_patch(inner_circle)
                 # only draw outer target and arc for edge nodes 1, 3, 5, etc
                 if rid % 2 == 1:
