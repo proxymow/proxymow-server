@@ -1,0 +1,11 @@
+<g id="contoursvg">
+    <text class="selectable-point-text" x="100" y="100" pointer-events="none">Hello World</text>
+    {% for c in contours %}
+        <g class="contour-point-group hidden" id="c{{ loop.index0 }}"> 
+            {% for pt in c %}
+                <circle class="contour-point" cx="{{pt[1]}}" cy="{{pt[0]}}" r="2.0" />
+            {% endfor %}
+            <polygon class="filled-contour" points="{{ contour_points[loop.index0] }}"/>
+        </g>
+	{% endfor %}
+</g>
