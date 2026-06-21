@@ -1,13 +1,13 @@
 <h2 id="contours">Contours Feature</h2>
 
 The _Contours feature_ highlights the contours found in the camera image, and
-tabulates their scores.
+tabulates their assessments.
 
 The feature comprises:
 
   * A header toolbar
   * The Contour View
-  * The Scorecard Table
+  * The Assessment Table
 
 ### The Header Toolbar
 
@@ -15,43 +15,18 @@ This toolbar hosts a freeze button, enabling page refreshes to be frozen.
   
 Contour pages are expensive to process, and the resource drain has a
 detrimental impact on frame rate. Use the freeze button to pause page
-refreshes when they are not required, or close the tab. In any case auto-
+refreshes when they are not required, or close the tab. Hovering over a row in the assessment table will also trigger a freeze. In any case auto-
 freeze will kick in after a pre-defined interval.
 
 ### The Contour View
 
-This displays the undistorted camera image, with all found contours overlaid
-in yellow. Qualifying contours are then overlaid in orange, labelled with
+This displays the undistorted camera image. Qualifying contours are then overlaid in orange, labelled with
 their index and point count. If a contour is not displayed in orange, then it
 won't be considered as a potential target. The tracking viewport is also
 displayed as a dashed box.
 
-### The Scorecard Table
+### The Assessment Table
 
-The scorecard table displays projections that have been obtained from
-qualifying contours. Projections are idealised isosceles triangles that
-enclose each contour. The highest scoring projection will appear at the top.
-Ideally, there will only ever be one row in this table, corresponding to the
-robot mower target, but other noise contours may be discovered. The challenge
-is to ensure that the real mower always scores highest.
+The assessment table displays a row of information about each contour found in the camera image. There is one column for every assessment, displaying the analog result. The qualifying contours will appear at the top, highlighted in green, and disqualified contours will follow highlighted red.
 
-#### Scoring Measures
-
-These are displayed as a sub-heading of the table. Each measure has a name and
-is represented by a set of four numbers:
-
-  1. The lower range
-  2. The setpoint
-  3. The upper range
-  4. The maximum score in points
-
-#### Projections
-
-Each qualifying projection is displayed as a row in the table. The thumbnail
-image shows the portion of the scene analysed, and the Ident helps with cross-
-referencing. The calculated centre is also displayed. Each column represents a
-scoring measure of the projection, and contains a meter widget. You can hover
-your mouse over this widget to get more information about how the projection
-score was calculated. The final column shows the overall percentage confidence
-that the projection _is_ the target we are looking for.
-
+Every contour is progressively assessed by each plug-in module's _assess_ function, found in the contour_assessments directory.  Assessments may not be performed, if short-circuiting is enabled, and the contour fails early. Failed assessments are signified by their results appearing in the strikethough font. Assessments may provide a tooltip which gives details of the thresholds and qualification when you hover over the relevant cell. Hovering also highlighs the contour in the image, and freezes refreshing until the freeze button is clicked to cancel.
