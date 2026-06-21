@@ -1,10 +1,11 @@
 import sys
 import io
 import re
+import time
 import datetime
 import numpy as np
 from PIL import Image, ImageDraw
-from math import radians, degrees, atan2, sqrt
+from math import radians, degrees, atan2, sqrt, sin, cos
 import copy
 import matplotlib as mpl
 mpl.use('agg')
@@ -112,17 +113,13 @@ def plot_excursion(excursion_log_file_path, srid=1, erid=1, crid=1, arrow_length
                 num_locs = 0
                 for sel_loc_cells in locations[rid]:
                     num_locs += 1
-                    ssid = int(sel_loc_cells[1])
+                    track_loop_start = time.time()
                     mssid = int(sel_loc_cells[2])
                     x_m = float(sel_loc_cells[8])
                     y_m = float(sel_loc_cells[9])
                     t_deg = float(sel_loc_cells[10])
                     t_rad = radians(t_deg)
-                    pose = poses.Pose(x_m, y_m, t_rad)
-                    if logger:
-                        logger.debug('Posing at {0}'.format(
-                            pose.as_concise_str()))
-
+                    
                     # perpendicular distance to track path line
                     d = ((x2_m - x1_m) * (y1_m - y_m) - (x1_m - x_m) * (y2_m -
                          y1_m)) / sqrt((x2_m - x1_m)**2 + (y2_m - y1_m)**2)
@@ -140,8 +137,10 @@ def plot_excursion(excursion_log_file_path, srid=1, erid=1, crid=1, arrow_length
 
                     prev_mssid = mssid
 
-                    # draw pose - color sequence
-                    arw_start, arw_finish = pose.as_arrow(arrow_length_m)
+                    # draw pose - colour sequence
+                    arw_start = x_m + (arrow_length_m * sin(t_rad)), y_m - (arrow_length_m * cos(t_rad))
+                    arw_finish = x_m - (arrow_length_m * sin(t_rad)), y_m + (arrow_length_m * cos(t_rad))
+                    
                     if logger:
                         logger.debug('Arrow {0}'.format(
                             (arw_start, arw_finish)))
@@ -153,14 +152,9 @@ def plot_excursion(excursion_log_file_path, srid=1, erid=1, crid=1, arrow_length
                             arw_start, arw_finish, mutation_scale=10, fill=True, color=cmap[pose_index % 7], alpha=1.0)
 
                     ax.add_patch(copy.copy(arrow))
-                    if annotate:
-                        if pose_index % 2 == 0:
-                            ax.annotate(str(ssid) + ' ' + str(lrid) +
-                                        ' ' + pose.as_concise_str(), (arw_start))
-                        else:
-                            ax.annotate(str(ssid) + ' ' + str(lrid) +
-                                        ' ' + pose.as_concise_str(), (arw_finish))
                     pose_index += 1
+                    if logger:
+                        logger.debug('track loop elapsed: {:.3f} secs'.format(time.time() - track_loop_start))
                 max_path_distances.append(round(max_path_distance, 3))
                 mean_path_distance = tot_path_distance / num_locs
                 mean_path_differences.append(round(mean_path_distance, 3))
