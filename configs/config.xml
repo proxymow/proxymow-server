@@ -195,7 +195,7 @@
             </hybrid_terms>
             <rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true">
                 <rule name="Stage Terminator" description="Stage Terminator" priority="0" scope="0" stage_complete="True">
-                    <condition><![CDATA[0 <= d <= hr or (i % 2 == 1 and i > 1)]]></condition>
+                    <condition><![CDATA[0 <= d <= hr]]></condition>
                     <duration><![CDATA[]]></duration>
                     <left_speed><![CDATA[]]></left_speed>
                     <right_speed><![CDATA[]]></right_speed>
