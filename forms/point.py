@@ -20,7 +20,7 @@ class Point(Morphable):
         return 100 - self.y  # non-cartesian
 
     def __repr__(self):
-        return 'index:{0} ({1}, {2})'.format(self.index, self.x, self.y)
+        return 'index:{} ({}, {})'.format(self.index, self.x, self.y)
 
     def inc_index(self):
         self.index += 1

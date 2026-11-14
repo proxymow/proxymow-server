@@ -106,15 +106,6 @@ input.wgt-check {
 .ToolPaneHor label:not(:first-child) {
     margin-left: 16px;
 }
-.number-tool-1dp {
-	width: 45px;
-}
-.number-tool-2dp {
-    width: 55px;
-}
-.number-tool-3dp {
-    width: 65px;
-}
 .string-tool {
     width: auto;
 }
@@ -174,6 +165,15 @@ label.tpt-label {
     padding-right: 1px;
     text-align: right;
 }
+.number-tool-1dp {
+    width: 45px;
+}
+.number-tool-2dp {
+    width: 55px;
+}
+.number-tool-3dp {
+    width: 65px;
+}
 .readonly {
     background-color: lightgray;
 }
@@ -215,8 +215,8 @@ label.tpt-label {
 	color: auto;
 }
 .marker-wrapper {
+	width: 50vw;
     height: 100%;
-    aspect-ratio: 4 / 3;
     display: grid;
     grid-template-columns: 100%;
     grid-template-rows: 100%;

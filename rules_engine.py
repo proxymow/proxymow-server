@@ -11,11 +11,11 @@ from geom_lib import get_circle_from_world_points, \
                         get_distance_between_points
 from odometry import MovementCode
 from forms.rule import RuleScope
-import geom_lib
+import geom_lib as gl
 from destination import Attitude
 import constants
 
-class RulesEngine():
+class RulesEngine:
     '''
     Rules Engine to execute navigation strategies
     '''
@@ -66,7 +66,7 @@ class RulesEngine():
         sort_order = 'Term|Hybrid|Systerm'
         self.terms.sort(key=lambda term: sort_order.index(
             term.__class__.__name__), reverse=False)
-        
+
         # assemble dictionary of units for rule tooltips
         self.terms_units = {d.name: d.units for d in self.terms if d.units != ''}
 
@@ -88,8 +88,8 @@ class RulesEngine():
         try:
             # might need some numpy math, or geometry functions...
             self.context['np'] = np
-            self.context['gl'] = geom_lib
-            
+            self.context['gl'] = gl
+
             # some are parameters passed in
             if snapshot is not None:
                 if trace:
@@ -145,7 +145,7 @@ class RulesEngine():
             self.context['n'] = n
             s = config['mower.motion.set_drive_speed_percent']
             self.context['s'] = s
-            
+
             # some will come from telemetry - if available...
             try:
                 num_sensors = len(config['mower.sens_factor_list'].split(','))
@@ -168,7 +168,7 @@ class RulesEngine():
                 self.context['cut1'] = -1
                 self.context['cut2'] = -1
                 self.context['sens'] = [-1] * num_sensors
-            
+
             # some will come from the current pose and might be undesirable numpy float types!
             if pose is not None:
                 if trace:
@@ -229,7 +229,7 @@ class RulesEngine():
                 else:
                     a2 = Attitude.DEFAULT
                 self.context['att2'] = a2
-                
+
                 # path heading
                 if x1 is not None and y1 is not None and x2 is not None and y2 is not None:
                     if trace:
@@ -255,11 +255,11 @@ class RulesEngine():
 
                 if trace:
                     trace_rules(
-                        'build_context tgt_dest {0} d {1} c1 {2}'.format(tgt_dest, d, c))
-                    
-                stray_m = geom_lib.distance_to_line(x, y, x1, y1, x2, y2)
+                        'build_context tgt_dest {} d {} c1 {}'.format(tgt_dest, d, c))
+
+                stray_m = gl.distance_to_line(x, y, x1, y1, x2, y2)
                 self.context['st'] = stray_m
-                
+
                 try:
                     lad = None
                     lax = lay = -1
@@ -267,12 +267,12 @@ class RulesEngine():
                     if 'lad' in self.context and self.context['lad'] is not None and self.context['lad'] > 0:
                         lad = self.context['lad']
                         # find look-ahead point using look-ahead distance
-                        lap = geom_lib.line_circle_intersection(
+                        lap = gl.line_circle_intersection(
                             x, y, x1, y1, x2, y2, min(d, lad), debug=True, logger=self.logger)
                         lax, lay = lap[0], lap[1]
                 except Exception as e:
                     err_line = sys.exc_info()[-1].tb_lineno
-                    self.logger.warn('build_context look-ahead: ' +
+                    self.logger.warning('build_context look-ahead: ' +
                                      str(e) + ' on line ' + str(err_line))
                     if trace:
                         self.logger.debug(
@@ -316,17 +316,17 @@ class RulesEngine():
                 self.context['ra'] = ra
 
                 # turn circle from current to destination
-                
+
                 # library function calculates the angle of arrival from the start and path angles
                 if trace:
                     trace_rules('get_circle_from_world_points x: {:.3f} y: {:.3f} c: {:.0f} tgt_x: {:.3f} tgt_y: {:.3f}'.format(x, y, degrees(c), tgt_x, tgt_y))
                 centre_x, centre_y, turn_circle_radius, arrival_angle, sector_angle, sector_portion = get_circle_from_world_points(
                    x, y, c, tgt_x, tgt_y, debug=trace, logger=self.logger)
-                
+
                 self.context['tcx'] = centre_x
                 self.context['tcy'] = centre_y
                 if trace:
-                    trace_rules('get_circle_from_world_points: centre_x {0}, centre_y {1}, turn_circle_radius {2}, arrival_angle {3}, sector_angle {4}, sector_portion {5}'.format(
+                    trace_rules('get_circle_from_world_points: centre_x {}, centre_y {}, turn_circle_radius {}, arrival_angle {}, sector_angle {}, sector_portion {}'.format(
                         centre_x, centre_y, turn_circle_radius, arrival_angle, sector_angle, sector_portion))
                 if centre_x is not None:
                     if trace:
@@ -356,8 +356,8 @@ class RulesEngine():
                     self.context['f'] = f
                     g = sector_portion
                     self.context['g'] = g
-                    
-                    velocity_ratio, arc_length = geom_lib.get_velocity_ratio(
+
+                    velocity_ratio, arc_length = gl.get_velocity_ratio(
                         axle_track_m,
                         turn_circle_radius,
                         sector_portion,
@@ -368,7 +368,7 @@ class RulesEngine():
                     self.context['b'] = turn_circle_radius
                     self.context['j'] = velocity_ratio
                     self.context['l'] = arc_length  # arc length
-                    
+
                     # how good is the landing pose?
                     V_path = (-sin(path_heading), cos(path_heading))
                     V_land = (-sin(arrival_angle), cos(arrival_angle))
@@ -378,9 +378,9 @@ class RulesEngine():
                     cos_theta = abs(dot_prod / (mag1 * mag2))
                     land_delta = acos(cos_theta)
                     self.context['ld'] = land_delta
-                        
+
                     trace_rules("arrival_angle {:.2f} path heading {:.2f} land_delta {:.2f}".format(
-                        degrees(arrival_angle), 
+                        degrees(arrival_angle),
                         degrees(path_heading),
                         degrees(land_delta)
                         )
@@ -437,9 +437,9 @@ class RulesEngine():
                         err_line = sys.exc_info()[-1].tb_lineno
                         if 'NoneType' not in str(e):
                             self.logger.error(
-                                'Error parsing user-defined term: ' + 
-                                str(ud_term.expression) + 
-                                ' on line ' + str(err_line) + 
+                                'Error parsing user-defined term: ' +
+                                str(ud_term.expression) +
+                                ' on line ' + str(err_line) +
                                 ' => ' + str(e)
                             )
                         ud_result = -1  # None
@@ -458,7 +458,10 @@ class RulesEngine():
                 if term_val is not None:
                     try:
                         # round display values - not context values
-                        term.result = round(term_val, 2)
+                        if isinstance(term_val, (list, tuple)):
+                            term.result = [round(tv, 2) for tv in term_val]
+                        else:
+                            term.result = round(term_val, 2)
                     except Exception:
                         term.result = term_val  # may not be numeric
                     try:
@@ -474,14 +477,20 @@ class RulesEngine():
                 if term.alt_units is not None:
                     if term_val is not None:
                         if term.alt_units == 'degrees':
-                            alt_val = degrees(term_val)
+                            if isinstance(term_val, (list, tuple)):
+                                alt_val = [degrees(tv) for tv in term_val]
+                            else:
+                                alt_val = degrees(term_val)
                         elif term.alt_units == 'radians':
                             alt_val = radians(term_val)
                         else:
                             alt_val = None
                         if alt_val is not None:
                             # round display values - not context values
-                            term.alt_result = round(alt_val, 2)
+                            if isinstance(alt_val, (list, tuple)):
+                                term.alt_result = [round(av, 2) for av in alt_val]
+                            else:
+                                term.alt_result = round(alt_val, 2)
                         else:
                             term.alt_result = -1  # ''
                         try:
@@ -500,7 +509,7 @@ class RulesEngine():
                         term_typestring = list(map(type, term.result))
                     else:
                         term_typestring = type(term.result)
-                    msg = '{0} [{1}] = {2} {3} {4}'.format(
+                    msg = '{} [{}] = {} {} {}'.format(
                         term.name, term.description, term.result, term.units, term_typestring)
                     if alt_val is not None:
                         msg += ' ' + str(alt_val) + ' ' + term.alt_units
@@ -521,7 +530,7 @@ class RulesEngine():
             while r < len(self.rules):
                 rule = self.rules[r]
                 if rule.in_scope(scope):
-                    msg = 'Select checking rule: {0} {1} priority: {2} scope: {3}...'.format(
+                    msg = 'Select checking rule: {} {} priority: {} scope: {}...'.format(
                         r, rule.name, rule.priority, rule.scope)
                     if trace:
                         trace_rules(msg)
@@ -530,7 +539,7 @@ class RulesEngine():
                                    self.terms_units, trace=trace)  # trace
                         if rule.condition_state:
                             selected_rule = rule
-                            rule.parse(self.context, self.safe_functions, 
+                            rule.parse(self.context, self.safe_functions,
                                        self.terms_units, trace=trace)
                             if trace:
                                 trace_rules(

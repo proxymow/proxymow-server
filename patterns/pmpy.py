@@ -84,7 +84,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         fence_max_x_pc = max([p[0] for p in fence_polygon_pts])
         fence_min_y_pc = min([p[1] for p in fence_polygon_pts])
         fence_max_y_pc = max([p[1] for p in fence_polygon_pts])
-        
+
         fence_width_pc = fence_max_x_pc - fence_min_x_pc
         fence_length_pc = fence_max_y_pc - fence_min_y_pc
         if calc_rte_debug:
@@ -143,7 +143,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         if calc_rte_debug:
             logger.debug(
                 'horizontal y interval: {} vertical x interval: {}'.format(
-                    np.round(horizontals_y) if direction == 'H' else '', 
+                    np.round(horizontals_y) if direction == 'H' else '',
                     np.round(verticals_x) if direction == 'V' else '')
                 )
 

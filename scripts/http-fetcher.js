@@ -1,6 +1,6 @@
 class HttpFetcher {
 
-    constructor(url, refreshRate, useCacheBuster, isFreeRunning) {
+    constructor(url, refreshRate, useCacheBuster, isFreeRunning, httpMeth) {
 
         //capture this
         const self = this;
@@ -9,6 +9,7 @@ class HttpFetcher {
         this.useCacheBuster = useCacheBuster;
         this.isFreeRunning = isFreeRunning;
         this.isPaused = false;
+        this.httpMethod = 'GET';
 
         this.eventTarget = document.createDocumentFragment();
 
@@ -33,6 +34,10 @@ class HttpFetcher {
                 self.reschedule();
             }
         }//end auto-refresh
+        
+        if (typeof httpMeth !== 'undefined') {
+            this.httpMethod = httpMeth;
+        }
 
     }//end constructor
 
@@ -46,7 +51,7 @@ class HttpFetcher {
             url = this.url + new Date().getTime();
         }
         const myRequest = new Request(url, {
-          method: 'GET',
+          method: this.httpMethod,
           cache: 'no-store'
         });
         let self = this;
@@ -131,6 +136,7 @@ class HttpFetcher {
         if (typeof this.refreshRate !== 'undefined' && this.refreshRate > 0 && (typeof this.isFreeRunning === 'undefined' || !this.isFreeRunning)) {
             //Periodic every n seconds after completion
             let self = this;
+            clearTimeout(this.timerId);
             this.timerId = setTimeout(function() {
                 if (!self.isPaused) {
                     self.refresh();

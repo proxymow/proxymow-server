@@ -1,6 +1,6 @@
 
 
-class ToolPaneTool():
+class ToolPaneTool:
     '''
     Represents a tool in a ToolPane
     '''
@@ -195,7 +195,7 @@ class ToolPaneNewline(ToolPaneTool):
         self.key = None
         self.name = None
         self.cur_val = None
-        self.html_options = {'style': 'height: {0}px'.format(height_px)}
+        self.html_options = {'style': 'height: {}px'.format(height_px)}
 
 
 class ToolPaneHidden(ToolPaneTool):

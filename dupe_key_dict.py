@@ -1,4 +1,4 @@
-class DupeKeyDict():
+class DupeKeyDict:
     def __init__(self, d=None):
         if d is not None:
             self._keys = list(d.keys())
@@ -32,5 +32,5 @@ class DupeKeyDict():
     def __repr__(self):
         res = []
         for i in range(len(self._keys)):
-            res.append("'{0}': {1}".format(self._keys[i], self._values[i]))
+            res.append("'{}': {}".format(self._keys[i], self._values[i]))
         return '{' + ', '.join(res) + '}'

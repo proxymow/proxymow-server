@@ -1,7 +1,7 @@
 from enum import Enum, auto
 
 
-class Movement():
+class Movement:
     '''
         represents an atomic action by the robot
             defined as left speed [%], right speed [%], duration [ms]
@@ -70,7 +70,7 @@ class Movement():
             pass
 
     def __str__(self):
-        return '[{0}%, {1}%, {2}ms] axle_track: {3}m velocity: {4}m/s dist: {5}m'.format(
+        return '[{}%, {}%, {}ms] axle_track: {}m velocity: {}m/s dist: {}m'.format(
             self.left_speed_pc,
             self.right_speed_pc,
             self.duration_ms,

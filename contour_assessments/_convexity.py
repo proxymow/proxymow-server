@@ -18,7 +18,7 @@ def assess(contour, _img_arr, _origin):
     cy, cx = cl.center_of_mass(contour)
 
     pip_sum = cl.is_inside_polygon((cy, cx), contour, validBorder=False)
-    
+
     convexity = round(abs(pip_sum), 3)
     qualifies = abs(pip_sum) > MIN_CONVEXITY
     tooltip = '{:.3f} is {} than {}'.format(
@@ -26,6 +26,6 @@ def assess(contour, _img_arr, _origin):
         'greater' if qualifies else 'less',
         MIN_CONVEXITY
     )
-        
+
     # return a tuple of analogue-measure, tooltip, boolean-assessment
     return convexity, tooltip, qualifies

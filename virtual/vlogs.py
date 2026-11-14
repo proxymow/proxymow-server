@@ -6,7 +6,7 @@ LOG_MAX_BYTES = 1000000
 LOG_BACKUP_COUNT = 10
 
 
-def init(work_folder_path=Path('/home/pi')):
+def init(work_folder_path=Path('/home/pi'), log_level=logging.WARNING):
 
     log_file_name = (work_folder_path / 'logs' / 'virtual.log').resolve().__str__()
 
@@ -23,7 +23,8 @@ def init(work_folder_path=Path('/home/pi')):
     # add formatter to handler
     log_handler.setFormatter(log_formatter)
     vlogger.addHandler(log_handler)
-    vlogger.setLevel(logging.DEBUG)
+    vlogger.setLevel(log_level)
+    vlogger.propagate = False
 
 
 def trace_virtual(msg):

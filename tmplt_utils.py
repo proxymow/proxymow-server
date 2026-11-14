@@ -41,7 +41,7 @@ def get_model_context(comp_names, host, req_args, req_kwargs, strict=True):
     '''
         Assemble the context dictionary
     '''
-    ctx = getattr(model_context, 'global_ctx')(
+    ctx = model_context.global_ctx(
         host, comp_names[0], req_args, req_kwargs)  # initialise
     for comp_name in comp_names:
         if hasattr(model_context, comp_name):
@@ -50,7 +50,7 @@ def get_model_context(comp_names, host, req_args, req_kwargs, strict=True):
         else:
             if strict:
                 raise Exception(
-                    'No Model Context defined for the "{0}" component'.format(comp_name))
+                    'No Model Context defined for the "{}" component'.format(comp_name))
             else:
                 comp_ctx = {}
         ctx.update(comp_ctx)

@@ -50,7 +50,7 @@ window.addEventListener('load', (event) => {
     const lastScanInfo = getButton('commsctrl', buttonConstants.LASTSCAN);
         
     //create data fetcher
-    let df1 = new HttpFetcher("/comms_json", 10000, false, true); //leading
+    let df1 = new HttpFetcher("/comms_json", 10000, false, false); //leading
     
     //create grid
     let dt1 = new Grid('comms-grid');

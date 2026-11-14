@@ -11,9 +11,9 @@ class Mower(Morphable):
     represents a mower form
     '''
 
-    _pk_att_name = 'name'
+    pk_att_name = 'name'
     name = TextSetting('Mower Name', 'Name of the mower',
-                       None, '^.{6,}$', 'must have at least 6 characters')
+                       None, '^[^.]{6,}$', 'must have at least 6 alphanumeric characters')
 
     def __init__(self, name=''):
         self.name = name

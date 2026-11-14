@@ -4,7 +4,7 @@ import numpy as np
 process_order = 4
 
 # define some setpoints
-MIN_CONTRAST = 0.3
+MIN_CONTRAST = 0.15
 
 def assess(_contour, img_arr, _origin):
     '''
@@ -14,16 +14,16 @@ def assess(_contour, img_arr, _origin):
         calculate contrast
     '''
 
-    # compute min and max of Y
-    min_i = np.min(img_arr).astype(int)
-    max_i = np.max(img_arr).astype(int)
-    
     # compute contrast
-    contrast = (max_i - min_i) / (max_i + min_i + 1)
+    std = np.std(img_arr)
+    rng = np.ptp(img_arr)
 
+    contrast = std/rng
     qualifies = contrast > MIN_CONTRAST
-    
-    tooltip = '{:.3f} is {} than {}'.format(
+
+    tooltip = '{:.3f} / {} = {:.3f} is {} than {}'.format(
+        std,
+        rng,
         contrast,
         'greater' if qualifies else 'less',
         MIN_CONTRAST

@@ -167,7 +167,7 @@ cal_quad_config = sel_btns + nudge_btns + [rst_btn, info_lbl]
 # fence multipoint toolpane
 fence_edit_config = sel_btns + nudge_btns + \
     exp_btns + [del_btn, rst_btn, info_lbl]
-    
+
 # primary dropdowns
 #    key | name | label | tooltip | action | enabled state | html_options | data_options | cur_val | default
 profile_dropdown = ToolPaneDropdown(
@@ -425,7 +425,7 @@ cockpit_state_config = [
         '&theta;',
         'Heading of Robot in degrees counterclockwise',
         False,
-        {'class': 'number-tool readonly'},
+        {'class': 'number-tool number-tool-1dp readonly'},
         90
     ),
     ToolPaneIndicator(
@@ -458,8 +458,8 @@ robot_speed_opts = {'0.0': 'R0/0%'}
 speed_range = list(range(40, 105, 5))
 for rot_spd in speed_range:
     for drv_spd in speed_range:
-        opt_key = '{0}.{1}'.format(rot_spd, drv_spd)
-        opt_val = 'R{0}/{1}%'.format(rot_spd, drv_spd)
+        opt_key = '{}.{}'.format(rot_spd, drv_spd)
+        opt_val = 'R{}/{}%'.format(rot_spd, drv_spd)
         robot_speed_opts[opt_key] = opt_val
 
 # compute direct commands
@@ -683,7 +683,6 @@ for i in all_configs:
 
 cockpit_control_strategy_config = (
     cockpit_control_robot_config +              # mower, speeds
-    # [cockpit_control_drive_config[0]] +         # drive label
     [cockpit_control_drive_config[1]] +         # route
     [cockpit_control_drive_config[2]] +         # skip
     [driveto_tool_pane_button] +                # drive to
@@ -691,7 +690,6 @@ cockpit_control_strategy_config = (
     [y_rdout] +
     [cancel_tool_pane_button, ToolPaneGap()] +  # cancel
     cockpit_control_drive_config[3:-1] +        # pause, step
-    # [ToolPaneGap()]  +                          # gap
     [cockpit_control_drive_config[-1]]          # reset
 )
 tp_cockpit_control_1 = HtmlToolPane(

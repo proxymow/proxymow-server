@@ -103,8 +103,6 @@ main {
 .strategy-rule-grid tbody tr {
    cursor: pointer;
 }
-.strategy-rule-grid tbody, .strategy-term-grid tbody {
-}
 .strategy-rule-grid tbody tr:nth-child(even):not(.row-disabled) {
    background-color: #faedcd;
 }

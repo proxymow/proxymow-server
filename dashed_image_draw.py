@@ -37,7 +37,6 @@ class DashedImageDraw(ImageDraw.ImageDraw):
                 x4 = x1
                 y4 = y1 + math.ceil((width - 1) / 2)
             self.line([(x3, y3), (x4, y4)], fill=fill, width=1)
-        return
 
     def dashed_line(self, xy, dash=(2, 2), fill=None, width=0):
         try:
@@ -106,4 +105,3 @@ class DashedImageDraw(ImageDraw.ImageDraw):
         self.dashed_line([(x1 + odd_width_change, y2 + halfwidth2),
                           (x1 + odd_width_change, y1 + end_change2)],
                          dash, outline, width)
-        return

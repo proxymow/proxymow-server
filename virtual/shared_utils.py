@@ -1,4 +1,4 @@
-# WARNING - this file will be copied and minified for MicroPython!
+# WARNING - this file will be shared with MicroPython!
 # Ensure it does not contain multiline comments or multiline if debug statements
 
 from math import pi, cos, sin, degrees
@@ -7,7 +7,7 @@ from math import pi, cos, sin, degrees
 def get_turn_circle_from_relative_velocities(x1, y1, t1, v_left, v_right, axle_track_m, ccw_min_vdiff=1.0e-5, debug=False, logger=None):
     # calculate turn circle from relative velocities
     if debug and logger:
-        logger.debug('get_turn_circle_from_relative_velocities v_left: {0:.3f}, v_right: {1:.3f}, axle_track_m: {2}'.format(
+        logger.debug('get_turn_circle_from_relative_velocities v_left: {:.3f}, v_right: {:.3f}, axle_track_m: {}'.format(
             v_left, v_right, axle_track_m))
     cx = x1
     cy = y1
@@ -113,7 +113,7 @@ def get_turn_circle_sector_angle(turn_radius, dir_ccw, left_speed, right_speed, 
     return alpha_rad
 
 
-def calc_new_pose(x_0, y_0, theta_0, speed_left_percent, speed_right_percent, duration_ms, axle_track_m, velocity_full_speed_mps, debug=False, logger=None):
+def calc_new_pose(x_0, y_0, theta_0, speed_left_percent, speed_right_percent, duration_ms, axle_track_m, velocity_full_speed_mps, _debug=False, logger=None):
     new_x_m = None
     new_y_m = None
     new_t_adj_rad = None
@@ -138,7 +138,7 @@ def calc_new_pose(x_0, y_0, theta_0, speed_left_percent, speed_right_percent, du
             logger.error(msg)
         else:
             print(msg)
-    return new_x_m, new_y_m, round(new_t_adj_rad, 4)
+    return new_x_m, new_y_m, new_t_adj_rad
 
 
 def getPointRotatedCounterClockwise(x, y, t, cx, cy):

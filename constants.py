@@ -14,8 +14,8 @@ LOG_BACKUP_COUNT = 12
     RESOLUTIONS - pairs of 4:3 width, height pixel tuples
 '''
 # Optimal pc2 resolutions for 64 pixel alignment
-RESOLUTIONS = [(3280, 2464), (3264, 2448), (2592, 1944), (2560, 1920), (2048, 1536), (1792, 1344), (1600, 1200),
-               (1536, 1152), (1296, 972), (1280, 960), (1280, 800), (1024, 768), (512, 384)]
+RESOLUTIONS = [(3280, 2464), (3264, 2448), (2592, 1944), (2560, 1920), (2048, 1536), (1792, 1344), (1640, 1232),
+               (1600, 1200), (1536, 1152), (1296, 972), (1280, 960), (1280, 800), (1024, 768), (512, 384)]
 
 '''
     CAPPED_IMAGE_RESOLUTION - the maximum size for display images
@@ -38,7 +38,7 @@ NOT_FOUND_RESET_COUNT = 15  # 99 to disable
 SCORE_THRESHOLD = 54
 
 '''
-    VIRTUAL_NOISE - 0 Off, 1 Tracking Around, 2 Random Fixed, 3 Fixed, 4 random ellipse scatter, 5 bot parts, 6 animals
+    VIRTUAL_NOISE - 0 Off, 1 Tracking Around, 2 Random Fixed, 3 Fixed, 4 random ellipse scatter, 5 bot parts, 6 animals, 7 square
 '''
 VIRTUAL_NOISE = 0
 
@@ -70,6 +70,14 @@ else:
     FENCE_MASKING - boolean indicating whether to mask beyond fence
 '''
 FENCE_MASKING = True
+
+'''
+    FENCE_MASKING_MODE - Algorithm for restricting viewport beyond dark zone
+    0 - no restrictions
+    1 - basic viewport constraint
+    2 - advanced sub-array masking
+'''
+FENCE_MASKING_MODE = 2
 
 '''
     MAX_SNAPSHOT_ID - maximum snapshot id before rolling around
@@ -127,7 +135,7 @@ DEBUG_IMAGE_QUALITY = 50
 '''
     DARK_ZONE_FENCE_BUFFER_PERCENT - buffer zone beyond fence as a percentage
 '''
-DARK_ZONE_FENCE_BUFFER_PERCENT = 10  # make this as small as possible! 
+DARK_ZONE_FENCE_BUFFER_PERCENT = 5  # make this as small as possible!
 
 '''
     DARK_ZONE_MIN_SEGMENT_PERCENT - minimum segment length for defining dark zone boundary, as percentage of arena
@@ -142,7 +150,12 @@ MINIMUM_CONTOUR_THRESHOLD = 0.01
 '''
     MAXIMUM_VIEWPORT_FOOTPRINT - maximum footprint area (0..100%) above which viewports can't be mower 
 '''
-MAXIMUM_VIEWPORT_FOOTPRINT = 15
+MAXIMUM_VIEWPORT_FOOTPRINT = 2.5
+
+'''
+    APPROXIMATE_POLYGON_TOLERANCE - tolerance for reducing contour point count 
+'''
+APPROXIMATE_POLYGON_TOLERANCE = 0.1
 
 '''
     LORES_CONTOUR_MINIMUM_POINT_COUNT - minimum point count for lo-res contours
@@ -152,17 +165,12 @@ LORES_CONTOUR_MINIMUM_POINT_COUNT = 10
 '''
     LORES_CONTOUR_MAXIMUM_POINT_COUNT - maximum point count for lo-res contours
 '''
-LORES_CONTOUR_MAXIMUM_POINT_COUNT = 100
+LORES_CONTOUR_MAXIMUM_POINT_COUNT = 200
 
 '''
     HIRES_CONTOUR_MINIMUM_POINT_COUNT - minimum point count for hi-res contours
 '''
-HIRES_CONTOUR_MINIMUM_POINT_COUNT = 50
-
-'''
-    CONTOUR_POINT_COUNT_THRESHOLD - proportion of mid-range
-'''
-CONTOUR_POINT_COUNT_THRESHOLD = 0.175
+HIRES_CONTOUR_MINIMUM_POINT_COUNT = 25
 
 '''
     CONTOUR_TABLE_MAX_ROWS - maximum rows to display in table
@@ -178,7 +186,7 @@ MOWER_TELEMETRY_PERIOD_SECS = 10
     LANDING_TIME_OVERHEAD_SECS  - additional time added to duration when predicting landing
                                 - needs to allow for any velocity ramping in mower code
 '''
-LANDING_TIME_OVERHEAD_SECS = 1.5
+LANDING_TIME_OVERHEAD_SECS = 2.5
 
 '''
     ENABLE_CONTOUR_LOGGING  [True | False]
@@ -186,9 +194,14 @@ LANDING_TIME_OVERHEAD_SECS = 1.5
 ENABLE_CONTOUR_LOGGING = True
 
 '''
+    CONTOUR_LOGGING_BUFFER_CAP_MB - maximum capacity, slots will be reduced if breaching is likely
+'''
+CONTOUR_LOGGING_BUFFER_CAP_MB = 1
+
+'''
     UI_AUTO_FREEZE_MS - Automatically freeze certain user interface features to minimise server load
 '''
-UI_AUTO_FREEZE_MS = 600000 # 5 mins
+UI_AUTO_FREEZE_MS = 600000 # 10 mins
 
 '''
     NAVIGATOR_AUTO_FREEZE_MS - Automatically freeze navigator to minimise server load
@@ -224,7 +237,7 @@ MINIMUM_INTER_NODE_DISTANCE_M = 0.05
     ESCALATION_ENABLED - [True | False]
 
 '''
-ESCALATION_ENABLED = True
+ESCALATION_ENABLED = False
 
 '''
     Number of additional rungs in the escalation ladder (excluding bottom starting rung)
@@ -250,7 +263,7 @@ THROTTLE_CAMERA_SNAP_SECS = 0.0 # simulate slow cameras
 '''
     THROTTLE_VIRTUAL_CAMERA_SNAP_SECS - throttle virtual camera snap seconds
 '''
-THROTTLE_VIRTUAL_CAMERA_SNAP_SECS = 0.75 # 1.5 to simulate usb camera speeds
+THROTTLE_VIRTUAL_CAMERA_SNAP_SECS = 1.0 # 1.5 to simulate usb camera speeds
 
 '''
     RESET_LAST_VISITED_NODE_ON_PROFILE_CHANGE - Flag to indicate last visited node will be reset
@@ -268,6 +281,11 @@ RESIZE_POSE_TO_VIEWPORT = 5.0
 RESIZE_VIEWPORT_FOR_ESCAPEE = 1.2
 
 '''
+    OVERLAY_POSE - overlay pose on arena image
+'''
+OVERLAY_POSE = True
+
+'''
     OVERLAY_EXTRAPOLATED_POSE - overlay extrapolated pose on arena image
 '''
 OVERLAY_EXTRAPOLATED_POSE = True
@@ -283,10 +301,21 @@ CLOSE_TO_HOME_RADIUS_M = 0.1
 '''
 DIGITAL_SHADOW_DELTA_INTENSITY = 0
 
+
 '''
-    VISUAL_POSE_HISTORY - display kite tails
+    KITE_TAIL_NUM_BOWS - number of bows on kite tails, zero to hide
 '''
-VISUAL_POSE_HISTORY = True
+KITE_TAIL_NUM_BOWS = 6
+
+'''
+    KITE_TAIL_LINEAR_DELTA_PERCENT - separation of bows as percentage of arena
+'''
+KITE_TAIL_LINEAR_DELTA_PERCENT = 2
+
+'''
+    KITE_TAIL_ROT_DELTA_DEGREES - separation of bows as delta heading
+'''
+KITE_TAIL_ROT_DELTA_DEGREES = 12
 
 '''
     TRACKING_VIEWPORT - [True | False] - Track the target with a constrained Viewport
@@ -294,16 +323,16 @@ VISUAL_POSE_HISTORY = True
 TRACKING_VIEWPORT = True
 
 '''
-    CONTOUR_WHITTLER_SHORT_CIRCUIT - stop assessing as soon as contour has been rejected 
+    CONTOUR_WHITTLER_SHORT_CIRCUIT - [True | False] - stop assessing as soon as contour has been rejected 
 '''
 CONTOUR_WHITTLER_SHORT_CIRCUIT = True
-
-'''
-    CAPPED_POINT_COUNT - working point count after original count has been assessed
-'''
-CAPPED_POINT_COUNT = 24
 
 '''
     CONTOUR_DEDUPE_MAX_GAP - maximum gap in pixels on any side for contour to be considered inside another
 '''
 CONTOUR_DEDUPE_MAX_GAP = 15
+
+'''
+    BLE_SEQUENTIAL_FAILURE_LIMIT - number of bluetooth failures before attempting reset
+'''
+BLE_SEQUENTIAL_FAILURE_LIMIT = 2

@@ -1,10 +1,10 @@
 from sighting_cluster import SightingCluster
 
-class SightingsManager():
+class SightingsManager:
     '''
         Represents a list of sighting_cluster(s)
     '''
-    
+
 
     def __init__(self, threshold):
         '''
@@ -12,7 +12,7 @@ class SightingsManager():
         '''
         self.threshold = threshold
         self.sighting_clusters = []
-        
+
     def add(self, p):
         if len(self.sighting_clusters) == 0:
             acc = False
@@ -28,12 +28,12 @@ class SightingsManager():
             self.sighting_clusters.append(sc)
             sc.add(p)
             # print(sc)
-        
+
     @property
     def count(self):
         return len(self.sighting_clusters)
-            
-        
+
+
     def __repr__(self):
         return 'Num Sightings: {} {}'.format(self.count, self.sighting_clusters)
 
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     p5 = (4.0, 5.0, 180)
     p6 = (3.1, 2.1, 270)
     poses = [p1, p2, p3, p4, p5, p6]
-    
+
     for p in poses:
         print('adding', p)
         mgr.add(p)

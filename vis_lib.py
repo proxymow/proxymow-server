@@ -1,15 +1,19 @@
 import logging
+import time
 import io
 import sys
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from skimage import transform as tf
 from skimage import filters
 from skimage.morphology import closing
 from skimage.measure import find_contours
+from skimage.draw.draw import polygon
 from shapely.geometry.polygon import Polygon
+from shapely import affinity
+from _collections import deque
 
-import geom_lib
+import geom_lib as gl
 import contour_lib as cl
 import utilities as ut
 from infill_sharpener import Projection
@@ -19,7 +23,7 @@ from viewport import Viewport, merge_adjacent_viewports
 from diagram_lib import plot_projection_img
 from dashed_image_draw import DashedImageDraw
 from timesheet import Timesheet
-from whittler import Whittler 
+from whittler import Whittler
 
 
 def matrices_from_quad_points(
@@ -89,7 +93,7 @@ def matrices_from_quad_points(
             tgt_pt_px = translate_pixel_point(p, Q, dp=3)
             lawn_corners_pc.append(tgt_pt_px)
             if debug:
-                logger.debug('relative lawn {0:<11}m => {1:<11}%'.format(
+                logger.debug('relative lawn {:<11}m => {:<11}%'.format(
                     str(p), str(tgt_pt_px)))
 
         # define arena relative to lawn
@@ -110,7 +114,7 @@ def matrices_from_quad_points(
             tgt_pt_px = translate_pixel_point(p, Q, dp=3)
             arena_corners_pc.append(tgt_pt_px)
             if debug:
-                logger.debug('relative arena {0:<11}m => {1:<11}%'.format(
+                logger.debug('relative arena {:<11}m => {:<11}%'.format(
                     str(p), str(tgt_pt_px)))
 
         # convert cartesian camera arena corner percentages to non-cartesian pixels
@@ -148,13 +152,13 @@ def matrices_from_quad_points(
         M = find_coeffs(topdown_arena_corners_px, arena_corners_px)
 
         if debug:
-            logger.debug('arena width: {0:.2f}m arena length: {1:.2f}m arena border: {2:.2f}m'.format(
+            logger.debug('arena width: {:.2f}m arena length: {:.2f}m arena border: {:.2f}m'.format(
                 arena_width_m,
                 arena_length_m,
                 lawn_border_m
             )
             )
-            logger.debug('calibration zone width: {0:.2f}m zone length: {1:.2f}m arena border: {2:.2f}m'.format(
+            logger.debug('calibration zone width: {:.2f}m zone length: {:.2f}m arena border: {:.2f}m'.format(
                 calib_width_m,
                 calib_length_m,
                 lawn_border_m
@@ -215,7 +219,7 @@ def get_polygons_from_pc(
             max(arena_width_m, arena_length_m) / 100
         dense_polygon_grown_pts_m = []
         for line_start, line_finish in zip(polygon_restricted_pts_m, polygon_restricted_pts_m[1:]):
-            extra_pts = geom_lib.get_evenly_spaced_points_on_line(
+            extra_pts = gl.get_evenly_spaced_points_on_line(
                 *line_start, *line_finish, min_seg_length_m)
             dense_polygon_grown_pts_m.append(line_start)
             dense_polygon_grown_pts_m.extend(extra_pts)
@@ -266,64 +270,6 @@ def get_polygons_from_pc(
     return dense_polygon_grown_pts_m, img_polygon_pts_px
 
 
-def get_fence_mask_surface(
-        img_width_px,
-        img_height_px,
-        polygon_pts_px,
-        font,
-        like_arr=None,
-        debug=False,
-        logger=None
-):
-
-    try:
-
-        x_mid_px = img_width_px / 2
-        y_mid_px = img_height_px / 2
-
-        if like_arr is None:
-            mask_img = Image.new('L', (img_width_px, img_height_px))
-        else:
-            mask_img = Image.new('L', (like_arr.shape[1], like_arr.shape[0]))
-
-        draw_on_mask = ImageDraw.Draw(mask_img)
-
-        draw_on_mask.polygon(polygon_pts_px, outline=200, fill=200)
-
-        if debug:
-            # circle  and number all points
-            it = iter(polygon_pts_px)
-            rad = 3
-            for n, pt in enumerate(zip(it, it)):
-                draw_on_mask.ellipse(
-                    (pt[0] - rad, pt[1] - rad, pt[0] + rad, pt[1] + rad), fill=255)
-                quadrant = 2 * (pt[0] < x_mid_px) + (pt[1] < y_mid_px)
-                if n % 4 == 0:
-                    if quadrant == 0:
-                        draw_on_mask.text(
-                            (pt[0] - 40, pt[1] - 40), str(n) + ' ' + str(quadrant), fill=255, font=font)
-                    elif quadrant == 1:
-                        draw_on_mask.text(
-                            (pt[0] + 40, pt[1] + 40), str(n) + ' ' + str(quadrant), fill=255, font=font)
-                    elif quadrant == 2:
-                        draw_on_mask.text(
-                            (pt[0] - 40, pt[1] + 40), str(n) + ' ' + str(quadrant), fill=255, font=font)
-                    elif quadrant == 3:
-                        draw_on_mask.text(
-                            (pt[0] - 40, pt[1] + 40), str(n) + ' ' + str(quadrant), fill=255, font=font)
-
-    except Exception as e:
-        err_line = sys.exc_info()[-1].tb_lineno
-        msg = 'Error in get_fence_mask_surface: ' + \
-            str(e) + ' on line ' + str(err_line)
-        if logger:
-            logger.error(msg)
-        else:
-            print(msg)
-
-    return mask_img
-
-
 def find_coeffs(source_coords, target_coords):
     # find coefficients between 2 rectangles
     matrix = []
@@ -348,16 +294,7 @@ def translate_pixel_point(pt, matrix, dp=3, debug=False):
         print('translate_pixel_point numpy de-projected:', res)
     return (np.round(res[0][0], dp), np.round(res[1][0], dp))
 
-# def render_filter_hdr():
-#     return [
-#         'ident',
-#         'point count',
-#         'X',
-#         'Y',
-#         'aspect ratio',
-#         'uncircularity'
-#         ]
-    
+
 def render_contour_hdr():
     return [
         'thumbnail',
@@ -372,28 +309,6 @@ def render_contour_hdr():
         'confidence[%]'
     ]
 
-# def render_contour_row(ident, ctuple, logger):
-#
-#     try:
-#
-#         tmplt = '''
-#             <div style="text-align: center;">{}</div>'''
-#
-#         html_row = [
-#             tmplt.format(ident),
-#             tmplt.format(ctuple[0]),
-#             tmplt.format(int(ctuple[1][0])),
-#             tmplt.format(int(ctuple[1][1])),
-#             tmplt.format(round(ctuple[2], 3)),
-#             tmplt.format(round(ctuple[3], 3))
-#         ]
-#
-#     except Exception as ex:
-#         err_line = sys.exc_info()[-1].tb_lineno
-#         logger.error('Error in Render Contour Row: ' +
-#                      str(ex) + 'on line: ' + str(err_line))
-#
-#     return html_row
 
 def render_projection_row(proj, logger):
 
@@ -417,7 +332,7 @@ def render_projection_row(proj, logger):
 
         html_row = [
             thumb_tmplt.format(proj.cont_img_b64),
-            '{0}.{1}'.format(proj.ssid, proj.index),
+            '{}.{}'.format(proj.ssid, proj.index),
             round(proj.cx, 2) if 'cx' in vars(
                 proj) and proj.cx is not None else -1,
             round(proj.cy, 2) if 'cy' in vars(
@@ -435,7 +350,7 @@ def render_projection_row(proj, logger):
             meter_tmplt.format('fitness', 0, 20, 7, 14, 20,
                                proj.fitness_score, proj.fitness_info),
             meter_tmplt.format('conf', 0, 100, 33, 66, 80,
-                               proj.conf_pc, '{0:.0f}%'.format(proj.conf_pc))
+                               proj.conf_pc, '{:.0f}%'.format(proj.conf_pc))
         ]
 
     except Exception as ex:
@@ -445,11 +360,10 @@ def render_projection_row(proj, logger):
 
     return html_row
 
-
 def get_contour_source_array(
+    host,
     index,
     img_arr,
-    fence_mask_array,
     vp,
     zoom_scale_factor,
     debug_image_level,
@@ -464,14 +378,14 @@ def get_contour_source_array(
     try:
         if logger is not None:
             logger.info(
-                'get_contour_source_array incoming arr: {0}'.format(img_arr.shape))
+                'get_contour_source_array incoming arr: {}'.format(img_arr.shape))
 
         if img_arr.shape == (0, 0):
             fence_masked_arr = None
         else:
             if debug_image_level >= 4 or abs(debug_image_level) == 4:
                 pre_img = Image.fromarray(img_arr)
-                pre_img.convert('RGB').save(tmp_folder_path + '{0}-filters-incoming.jpg'.format(
+                pre_img.convert('RGB').save(tmp_folder_path + '{}-filters-incoming.jpg'.format(
                     index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
 
             if pre_filter and constants.BLUR_SIGMA > 0:
@@ -482,7 +396,7 @@ def get_contour_source_array(
                         'get_contour_source_array blur pre-filter complete')
                 if debug_image_level >= 4 or abs(debug_image_level) == 4:
                     post_img = Image.fromarray(blurred_arr)
-                    post_img.convert('RGB').save(tmp_folder_path + '{0}-post-blur.jpg'.format(
+                    post_img.convert('RGB').save(tmp_folder_path + '{}-post-blur.jpg'.format(
                         index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
             else:
                 blurred_arr = img_arr
@@ -495,7 +409,7 @@ def get_contour_source_array(
             if debug_image_level >= 4 or abs(debug_image_level) == 4:
                 post_img = Image.fromarray(
                     (edge_filtered_arr * 255).astype(np.uint8))
-                post_img.save(tmp_folder_path + '{0}-sobel-edge-detect.jpg'.format(
+                post_img.save(tmp_folder_path + '{}-sobel-edge-detect.jpg'.format(
                     index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
 
             contour_source_arr = edge_filtered_arr
@@ -507,14 +421,14 @@ def get_contour_source_array(
                 if debug_image_level >= 4 or abs(debug_image_level) == 4:
                     post_img = Image.fromarray(
                         (closed_edge_filtered_arr * 255).astype(np.uint8))
-                    post_img.save(tmp_folder_path + '{0}-closed-edge-detect.jpg'.format(
+                    post_img.save(tmp_folder_path + '{}-closed-edge-detect.jpg'.format(
                         index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
 
             if logger is not None:
                 logger.info('get_contour_source_array gray image filtered')
 
             # mask beyond fence?
-            if constants.FENCE_MASKING:
+            if constants.FENCE_MASKING_MODE > 0:
                 try:
                     if vp.isnull:
                         if logger is not None:
@@ -522,34 +436,102 @@ def get_contour_source_array(
                                 zoom_scale_factor)
                             )
                         if zoom_scale_factor > 1:
-                            sub_samp_fence_arr = fence_mask_array[::
-                                                                  zoom_scale_factor, ::zoom_scale_factor]
-                            if logger is not None:
-                                logger.debug('get_contour_source_array fence masking contour_source_arr.shape: {0} sub_samp_fence_arr: {1}'.format(
-                                    contour_source_arr.shape,
-                                    sub_samp_fence_arr.shape)
-                                )
-                            fence_masked_arr = contour_source_arr * sub_samp_fence_arr
-                            if debug_image_level >= 2 or abs(debug_image_level) == 2:
-                                sub_samp_fence_img = Image.fromarray(
-                                    sub_samp_fence_arr)
-                                sub_samp_fence_img.save(tmp_folder_path + '{0}-sub_samp_fence.jpg'.format(
+
+                            # create drawing surface and draw the fence anti-polygons to mask
+
+                            # prepare array
+                            fence_masked_arr = (contour_source_arr * 255).astype(np.uint8)
+
+                            # obtain image
+                            # efficient zero-copy solution
+                            contour_source_img = Image.frombuffer("L", fence_masked_arr.shape[::-1], fence_masked_arr, "raw", "L", 0, 1)
+
+                            contour_source_img.readonly = False  # Forces Pillow to mutate the actual NumPy memory buffer
+
+                            # obtain drawing surface on the image
+                            contour_source_draw = ImageDraw.Draw(contour_source_img)
+
+                            if debug_image_level >= 4 or abs(debug_image_level) == 4:
+                                contour_source_img.save(tmp_folder_path + '{}-zoomed-pre-fence-mask.jpg'.format(
                                     index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
-                        else:
-                            fence_masked_arr = contour_source_arr * fence_mask_array  # full size
-                    else:
-                        fma = fence_mask_array[vp.slicer(fence_mask_array.shape)]
-                        if logger is not None:
-                            logger.debug('get_contour_source_array fence masking fence_mask_array: {} {}'.format(
-                                contour_source_arr.shape, fma.shape)
+
+                            # draw zoomed fence anti-polygons
+                            zoomed_fence_polygon = affinity.scale(
+                                host.fencezone_polygon,
+                                xfact=1/zoom_scale_factor,
+                                yfact=1/zoom_scale_factor,
+                                origin=(0, 0)
                             )
-                        fence_masked_arr = contour_source_arr * fma
-                except ValueError:
+                            # fill with a value that is visible but not detectable
+                            draw_anti_polygons(contour_source_draw, zoomed_fence_polygon, fill_colour='#111111')
+
+                            if debug_image_level >= 4 or abs(debug_image_level) == 4:
+                                zm_fence_img = Image.fromarray(fence_masked_arr)
+                                zm_fence_img.save(tmp_folder_path + '{}-zoomed-post-fence-mask.jpg'.format(
+                                    index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
+
+                        else:
+
+                            fence_masked_arr = contour_source_arr # hi-res, masking performed later
+
+                    else:
+
+                        fence_masked_arr = contour_source_arr # initialise
+
+                        if constants.FENCE_MASKING_MODE == 2:
+                            # get the intersection of the viewport polygon and the fence polygon
+                            img_width_px = host.config['optical.width']
+                            img_height_px = host.config['optical.height']
+                            img_shape = (img_height_px, img_width_px)
+                            vp_polygon = vp.as_polygon(img_shape)
+
+                            # use dark zone polygon to mask intruding viewport
+                            dark_polygon = host.outer_darkzone_polygon
+                            if dark_polygon.contains(vp_polygon):
+                                if logger is not None:
+                                    logger.debug('get_contour_source_array fence masking Dark Zone Contains Viewport - do nothing')
+                            elif vp_polygon.intersects(dark_polygon):
+                                if logger is not None:
+                                    logger.debug('get_contour_source_array fence masking Viewport Intersects Dark Zone - calculating mask indices...')
+
+                                # get the polygon for vp inside zone
+                                itsx_polygon = dark_polygon.intersection(vp_polygon)
+                                if logger is not None:
+                                    logger.debug('get_contour_source_array fence masking itsx_polygon: {}'.format(
+                                        itsx_polygon.geom_type))
+
+                                # get the polygon for vp outside zone
+                                diff_polygon = vp_polygon.difference(itsx_polygon)
+                                if logger:
+                                    logger.debug('get_contour_source_array fence masking diff_polygon: {}'.format(
+                                        diff_polygon.geom_type))
+
+                                # convert polygon to local-to-viewport
+                                for poly in gl.yield_polygons(diff_polygon):
+                                    diff_pts = poly.exterior.coords
+                                    row_coords = [p[1] for p in diff_pts]
+                                    col_coords = [p[0] for p in diff_pts]
+                                    rr, cc = polygon(row_coords, col_coords, shape=img_shape)
+                                    # get viewport origin as percentage of whole image
+                                    vox = vp.origin[1]
+                                    voy = vp.origin[0]
+                                    # get viewport origin in global pixels
+                                    vox_px = (vox * img_width_px / 100)
+                                    voy_px = (voy * img_height_px / 100)
+                                    # calculate local indices that will reference sub-array
+                                    sub_arr_rows, sub_arr_cols = contour_source_arr.shape
+                                    srr = np.clip(rr - voy_px, 0, sub_arr_rows - 1).astype(int)
+                                    scc = np.clip(cc - vox_px, 0, sub_arr_cols - 1).astype(int)
+                                    # mask with a value that is visible but not detectable
+                                    fence_masked_arr[srr, scc] = 11/255
+                        elif logger:
+                            logger.debug('Viewport Does Not Intersect Dark Zone - do nothing')
+                except ValueError as ve:
                     err_line = sys.exc_info()[-1].tb_lineno
                     fence_masked_arr = contour_source_arr  # not needed
                     if logger is not None:
                         logger.warning(
-                            'get_contour_source_array fence masking NOT applied {}'.format(err_line)
+                            'get_contour_source_array {} on line {} fence masking NOT applied'.format(ve, err_line)
                         )
 
                 except Exception as ex1:
@@ -562,21 +544,14 @@ def get_contour_source_array(
                                 err_line
                             )
                         )
-
-                if logger is not None:
-                    logger.info('get_contour_source_array fence_masked_arr shape {0} after fence masking'.format(
-                        fence_masked_arr.shape
-                    )
-                    )
             else:
                 fence_masked_arr = contour_source_arr
 
             try:
-                fence_masked_img = Image.fromarray(
-                    (fence_masked_arr * 255).astype(np.uint8), 'L')
                 if debug_image_level >= 1 or abs(debug_image_level) == 1:
+                    fence_masked_img = Image.fromarray(fence_masked_arr)
                     fence_masked_img.save(
-                        tmp_folder_path + '{0}-pipeline-output.jpg'.format(index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY
+                        tmp_folder_path + '{}-pipeline-output.jpg'.format(index), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY
                     )
             except Exception:
                 pass
@@ -592,40 +567,8 @@ def get_contour_source_array(
 
     return fence_masked_arr
 
-
 def rgb_to_gray(rgb):
     return np.dot(rgb[..., :3], [0.2989, 0.5870, 0.1140])
-
-
-def warp_colour(img_arr, coord_map, preserve_scale=True, preserve_datatype=True):
-    if coord_map is None:
-        out_arr = img_arr
-    else:
-        if img_arr.ndim == 3:
-            rows, cols, chans = img_arr.shape
-            r_arr = tf.warp(
-                img_arr[:, :, 0], inverse_map=coord_map, output_shape=(rows, cols))
-            g_arr = tf.warp(
-                img_arr[:, :, 1], inverse_map=coord_map, output_shape=(rows, cols))
-            b_arr = tf.warp(
-                img_arr[:, :, 2], inverse_map=coord_map, output_shape=(rows, cols))
-            if chans == 4:
-                a_arr = tf.warp(
-                    img_arr[:, :, 3], inverse_map=coord_map, output_shape=(rows, cols))
-                out_arr = np.dstack([r_arr, g_arr, b_arr, a_arr])
-            else:
-                out_arr = np.dstack([r_arr, g_arr, b_arr])
-        else:
-            # grayscale
-            rows, cols = img_arr.shape
-            out_arr = tf.warp(img_arr, inverse_map=coord_map,
-                              output_shape=(rows, cols))
-        if preserve_scale:
-            out_arr = out_arr * np.iinfo(img_arr.dtype).max
-        if preserve_datatype:
-            out_arr = out_arr.astype(img_arr.dtype)
-    return out_arr
-
 
 def grid_intersections_lawn(lawn_width_m, lawn_length_m):
 
@@ -642,7 +585,7 @@ def grid_intersections_lawn(lawn_width_m, lawn_length_m):
 
 def grid_intersections_camera(lawn_width_m, lawn_length_m, border_m, mapper, logger=None, debug=False):
     if logger and debug:
-        logger.debug('grid_intersections_camera: lawn width: {0}m lawn length: {1}m lawn border: {2}m {3}'.format(
+        logger.debug('grid_intersections_camera: lawn width: {}m lawn length: {}m lawn border: {}m {}'.format(
             lawn_width_m, lawn_length_m, border_m, mapper.cache_key))
     c_m = grid_intersections_lawn(lawn_width_m, lawn_length_m)
     offset_c_m = c_m + (border_m, border_m)
@@ -679,7 +622,6 @@ def get_prospect_list(
 
         # find contours
         timesheet = Timesheet('Get Prospect List')
-        fence_mask_arr = np.asarray(host.fence_mask_img, bool)
 
         # Full Scene zoom in
         sub_shape = (int(img_arr.shape[0] / zoom_scale_factor),
@@ -688,7 +630,7 @@ def get_prospect_list(
         dbg_shape = (int(img_arr.shape[0] / dbg_ratio),
                      int(img_arr.shape[1] / dbg_ratio))
 
-        # down-sample using scikit
+        # down-sample using skimage
         raw_img_arr = tf.resize(
             img_arr, sub_shape, preserve_range=True, anti_aliasing=True).astype(np.uint8)
         if debug_image_level >= 1 or abs(debug_image_level) == 1:
@@ -700,9 +642,9 @@ def get_prospect_list(
 
         # no filter or closing
         prep_img_arr = get_contour_source_array(
+            host,
             sid,
             raw_img_arr,
-            fence_mask_arr,
             viewport,
             zoom_scale_factor,
             debug_image_level,
@@ -717,44 +659,35 @@ def get_prospect_list(
         prospect_cnts, margins, _edginess = viewport.find_contours(
             prep_img_arr, logger)
         if logger and debug_level > 0:
-            logger.debug('Number of raw prospect contours: {0}'.format(
+            logger.debug('Number of raw prospect contours: {}'.format(
                 len(prospect_cnts)))
         timesheet.add('lores contours found')
 
         # log point counts
         if logger and debug_level > 0:
-            logger.debug('pre-filter prospect point counts: {0}'.format(
+            logger.debug('pre-filter prospect point counts: {}'.format(
                 [len(p) for p in prospect_cnts]))
 
-        # best filtering methodology available
-        # mid-range * threshold, or lower
-        count_threshold = constants.CONTOUR_POINT_COUNT_THRESHOLD
-        prospect_counts = [
-            len(c) for c in prospect_cnts if len(c) < constants.LORES_CONTOUR_MAXIMUM_POINT_COUNT
-        ]
-        mid_range_count = (
-            max(prospect_counts, default=0) + 
-            min(prospect_counts, default=0)
-            ) * count_threshold
-        min_pt_count = max(mid_range_count, constants.LORES_CONTOUR_MINIMUM_POINT_COUNT)
+        min_pt_count = constants.LORES_CONTOUR_MINIMUM_POINT_COUNT
         filtered_prospect_contours = [
-            c for c in prospect_cnts if 
-                constants.LORES_CONTOUR_MAXIMUM_POINT_COUNT > len(c) > min_pt_count
+            c for c in prospect_cnts if
+                constants.LORES_CONTOUR_MAXIMUM_POINT_COUNT >= len(c) >= min_pt_count
         ]
-        
+
         # log point counts
         if logger and debug_level > 0:
-            logger.debug('post-filter prospect point counts: {0}'.format(
+            logger.debug('post-filter prospect point counts: {}'.format(
                 [len(p) for p in filtered_prospect_contours]))
 
         # log clipped prospects
         for q, p in enumerate(filtered_prospect_contours):
             if logger:
-                logger.debug('clipped prospect?: {0} from {1}'.format(
+                logger.debug('clipped prospect?: {} from {}'.format(
                     any([m == 0 for m in margins[q]]), [int(m) for m in margins[q]]))
         if logger and debug_level > 0:
             logger.debug('Number of filtered prospect contours [len > {}]: {}'.format(
                 min_pt_count, len(filtered_prospect_contours)))
+
         timesheet.add('prospects filtered')
 
         # convert prospect contours => universal viewports
@@ -768,14 +701,14 @@ def get_prospect_list(
             else:
                 if logger and debug_level > 0:
                     logger.debug('Not appending prospect viewport: fp {:.3f}%'.format(vp.footprint))
-            
+
         if logger and debug_level > 0:
             logger.debug(
                 'Number of prospect viewports: {}'.format(len(prosp_vps)))
-        
+
         # annotate prospects lo-res
         if debug_image_level >= 1 or abs(debug_image_level) == 1:
-            sm_font = ImageFont.truetype(host.font_path, 12)
+            sm_font = ut.load_sans_serif_font(12)
             # overlay original prospects in blue
             overlay_viewports(prosp_vps, lores_draw,
                               dbg_shape, 'blue', sm_font)
@@ -787,7 +720,7 @@ def get_prospect_list(
 
         # annotate merged prospects lo-res
         if debug_image_level >= 1 or abs(debug_image_level) == 1:
-            sm_font = ImageFont.truetype(host.font_path, 12)
+            sm_font = ut.load_sans_serif_font(12)
             # overlay merged prospects in magenta
             overlay_viewports(prosp_vps, lores_draw,
                               dbg_shape, 'magenta', sm_font)
@@ -808,7 +741,7 @@ def get_prospect_list(
                 if logger and debug_level > 0:
                     logger.debug('Qualifying prospect viewport: footprint {:.3f}%'.format(vp.footprint))
                 prospect_vps.append(vp)
-                
+
         if logger and debug_level > 0:
             logger.debug(
                 'Number of qualifying enlarged prospect viewports: {}'.format(len(prospect_vps)))
@@ -819,7 +752,7 @@ def get_prospect_list(
         viewport_count = len(prospect_vps)
         if logger is not None:
             logger.info(
-                'get_prospect_list viewport count: {0}'.format(viewport_count))
+                'get_prospect_list viewport count: {}'.format(viewport_count))
 
         # annotate prospects lo-res
         if debug_image_level >= 1 or abs(debug_image_level) == 1:
@@ -829,7 +762,7 @@ def get_prospect_list(
             # overlay filtered prospects
             overlay_viewports(prospect_vps, lores_draw,
                               dbg_shape, 'yellow', sm_font)
-            lores_img.save(host.tmp_folder_path + '{0}-lores.jpg'.format(sid))
+            lores_img.save(host.tmp_folder_path + '{}-lores.jpg'.format(sid))
 
         timesheet.add('lores prospect debug annotations')
         if logger and debug_level > 2:
@@ -846,15 +779,15 @@ def get_prospect_list(
         else:
             print(err_msg)
 
-def get_contours_from_viewport(host, vp, img_arr, fence_mask_arr, debug_image_level, timesheet, logger):
-    sub_array = img_arr[vp.slicer(img_arr.shape)]
+def get_contours_from_viewport(host, vp, img_arr, debug_image_level, timesheet, logger):
+    sub_array = img_arr[vp.slicer(img_arr.shape)].copy()
     vp.display_sub_array = sub_array
 
     # filter and closing
     prep_img_arr = get_contour_source_array(
-        '{0}'.format(vp.index),
+        host,
+        '{}'.format(vp.index),
         sub_array,
-        fence_mask_arr,
         vp,
         1,
         debug_image_level,
@@ -871,45 +804,67 @@ def get_contours_from_viewport(host, vp, img_arr, fence_mask_arr, debug_image_le
     timesheet.add('find contours')
     return local_contours
 
-def add_contour_to_log(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted):
+def add_contour_to_log(host, img_arr, logger, j, ivp, c_unwarped_undistorted):
     in_motion = host.drive['path'] is not None
-    empty_buffer = len(host.contours_buffer) < 5
+    empty_buffer = len(host.contours_buffer) < host.contours_buffer_min_len
     if constants.ENABLE_CONTOUR_LOGGING and ((in_motion and not host.drive_pause) or empty_buffer):
         # assemble message into a single line - so it stays together
         # we may be able to allow full size images as they are lo-res
-        msg = ut.make_contour_entry(
-            ivp.display_sub_array, 
-            ivp.analysis_sub_array, 
-            c_unwarped_undistorted, 
-            '{0}'.format(ivp.index), 
-            j, 
-            ivp, 
-            img_arr.shape, 
+        logger.debug('about to assemble contour entry...')
+        cestart = time.time()
+        msg, counts = ut.make_contour_entry(
+            ivp.display_sub_array,
+            ivp.analysis_sub_array,
+            c_unwarped_undistorted,
+            '{}'.format(ivp.index),
+            j,
+            ivp,
+            img_arr.shape,
             True)
-        if debug_level > 3:
-            logger.info('fcc contour single entry length: {0} bytes estimated buffer usage: {1:.2f} mB'.format(
-                    len(msg), 
-                    len(msg) * host.contours_buffer.maxlen / 1000000))
+        logger.debug('contour entry assembled in {:.3f}secs'.format(time.time() - cestart))
+        msg_length = len(msg)
+        buf_max_len = host.contours_buffer.maxlen
+        est_memory_reqd_mb = msg_length * buf_max_len / 1000000
+        logger.info('contour buffer[{}] single entry length: {}{} bytes estimated  usage: {:.2f} mB'.format(
+                buf_max_len,
+                msg_length,
+                counts,
+                msg_length * buf_max_len / 1e6))
+        if (buf_max_len > host.contours_buffer_min_len and
+            len(host.contours_buffer) > 1 and
+            est_memory_reqd_mb > constants.CONTOUR_LOGGING_BUFFER_CAP_MB):
+            optimised_slot_count = int(constants.CONTOUR_LOGGING_BUFFER_CAP_MB * 1e6 // msg_length)
+            logger.warning('contour buffer likely to exceed cap - reducing slots to {}...'.format(optimised_slot_count))
+            new_buf_max_len = max(host.contours_buffer_min_len, optimised_slot_count)
+            host.contours_buffer = deque(host.contours_buffer, new_buf_max_len)
+            logger.info('new estimated contour buffer[{}] usage: {:.2f} mB'.format(
+                    new_buf_max_len,
+                    len(msg) * buf_max_len / 1e6))
         contour_logger = logging.getLogger('contours')
         contour_logger.info(msg)
-        
+
         # add to buffer
         host.contours_buffer.append(msg)
 
 def post_projection(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted):
     tgt = None
     try:
+        # lookup the expected number of vertices and shape rotation
+        target_num_vertices = host.config['mower.target_num_vertices']
+        rotation_ccw_deg = host.config['mower.target_rotation_ccw_deg']
         tgt = Projection(
-            '{}-{}'.format(ivp.index, j), 
-            j, 
-            c_unwarped_undistorted, 
-            hide_confidence=False, 
-            logger=logger, 
+            '{}-{}'.format(ivp.index, j),
+            j,
+            c_unwarped_undistorted,
+            target_num_vertices,
+            -rotation_ccw_deg,
+            hide_confidence=False,
+            logger=logger,
             debug=(debug_level > 3)
         )
         tgt.assess(host.score_props)
         # track thumbnails for contour analysis, and viewport for coarse location
-        sub_array = img_arr[ivp.slicer(img_arr.shape)]
+        sub_array = img_arr[ivp.slicer(img_arr.shape)].copy()
         tgt.cont_img_arr = sub_array
         tgt.cont_img_b64 = ut.convert_array_to_base64(sub_array, (48, 48))
         if tgt.conf_pc >= constants.SCORE_THRESHOLD:
@@ -943,7 +898,7 @@ def get_vp_from_contour_index(vp_prospect_list, ci, logger=None):
             logger.error(msg)
         else:
             print(msg)
-                
+
     return vp
 
 def probe_prospect_list(
@@ -964,73 +919,68 @@ def probe_prospect_list(
     prospect_viewports = vp_prospect_list
     filtered_projections = []
     pose = None
-    
+
     whittler = Whittler()
-    
+
     try:
-        
-        fence_mask_arr = np.asarray(host.fence_mask_img, bool)
-        min_pt_count = constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT
+
         for vp in vp_prospect_list:
             vp.local_projections = [] # clear in anticipation
+
             vp.local_contours = get_contours_from_viewport(
-                host, 
-                vp, 
-                img_arr, 
-                fence_mask_arr, 
-                debug_image_level, 
-                timesheet, 
+                host,
+                vp,
+                img_arr,
+                debug_image_level,
+                timesheet,
                 logger
             )
+
+            if logger and debug_level > 0:
+                logger.debug('Number of contours found {} Point Counts: {}'.format(
+                    len(vp.local_contours), [len(c) for c in vp.local_contours]))
+
             # Sift contours using basic tools, before Whittling
-            
+
             # best filtering methodology
-            # mid-range * threshold, or lower
-            count_threshold = constants.CONTOUR_POINT_COUNT_THRESHOLD
-            local_counts = [len(c) for c in vp.local_contours]
-            mid_range_count = (max(local_counts, default=0) + min(local_counts, default=0)) * count_threshold
-            min_pt_count = max(mid_range_count, constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT)
+            min_pt_count = constants.HIRES_CONTOUR_MINIMUM_POINT_COUNT
             # update list in-place
             vp.local_contours[:] = [c for c in vp.local_contours if len(c) > min_pt_count]
 
             # de-duplicate contour list in-place, by removing inner
-            cl.dedupe_contour_list(vp.local_contours, constants.CONTOUR_DEDUPE_MAX_GAP, 0, logger=logger, debug=True)
+            cl.dedupe_contour_list(vp.local_contours, constants.CONTOUR_DEDUPE_MAX_GAP, 0, logger=logger, debug=False)
 
         timesheet.add('de-duped sifted contours posted')
 
         # assemble all global contours
         vp_offset_mult = np.array(img_arr.shape) / 100
-        full_global_contours = [
+        global_contours = [
              c + (vp.origin * vp_offset_mult) for vp in vp_prospect_list if vp is not None for c in vp.local_contours]
-        timesheet.add('full contours assembled')
-        
+        timesheet.add('global contours assembled')
+
         # annotate
         if debug_image_level >= 2 or abs(debug_image_level) == 2:
             hires_img = Image.fromarray(img_arr).convert('RGB')
             hires_draw = ImageDraw.Draw(hires_img)
-            sm_font = ImageFont.truetype(host.font_path, 12)
+            sm_font = ut.load_sans_serif_font(12)
             # overlay global contours in orange
             cl.overlay_contours(
-                full_global_contours, hires_draw, (1, 1), 'orange', sm_font)
+                global_contours, hires_draw, (1, 1), 'orange', sm_font)
             hires_img.save(host.tmp_folder_path + 'hires.jpg')
 
-        global_contours = [cl.reduce_contour_points(
-            c, constants.CAPPED_POINT_COUNT) for c in full_global_contours]
-        timesheet.add('contours points reduced')
-                
         if logger and debug_level > 0:
-            logger.debug('Number of filtered global contours [len > {}]: {} Point Counts: {}'.format(
-                min_pt_count, len(global_contours), [len(c) for c in global_contours]))
+            logger.debug('Number of filtered global contours: {} Point Counts: {}'.format(
+                len(global_contours), [len(c) for c in global_contours]))
 
         whittler.process(global_contours, img_arr)
         if logger: logger.debug('\n' + str(whittler) + '\n')
         timesheet.add('contours whittled')
-            
+
         # complete further processing on accepted whittled contours only
         for j, ci in enumerate(whittler.accepted_index):
-            
+
             cont = global_contours[ci]
-            
+
             # identify viewport
             ivp = get_vp_from_contour_index(vp_prospect_list, ci)
 
@@ -1040,21 +990,21 @@ def probe_prospect_list(
             # use mapper to undistort & unwarp contour to metres...
             c_unwarped_undistorted = host.data_mapper.transform_contour(
                 comp_cont)  # y,x order in, x,y out
-            
+
             # add to log? will only log contours during excursions...
-            add_contour_to_log(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted)
+            add_contour_to_log(host, img_arr, logger, j, ivp, c_unwarped_undistorted)
 
             # create and post projection on viewport
             proj = post_projection(host, img_arr, debug_level, logger, j, ivp, c_unwarped_undistorted)
-            
+
             if logger and debug_level > 0:
-                logger.debug(str(proj.timesheet)) 
-                            
+                logger.debug(str(proj.timesheet))
+
             # assemble projections - without pre-filtering
             filtered_projections.append(proj)
-            
+
             if ((debug_image_level >= 5 or abs(debug_image_level) == 5) or
-                    ((debug_image_level >= 6 or abs(debug_image_level) == 6) and 
+                    ((debug_image_level >= 6 or abs(debug_image_level) == 6) and
                         proj.conf_pc > constants.SCORE_THRESHOLD)):
 
                 # initialise response
@@ -1072,15 +1022,15 @@ def probe_prospect_list(
                 # save debug plot image
                 plot_img = Image.open(img_buf)
                 plot_img.save(host.tmp_folder_path +
-                              '{0}-{1}-proj.jpg'.format(ivp.index, j))
+                              '{}-{}-proj.jpg'.format(ivp.index, j))
 
-            
-        timesheet.add('projections assembled')
+
+        timesheet.add('{} projection(s) assembled'.format(len(whittler.accepted_index)))
 
         # sort projections
         filtered_projections.sort(key=lambda p: p.conf_pc, reverse=True)
         if logger and debug_level > 0:
-            logger.debug('Sorted projection(s): {0}'.format(
+            logger.debug('Sorted projection(s): {}'.format(
                 [f.conf_pc for f in filtered_projections]))
 
         timesheet.add('projections sorted')
@@ -1095,18 +1045,18 @@ def probe_prospect_list(
 
             # let Pose apply offsetting
             pose = poses.Pose.from_tip_tail(
-                best_projection.v1, best_projection.tail, best_projection.heading, ssid=sid)
+                best_projection.tip, best_projection.tail, ssid=sid)
             if logger and debug_level > 0:
-                logger.debug('Best projection: {0}'.format(best_projection))
+                logger.debug('Best projection: {}'.format(best_projection))
             if logger and debug_level > 0:
-                logger.debug('Best projection pose from tip tail: {0}'.format(
+                logger.debug('Best projection pose from tip tail: {}'.format(
                     pose.as_concise_str()))
 
         else:
             pose = None
-        
+
         timesheet.add('pose calculated')
-        
+
         # check here for Null Pose, and use extrapolation if possible
         if (
             pose is None and
@@ -1115,16 +1065,16 @@ def probe_prospect_list(
         ):
             pose = host.snapshot_buffer.latest_extrap_pose()
             host.extrapolation_incidents += 1
-            logger.info('fcc RNF MITIGATION, Pose is None so using extrapolation {}... {} incidents'.format(
+            logger.info('RNF MITIGATION, Pose is None so using extrapolation {}... {} incidents'.format(
                 host.snapshot_buffer.latest_extrap_pose().as_concise_str(),
                 host.extrapolation_incidents)
             )
 
-        timesheet.add('extrapolation considered')            
-                
+        timesheet.add('extrapolation considered')
+
         if logger and debug_level >= 0:
             logger.debug(timesheet)
-            
+
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno
         err_msg = 'Error in probe_prospect_list: ' + \
@@ -1133,9 +1083,9 @@ def probe_prospect_list(
             logger.error(err_msg)
         else:
             print(err_msg)
-            
+
     return prospect_viewports, global_contours, filtered_projections, pose, whittler
-    
+
 def lores_contours(analysis_array, zoom_scale_factor=4, min_pt_count=10, debug=False, logger=None):
 
     right_sizables = -1
@@ -1152,8 +1102,9 @@ def lores_contours(analysis_array, zoom_scale_factor=4, min_pt_count=10, debug=F
     perim_80pc = perim * 0.8
     sobel_zarr = filters.sobel(analysis_zarr)
     # use simplest find contours
+    min_intensity = np.min(sobel_zarr).astype(float)
     max_intensity = np.max(sobel_zarr).astype(float)
-    threshold = max_intensity / 2
+    threshold = (min_intensity + max_intensity) / 2
     if threshold < constants.MINIMUM_CONTOUR_THRESHOLD:
         logger.debug('Lores Contours - skip as threshold is below constant minimum {:.3f} < {:.3f}'.format(
             threshold,
@@ -1173,3 +1124,22 @@ def lores_contours(analysis_array, zoom_scale_factor=4, min_pt_count=10, debug=F
                 'count right sizable lo-res contours: {} - {}'.format(right_sizable_count, right_sizables))
 
     return right_sizables
+
+def draw_anti_polygons(img_draw, polygon, fill_colour='black', debug=False, logger=None):
+    try:
+        if debug:
+            all_pts = list(polygon.exterior.coords)
+            img_draw.polygon(all_pts, outline='white', width=2)
+        img_width_px, img_height_px = img_draw.im.size
+        anti_polygons = gl.make_antipolygons(polygon, img_width_px, img_height_px)
+        for anti_polygon in anti_polygons:
+            for pure_poly in gl.yield_polygons(anti_polygon):
+                poly_pts = list(pure_poly.exterior.coords)
+                img_draw.polygon(poly_pts, fill=fill_colour, width=1)
+    except Exception as apx:
+        err_line = sys.exc_info()[-1].tb_lineno
+        msg = 'Error in anti-polygon overlay: {} on line {}'.format(apx, err_line)
+        if logger:
+            logger.log_error(msg)
+        else:
+            print(msg)

@@ -53,8 +53,8 @@ class MonitorPane {
     emergencyStop(self) {
 
         sendData('PUT', 'api', 'direct-drive', 'stop()');
-        const pauseBtn = getWidget(self.ctrlPaneId, "PAUSE");
-        pauseBtn.click();
+        const cancelBtn = getWidget(self.ctrlPaneId, "CANCEL");
+        cancelBtn.click();
 
     }//end emergency stop
 

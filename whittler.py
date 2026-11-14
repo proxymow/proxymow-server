@@ -10,7 +10,7 @@ from datatable import DataTable
 import utilities as ut
 from timesheet import Timesheet2
 
-class Whittler(object):
+class Whittler:
     '''
         whittles the number of contours hopefully down to one 
     '''
@@ -21,21 +21,21 @@ class Whittler(object):
         cls.short_circuit = short_circuit
         cls.stock_cols = ['Thumbnail', 'Ident', 'Accept']
         cls.stock_types = [str, str, bool]
-        
+
         # mine contour_assessments folder for plug-in assessments
         cur_script_fldr = Path(__file__).parent
         rel_path = 'contour_assessments'
         cls.abs_path = (cur_script_fldr / rel_path).resolve()
-        
+
         if logger:
-            logger.info('absolute assessments path: {}'.format(cls.abs_path))            
+            logger.info('absolute assessments path: {}'.format(cls.abs_path))
 
         # cache modules
         cls.mod_cache = Whittler.get_modules(Whittler)
-        
+
         # cache process order
         cls._proc_order = Whittler.get_process_order(Whittler)
-        
+
         if logger:
             logger.debug('module cache: {}'.format(cls.mod_cache))
             logger.debug('module process order: {}'.format(cls._proc_order))
@@ -43,8 +43,8 @@ class Whittler(object):
     @classmethod
     def assessment_module_names(cls):
         return [os.path.basename(x)[0:-3]
-                        for x in cls.abs_path.glob('*.py')]
-        
+                        for x in cls.abs_path.glob('*.py') if not x.name.startswith('_')]
+
     @classmethod
     def assessment_names(cls, ordered=False):
         names = [' '.join(word.title() for word in name.split(
@@ -52,13 +52,13 @@ class Whittler(object):
         if 'Template' in names: names.remove('Template')
         if ordered:
             result = [n for _, n in sorted(zip(cls._proc_order, names))]
-        else: 
+        else:
             result = names
         return result
-    
+
     def get_modules(self):
         mod_dict = {}
-        for i, rel_mod_name in enumerate(self.assessment_module_names()):    
+        for i, rel_mod_name in enumerate(self.assessment_module_names()):
             try:
                 file_path = os.path.join(
                     self.abs_path, rel_mod_name) + '.py'
@@ -67,7 +67,8 @@ class Whittler(object):
                     module_name, file_path)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                mod_dict[self.assessment_names()[i]] = module
+                if 'assess' in vars(module):
+                    mod_dict[self.assessment_names()[i]] = module
             except Exception as e1:
                 err_line = sys.exc_info()[-1].tb_lineno
                 err_msg = 'Error loading plug-in: ' + str(e1) + ' on line ' + str(err_line)
@@ -76,7 +77,7 @@ class Whittler(object):
                 else:
                     print(err_msg)
         return mod_dict
-    
+
     def get_process_order(self):
         assessment_order = []
         for assmt_name in self.assessment_names():
@@ -87,7 +88,7 @@ class Whittler(object):
                 proc_order = -1
             assessment_order.append(proc_order)
         return assessment_order
-    
+
     def __init__(self):
         '''
             Constructor
@@ -103,14 +104,14 @@ class Whittler(object):
             col_names.append(n + '_acc')
             col_dtypes.append(bool)
         self.dt = DataTable(col_names, col_dtypes)
-    
+
     @property
     def accepted_states(self):
         result = []
         for row_dict in self.dt.values():
             result.append(bool(row_dict['Accept']))
         return result
-    
+
     @property
     def acceptance_order_index(self):
         try:
@@ -118,7 +119,7 @@ class Whittler(object):
         except:
             result = []
         return result
-    
+
     @property
     def accepted_index(self):
         try:
@@ -130,7 +131,7 @@ class Whittler(object):
     @property
     def num_accepted(self):
         return int(np.count_nonzero(self.accepted_states))
-    
+
     def process(self, contours, img_arr):
         # perform assessment on each contour and add results to datatable
         try:
@@ -141,17 +142,17 @@ class Whittler(object):
                 min_y, min_x = np.min(contour, axis=0)
                 max_y, max_x = np.max(contour, axis=0)
                 local_contour = contour - (min_y, min_x)
-                
+
                 # obtain the image array around local contour
                 top_y = floor(min_y)
                 left_x = floor(min_x)
                 bottom_y = ceil(max_y)
                 right_x = ceil(max_x)
                 local_sub_array = img_arr[top_y: bottom_y, left_x: right_x]
-                
+
                 # save img array as base64 string
                 thumbnail = ut.convert_array_to_base64(local_sub_array, (24, 24))
-                
+
                 row = {"Thumbnail": thumbnail, "Ident": i, "Accept": True, }
                 self.timesheet.add('preparation')
                 acceptance = True
@@ -169,16 +170,15 @@ class Whittler(object):
                     row[assmt_name + '_tt'] = tooltip
                     row['Accept'] = row['Accept'] and acceptance
                     self.timesheet.add(assmt_name)
-        
+
                 self.dt[i] = row
         except Exception as e:
-            err_line = sys.exc_info()[-1].tb_lineno
-            err_msg = 'Error processing plug-in assessment modules: ' + str(e) + ' on line ' + str(err_line)
+            err_msg = 'Error processing plug-in assessment module ({}): {}'.format(assmt_name, e)
             if self.logger:
                 self.logger.error(err_msg)
             else:
                 print(err_msg)
-                
+
     def render(self, ss_index):
         row_list = []
         try:
@@ -204,13 +204,13 @@ class Whittler(object):
 
         # conditional inclusion not permitted - a column must be populated
         row_attributes = {}
-        
+
         row_class = 'whittler-row row-rejected'
-        if 'Accept' in contour_row and contour_row['Accept']:
+        if contour_row.get('Accept'):
             row_class = 'whittler-row row-accepted'
-                
+
         advice = 'hover over to highlight {}-{} in Contour View and Freeze...'.format(ss_index, row_index)
-                
+
         row_attributes[hidden_col_prefix + '@row_class'] = row_class
         row_attributes[hidden_col_prefix + '@row_title'] = advice
         row_attributes[hidden_col_prefix + '@row_onmouseover'] = "highlight({})".format(row_index)
@@ -222,16 +222,16 @@ class Whittler(object):
             thumb_tmplt = '''
                 <div style="text-align: center;">
                     <img src="data:image/jpeg;charset=utf-8;base64,{}" alt="Thumbnail" />
-                </div>'''            
-            dkdict['Thumbnail'] = thumb_tmplt.format(contour_row['Thumbnail']) 
+                </div>'''
+            dkdict['Thumbnail'] = thumb_tmplt.format(contour_row['Thumbnail'])
         else:
             dkdict['Thumbnail'] = ''
         dkdict['Ident'] = '{}-{}'.format(ss_index, row_index)
         for col_name in self.assessment_names(True):
             dkdict[col_name] = contour_row[col_name]
             acc_col_name = col_name + '_acc'
-            if acc_col_name in contour_row and contour_row[acc_col_name]:
-                dkdict[hidden_col_prefix + '@cell_class'] = 'cell-accepted'                    
+            if contour_row.get(acc_col_name):
+                dkdict[hidden_col_prefix + '@cell_class'] = 'cell-accepted'
             else:
                 dkdict[hidden_col_prefix + '@cell_class'] = 'cell-rejected'
             ttip_col_name = col_name + '_tt'
@@ -240,9 +240,9 @@ class Whittler(object):
                 dkdict[hidden_col_prefix + '@cell_title'] = ttip
             else:
                 dkdict[hidden_col_prefix + '@cell_title'] = ''
-            
+
         return dkdict
-    
+
     def __repr__(self):
         result = str(self.dt)
         result += 'accepted states: {}\n'.format(self.accepted_states)

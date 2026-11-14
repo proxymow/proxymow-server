@@ -54,10 +54,10 @@ def process(cmd):
     return result
 
 
-def main(work_folder_path):
+def main(work_folder_path, log_level):
 
     # initialise log
-    virtual.vlogs.init(work_folder_path)
+    virtual.vlogs.init(work_folder_path, log_level)
 
     # initialise motion lib
     init()
@@ -70,7 +70,7 @@ def main(work_folder_path):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setblocking(True)
     s.bind((IP_ADDR, PORT))
-    log('listening on UDP Host {0}:{1}'.format(IP_ADDR, PORT))
+    log('listening on UDP Host {}:{}'.format(IP_ADDR, PORT))
     comms_went_offline = -1
     keep_going = True
     while keep_going:

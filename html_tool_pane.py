@@ -1,6 +1,6 @@
 
 
-class HtmlToolPane(object):
+class HtmlToolPane:
     '''
         Represents a toolpane in a webpage
     '''
@@ -19,7 +19,7 @@ class HtmlToolPane(object):
         '''
             render toolpane to html string
         '''
-        html = '<div class="{0}">\n'.format(self.class_name)
+        html = '<div class="{}">\n'.format(self.class_name)
         for tool in self.config:
             html += self.render_tool(tool)
         html += '</div>\n'
@@ -32,7 +32,7 @@ class HtmlToolPane(object):
         '''
         tid, label, tooltip, icon_def, _action, _disabled = tool
         icon_svg = icon_def
-        html = '\t<button id="{0}" type="button" title="{1}">{2}</button>\n'.format(
+        html = '\t<button id="{}" type="button" title="{}">{}</button>\n'.format(
             tid,
             tooltip,
             icon_svg + '<span>' + label + '</span>' if self.has_labels and self.is_vertical else icon_svg +

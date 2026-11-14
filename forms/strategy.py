@@ -9,7 +9,7 @@ class Strategy(Morphable):
 
     pk_att_name = 'name'
     name = TextSetting('Strategy Name', 'Name of the strategy', None,
-                       '^.{6,}$', 'must have at least 6 characters', char_width=32)
+                       '^[^.]{6,}$', 'must have at least 6 alphanumeric characters', char_width=32)
     description = TextSetting('Strategy Description',
                               'Strategy description', char_width=48)
 

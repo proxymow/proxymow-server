@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xml>
+<project name="ps-ps-deploy-dist">
+    <description>
+        This is a custom Ant deploy file which contains a target that
+        copies required files to proxymow pi camera server
+        You may need to kill the python process: 
+        
+            sudo pkill -f proxymow.py
+            
+        and restart if cherrypy does not detect change.     
+    </description>
+    <!-- set global properties for this build -->
+    <property name="tgt" location="\\proxymow-dist\pi\proxymow-server"/>
+    <!-- local modules -->
+    <copy verbose="true" todir="${tgt}">
+        <fileset dir="${basedir}/..">
+            <include name="**/*" />
+            <!-- exclude name="**/configs/settings.yml" / -->
+            <!-- exclude name="**/configs/config.xml" / -->
+            <exclude name="**/.project" />
+            <exclude name="**/.pydevproject" />
+            <exclude name="**/.settings/**" />
+            <exclude name="**/ant/**" />
+            <exclude name="**/3dprint-camera-mount/**" />
+            <exclude name="**/__pycache__/**" />
+        </fileset>
+    </copy>
+</project>

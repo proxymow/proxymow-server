@@ -30,7 +30,7 @@ class FixedLengthDict(UserDict):
     def __repr__(self):
         result = ''
         for k in self.data:
-            result += '{0}: => {1}\n'.format(
+            result += '{}: => {}\n'.format(
                 k,
                 self.data[k].as_public_dict()
             )

@@ -3,7 +3,8 @@ import random
 import numpy as np
 import cmath
 from scipy import stats
-from math import ceil
+from math import ceil, sqrt
+from shapely import LineString, frechet_distance
 
 import geom_lib as gl
 
@@ -25,7 +26,6 @@ def reduce_contour_points(c_in, max_point_count, auto_step=False):
         c_spaced = c_in
     return c_spaced
 
-
 def overlay_contours(contours, draw, scale, fill_col, font=None):
     for n, contour in enumerate(contours):
         # convert to flat list for plotting
@@ -34,7 +34,7 @@ def overlay_contours(contours, draw, scale, fill_col, font=None):
         # sketch outline
         draw.point(flat_points, fill=fill_col)
         if font is not None:
-            draw.text((max(flat_points[:2]) + random.randint(10, 100), max(flat_points[1::2]) + random.randint(10, 100)), '{0}:{1}'.format(
+            draw.text((max(flat_points[:2]) + random.randint(10, 100), max(flat_points[1::2]) + random.randint(10, 100)), '{}:{}'.format(
                 n, len(contour)), fill=fill_col, font=font)
 
 def dedupe_contour_list(cnts, max_gap, idx=0, logger=None, debug=True):
@@ -46,46 +46,46 @@ def dedupe_contour_list(cnts, max_gap, idx=0, logger=None, debug=True):
     if idx >= len(cnts) - 1:
         # finished
         if logger and debug:
-            logger.debug('dedupe_contour_list finished idx: {0} cnts: {1}'.format(
+            logger.debug('dedupe_contour_list finished idx: {} cnts: {}'.format(
                 idx, [len(c) for c in cnts]))
         return
     else:
         if logger and debug:
-            logger.debug('dedupe_contour_list idx: {0} cnts: {1}'.format(
+            logger.debug('dedupe_contour_list idx: {} cnts: {}'.format(
                 idx, [len(c) for c in cnts]))
         outer = cnts[idx]
         inner = cnts[idx + 1]
         outer_pnt_cnt = len(outer)
         inner_pnt_cnt = len(inner)
         if logger and debug:
-            logger.debug('dedupe_contour_list outer: {0} inner: {1}'.format(
+            logger.debug('dedupe_contour_list outer: {} inner: {}'.format(
                 outer_pnt_cnt, inner_pnt_cnt))
         # inner.centre between outer.limits
         inner_centroid = np.mean(inner, axis=0)
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list inner centroid: {0}'.format(inner_centroid))
+                'dedupe_contour_list inner centroid: {}'.format(inner_centroid))
         outer_centroid = np.mean(outer, axis=0)
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list outer centroid: {0}'.format(outer_centroid))
+                'dedupe_contour_list outer centroid: {}'.format(outer_centroid))
         coincidence_u = np.linalg.norm(inner_centroid - outer_centroid)
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list coincidence: {0:.2f} units'.format(coincidence_u))
+                'dedupe_contour_list coincidence: {:.2f} units'.format(coincidence_u))
         outer_diagonal_u = np.linalg.norm(
             np.max(outer, axis=0) - np.min(outer, axis=0))
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list outer diagonal: {0:.2f} units'.format(outer_diagonal_u))
+                'dedupe_contour_list outer diagonal: {:.2f} units'.format(outer_diagonal_u))
         coincidence_ratio = coincidence_u / outer_diagonal_u
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list coincidence ratio: {0:.2f}'.format(coincidence_ratio))
+                'dedupe_contour_list coincidence ratio: {:.2f}'.format(coincidence_ratio))
         coincident = coincidence_ratio < 0.1
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list coincident: {0}'.format(coincident))
+                'dedupe_contour_list coincident: {}'.format(coincident))
         out_bbox_min = np.min(outer, axis=0)
         out_top, out_left = out_bbox_min
         out_bbox_max = np.max(outer, axis=0)
@@ -94,7 +94,7 @@ def dedupe_contour_list(cnts, max_gap, idx=0, logger=None, debug=True):
         in_top, in_left = in_bbox_min
         in_bbox_max = np.max(inner, axis=0)
         in_bottom, in_right = in_bbox_max
-        
+
         top_gap = int(in_top - out_top)
         left_gap = int(in_left - out_left)
         bottom_gap = int(out_bottom - in_bottom)
@@ -109,24 +109,23 @@ def dedupe_contour_list(cnts, max_gap, idx=0, logger=None, debug=True):
         if logger and debug:
             logger.debug('dedupe_contour_list edges contained: {} {}'.format(idx, edges_contained))
         contained = edges_contained >= 3
-            
+
         if logger and debug:
             logger.debug(
-                'dedupe_contour_list contained: {0}'.format(contained))
+                'dedupe_contour_list contained: {}'.format(contained))
         if contained:
             if logger and debug:
                 logger.debug(
-                    'dedupe_contour_list removing: {0}'.format(len(cnts[idx + 1])))
+                    'dedupe_contour_list removing: {}'.format(len(cnts[idx + 1])))
             cnts.pop(idx + 1)
             # keep same pointer
         else:
             # advance pointer
             if logger and debug:
                 logger.debug(
-                    'dedupe_contour_list advancing pointer to: {0}'.format(idx + 1))
+                    'dedupe_contour_list advancing pointer to: {}'.format(idx + 1))
             idx += 1
         dedupe_contour_list(cnts, max_gap, idx, logger, debug)
-
 
 def morph_contour_to_polygon(contour, num_vertices, max_iterations=10, debug=True, logger=None):
     '''
@@ -139,7 +138,7 @@ def morph_contour_to_polygon(contour, num_vertices, max_iterations=10, debug=Tru
         i = 1
         while len(contour) > num_vertices and i <= max_iterations:
             if debug and logger:
-                logger.debug('loop c_out: {0}'.format(
+                logger.debug('loop c_out: {}'.format(
                     np.round(contour, 2).tolist()))
             contour, morph_props = reduce(
                 contour, clusters, debug=debug, logger=logger)
@@ -155,7 +154,6 @@ def morph_contour_to_polygon(contour, num_vertices, max_iterations=10, debug=Tru
             print(msg)
 
     return contour, morph_props
-
 
 def reduce(c_in, clusters, debug=True, logger=None):
     '''
@@ -186,30 +184,30 @@ def reduce(c_in, clusters, debug=True, logger=None):
         # find the point where leading and trailing edges meet
         intersections = gl.line_intersect(c_in, c2, c3, c4)
         if debug and logger:
-            logger.debug('intersections: {0}'.format(intersections))
+            logger.debug('intersections: {}'.format(intersections))
 
         # find the midpoint of the central edge
         central_midpoints = np.mean([c2, c3], axis=0)
         if debug and logger:
-            logger.debug('central_midpoints: {0}'.format(central_midpoints))
+            logger.debug('central_midpoints: {}'.format(central_midpoints))
 
         # find the width of the proposed appendage
         appendage_area_width = np.linalg.norm(c3 - c2, axis=1)
         if debug and logger:
-            logger.debug('appendage_area_width: {0}'.format(
+            logger.debug('appendage_area_width: {}'.format(
                 appendage_area_width))
 
         # find the height of the proposed appendage
         appendage_area_height = np.linalg.norm(
             intersections - central_midpoints, axis=1)
         if debug and logger:
-            logger.debug('appendage_area_height: {0}'.format(
+            logger.debug('appendage_area_height: {}'.format(
                 appendage_area_height))
 
         # find the area of the reclaimed area rectangle
         appendage_area = appendage_area_width * appendage_area_height / 2
         if debug and logger:
-            logger.debug('appendage_area: {0}'.format(
+            logger.debug('appendage_area: {}'.format(
                 np.round(appendage_area, 2)))
 
         # find index of smallest legal appendage area
@@ -217,24 +215,24 @@ def reduce(c_in, clusters, debug=True, logger=None):
             smallest_appendage_area_idx = np.nanargmin(appendage_area)
             smallest_appendage_area = appendage_area[smallest_appendage_area_idx]
             if debug and logger:
-                logger.debug('smallest_appendage_area_idx: {0} area: {1}'.format(
+                logger.debug('smallest_appendage_area_idx: {} area: {}'.format(
                     smallest_appendage_area_idx, smallest_appendage_area))
 
             # central edge index is one beyond
             central_edge_idx = (smallest_appendage_area_idx + 1) % num_pts
             if debug and logger:
-                logger.debug('central_edge_idx: {0}'.format(central_edge_idx))
+                logger.debug('central_edge_idx: {}'.format(central_edge_idx))
 
             # move central edge start point to projected intersection
             c_in[central_edge_idx] = intersections[smallest_appendage_area_idx]
             if debug and logger:
-                logger.debug('contour with moved point: {0}'.format(
+                logger.debug('contour with moved point: {}'.format(
                     np.round(c_in, 3).tolist()))
 
             # remove the central edge finish point
             c_in = np.delete(c_in, (central_edge_idx + 1) % num_pts, axis=0)
             if debug and logger:
-                logger.debug('contour with deleted point: {0}'.format(
+                logger.debug('contour with deleted point: {}'.format(
                     np.round(c_in, 3).tolist()))
 
             # clustering - not essential but informative and expensive
@@ -246,21 +244,21 @@ def reduce(c_in, clusters, debug=True, logger=None):
                     midpoint[1] - centroid[1], midpoint[0] - centroid[0]) - np.pi / 2), 360))  # 0..360 ccw
                 if debug and logger:
                     logger.debug(
-                        'infill midpoint angle: {0}'.format(midpoint_angle))
-    
+                        'infill midpoint angle: {}'.format(midpoint_angle))
+
                 # check existing cluster keys to find nearest
                 assigned = False
                 if debug and logger:
-                    logger.debug('infill cluster keys: {0}'.format(
+                    logger.debug('infill cluster keys: {}'.format(
                         np.rint(list(clusters.keys()))))
                 for k in list(clusters.keys()):
                     if debug and logger:
-                        logger.debug('infill checking midpoint: {0} against mean angle: {1}'.format(
+                        logger.debug('infill checking midpoint: {} against mean angle: {}'.format(
                             midpoint_angle, k))
                     angular_distance_to_midpoint = int(
                         abs(gl.diff_angles(k, midpoint_angle, fmt=1)))
                     if debug and logger:
-                        logger.debug('infill angular_distance_to_midpoint: {0}'.format(
+                        logger.debug('infill angular_distance_to_midpoint: {}'.format(
                             angular_distance_to_midpoint))
                     # angular distance is half sector bandpass
                     if angular_distance_to_midpoint < 30 and not assigned:  # t degree cluster key sectors
@@ -280,7 +278,7 @@ def reduce(c_in, clusters, debug=True, logger=None):
                         [midpoint_angle], [smallest_appendage_area])
                     if debug and logger:
                         logger.debug(
-                            'infill cluster new key added: {0}'.format(midpoint_angle))
+                            'infill cluster new key added: {}'.format(midpoint_angle))
 
         except ValueError:
             smallest_appendage_area_idx = central_edge_idx = -1
@@ -305,7 +303,6 @@ def reduce(c_in, clusters, debug=True, logger=None):
 
     return c_in, props_dict
 
-
 def sobel_compensation(cont_in, shrink_by=3, shift_by=2):
     '''
         compensate for sobel's offsetting and scaling
@@ -320,38 +317,30 @@ def sobel_compensation(cont_in, shrink_by=3, shift_by=2):
     return comp_cont
 
 def fitness(c_in, vertices):
-    
-    # reduce size?
-    c = reduce_contour_points(c_in, 99)
-    
-    centroid = np.mean(c, axis=0)
-    
-    dist_ratios = []
-    
-    # loop through the points in contour
-    for p in c:
-        # check each edge
 
-        # measure perpendicular distance
-        d1 = gl.distance_to_line(p[0], p[1], vertices[0][0], vertices[0][1], vertices[1][0], vertices[1][1])
-        d2 = gl.distance_to_line(p[0], p[1], vertices[1][0], vertices[1][1], vertices[2][0], vertices[2][1])
-        d3 = gl.distance_to_line(p[0], p[1], vertices[2][0], vertices[2][1], vertices[0][0], vertices[0][1])
-        
-        # measure distance to centroid
-        dc = np.linalg.norm(p - centroid)
-        
-        # select closest edge...
-        d = min(d1, d2, d3)
-        
-        max_dist = d + dc
-        
-        pt_fit = dc / max_dist
-        
-        dist_ratios.append(pt_fit)
-        
-    # calculate overall fitness
-    fitness = np.mean(dist_ratios)
-    
+    geom1 = LineString(c_in)
+    geom2 = LineString(vertices + [vertices[0]])
+
+    # 1. Calculate absolute Frechet distance
+    abs_dist = frechet_distance(geom1, geom2)
+
+    # 2. Get bounding box diagonals as the scale factor
+    def get_diagonal(geom):
+        minx, miny, maxx, maxy = geom.bounds
+        return sqrt((maxx - minx)**2 + (maxy - miny)**2)
+
+    max_diagonal = max(get_diagonal(geom1), get_diagonal(geom2))
+
+    # Avoid division by zero for point-like geometries
+    if max_diagonal == 0:
+        return 0.0
+
+    # 3. Normalize result
+    norm_dist = abs_dist / max_diagonal
+
+    # Clip to ensure floating-point precision doesn't push it past 1.0
+    return min(max(norm_dist, 0.0), 1.0)
+
     return fitness
 
 def radius(c):
@@ -360,7 +349,7 @@ def radius(c):
 
 def area(c):
     # Shoelace formula implementation
-    return 0.5 * np.abs(np.dot(c[:,0], np.roll(c[:,1], 1)) - 
+    return 0.5 * np.abs(np.dot(c[:,0], np.roll(c[:,1], 1)) -
                         np.dot(c[:,1], np.roll(c[:,0], 1)))
 
 def perimeter(c):
@@ -368,14 +357,14 @@ def perimeter(c):
         Calculates perimeter by summing distance between points.
         Assumes contour is shaped correctly (n, 2)
     '''
-    
+
     # Calculate distances between sequential points (x2-x1)^2 + (y2-y1)^2
     # Shift array to align point i with point i+1
     diffs = np.diff(c, axis=0, append=c[0:1])
-    
+
     # Euclidean distance: sqrt(dx^2 + dy^2)
     distances = np.sqrt(np.sum(diffs**2, axis=1))
-    
+
     # Sum all distances
     return np.sum(distances)
 
@@ -389,18 +378,18 @@ def circularity(c, logger=None, debug=True):
     a = area(c)
     two_over_radius = 2 / r
     par = p / a
-    circ = two_over_radius / par 
+    circ = two_over_radius / par
     if debug and logger:
         logger.debug(
-            ('circularity - radius: {:.3f} ' + 
+            ('circularity - radius: {:.3f} ' +
             'area: {:.3f} ' +
-            'perimeter: {:.3f} ' + 
+            'perimeter: {:.3f} ' +
             'two_over_radius: {:.3f} <==> ' +
             'par: {:.3f} => ' +
             'circularity: {:.3f}').format(r, a, p, two_over_radius, par, circ)
         )
     return circ
-    
+
 def edginess(c, threshold=1.0, min_pt_cnt=6):
     '''
         Calculate edginess as ratio:
@@ -414,17 +403,17 @@ def edginess(c, threshold=1.0, min_pt_cnt=6):
 
     lines = []
     num_pts_on_lines = 0
-    
+
     while finish_idx < pt_count:
         x = c[start_idx:finish_idx, 0]
         y = c[start_idx:finish_idx, 1]
-    
+
         A = np.vstack([x, np.ones(len(x))]).T
         slope, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
-        
+
         line_vals = slope * x + intercept
         err = np.mean((y - line_vals) ** 2) * 1e6
-        
+
         if err < threshold:
             finish_idx += 1
         else:
@@ -438,7 +427,7 @@ def edginess(c, threshold=1.0, min_pt_cnt=6):
 
     # calculate edginess
     e = num_pts_on_lines / pt_count
-    
+
     return e
 
 def aspect_ratio(c):
@@ -462,7 +451,7 @@ def radial_deviation(c, logger=None, debug=True):
     score = sd / np.max(radials)
     if debug and logger:
         logger.debug('score: {}'.format(score))
-    
+
     return score
 
 def center_of_mass(c):
@@ -482,7 +471,7 @@ def is_P_InSegment_P0P1(P, P0,P1):
 
     det = (p0[0]*p1[1] - p1[0]*p0[1])
     prod = (p0[0]*p1[0] + p0[1]*p1[1])
-    
+
     return (det == 0 and prod < 0) or (p0[0] == 0 and p0[1] == 0) or (p1[0] == 0 and p1[1] == 0)
 
 
@@ -502,5 +491,4 @@ def is_inside_polygon(P: tuple, Vertices: list, validBorder=False) -> bool:
 
         sum_ += cmath.log( (complex(*v1) - complex(*P)) / (complex(*v0) - complex(*P)) )
 
-    # return abs(sum_) > 1
     return sum_

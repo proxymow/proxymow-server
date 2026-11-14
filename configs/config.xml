@@ -85,11 +85,17 @@
         </profile>
     </profiles>
     <mowers module="mower" updatable="true" extensible="true" deletable="true">
-        <mower name="virtual">
+        <mower name="virtual-tri">
             <identity ip="127.0.0.1" port="5005" type="virtual" />
             <dimensions target_width_m="0.148" target_length_m="0.23" target_radius_m="0.025" target_offset_pc="50" cutter1_dia_m="0.15" cutter2_dia_m="0.15" body_width_m="0.3" body_length_m="0.5" />
             <motion axle_track_m="0.2" wheel_dia_m="0.12" motor_full_speed_rpm="30" set_rotation_speed_percent="60" set_drive_speed_percent="70" />
             <sensors name_list="Main[%], Loaded[%]" factor_list="0.09775, 0.09775" />
+        </mower>
+        <mower name="virtual-trap">
+            <identity ip="127.0.0.1" port="5005" type="virtual"/>
+            <dimensions target_lower_base_m="0.212" target_upper_base_m="0.085" target_length_m="0.17" target_radius_m="0.02" target_rotation_ccw_deg="270" target_offset_pc="50" cutter1_dia_m="0.1" cutter2_dia_m="0.1" body_width_m="0.3" body_length_m="0.5"/>
+            <motion axle_track_m="0.3" wheel_dia_m="0.05" motor_full_speed_rpm="45" set_rotation_speed_percent="85" set_drive_speed_percent="85"/>
+            <sensors name_list="Main[%], Loaded[%]" factor_list="0.09775, 0.09775"/>
         </mower>
     </mowers>
     <navigation_strategies module="strategy" updatable="true" extensible="true" deletable="true">
@@ -292,6 +298,69 @@
                 </rule>
             </rules>
         </strategy>
+        <strategy name="Merging Push Me Pull You Saw" description="path hugging shuttle saw">
+            <user_terms module="term" updatable="true" extensible="true" deletable="true">
+                <term name="hs" description="home sector" expression="radians(9)" units="radians" alt_units="degrees" alt_expression="9" tooltip="sets the threshold between sweeping and rotating"/>
+                <term name="hr" description="home radius" units="metres" expression="0.15" alt_expression="None" alt_units="" tooltip="defines the target circle for stage completion"/>
+                <term name="sr" description="static radius" units="metres" expression="1.0" alt_expression="None" alt_units="" tooltip="defines the circle within which in-flight rules are ignored"/>
+                <term name="via" description="path annotation" units="" expression="(x1,y1,x2,y2)" alt_expression="None" alt_units="" colour="blue"/>
+                <term name="tgt" description="home target annotation" units="" expression="(x2,y2,hr)" alt_expression="None" alt_units="" colour="yellow"/>
+                <term name="phis" description="rotation angles (t/u/a)" expression="gl.get_rot_angles_from_hdgs(c, c2, -np.clip(st, -0.1, 0.1))" units="radians" alt_units="degrees" alt_expression="" tooltip="re-calculates rotation angles allowing bias"/>
+                <term name="rphis" description="reverse rotation angles (rt/ru/ra/rc)" expression="gl.get_rot_angles_from_hdgs(c, c2,  -np.clip(st, -0.1, 0.1), 1)" units="radians" alt_units="degrees" alt_expression="" tooltip="re-calculates reverse rotation angles allowing bias"/>
+                <term name="ma" description="merging variant of a" expression="phis[2]" units="radians" alt_units="degrees" alt_expression="degrees(phis[2])" tooltip="biased merge version of a" colour="navy"/>
+                <term name="mra" description="merging variant of ra" expression="rphis[2]" units="radians" alt_units="degrees" alt_expression="degrees(rphis[2])" tooltip="biased merge version of ra" colour="lime"/>
+                <term name="mu" description="merging variant of u" expression="phis[1]" units="radians" alt_units="degrees" alt_expression="degrees(phis[1])" tooltip="biased merge version of u" colour="olive"/>
+                <term name="tc annot" description="turn circle" expression="(tcx, tcy, b) if min(ma, mra) &lt;= hs else (x, y, w/2)" result="None" units="" alt_expression="" alt_units="" colour="silver"/>
+                <term name="lap annot" description="look ahead point" expression="lap" result="None" units="" alt_expression="" alt_units="" colour="aqua"/>
+            </user_terms>
+            <hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
+                <hybrid name="lad" description="look ahead distance" units="metres" expression="0.25" alt_expression="None" alt_units="" tooltip="tune this to balance tracking with expedience" colour="maroon"/>
+            </hybrid_terms>
+            <rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true">
+                <rule name="Stage Terminator" description="Stage Terminator" priority="0" scope="0" stage_complete="True">
+                    <condition><![CDATA[0 <= d <= hr]]></condition>
+                    <duration><![CDATA[]]></duration>
+                    <left_speed><![CDATA[]]></left_speed>
+                    <right_speed><![CDATA[]]></right_speed>
+                </rule>
+                <rule name="Saw Stage Terminator" description="Saw Stage Terminator" priority="1" scope="0" stage_complete="True">
+                    <condition><![CDATA[i % 2 == 1 and i > 1]]></condition>
+                    <duration><![CDATA[]]></duration>
+                    <left_speed><![CDATA[]]></left_speed>
+                    <right_speed><![CDATA[]]></right_speed>
+                </rule>
+                <rule name="Front Cutter" description="Align front cutter" priority="2" scope="2" stage_complete="False">
+                    <condition><![CDATA[d > 0 and 'FWD' in rat and cut1 == 0]]></condition>
+                    <duration><![CDATA['>cutter(1, -1)']]></duration>
+                    <left_speed><![CDATA[]]></left_speed>
+                    <right_speed><![CDATA[]]></right_speed>
+                </rule>
+                <rule name="Rear Cutter" description="Align rear cutter" priority="3" scope="2" stage_complete="False">
+                    <condition><![CDATA[d > 0 and 'REV' in rat and cut2 == 0]]></condition>
+                    <duration><![CDATA['>cutter(2, -1)']]></duration>
+                    <left_speed><![CDATA[]]></left_speed>
+                    <right_speed><![CDATA[]]></right_speed>
+                </rule>
+                <rule name="Static Rotate" description="Rotate quickest way" priority="4" scope="0" stage_complete="False">
+                    <condition><![CDATA[d > 0 and min(ma, mra) > hs]]></condition>
+                    <left_speed><![CDATA[((((ma < mra) ^ (mu >= 0))) * 2 - 1) * n]]></left_speed>
+                    <right_speed><![CDATA[((((ma < mra) ^ (mu >= 0))) * 2 - 1) * -n]]></right_speed>
+                    <duration><![CDATA[min(ma, mra) * w * 50000 / (v * n)]]></duration>
+                </rule>
+                <rule name="Static Veer" description="Veer near target" priority="5" scope="0" stage_complete="False">
+                    <condition><![CDATA[d > 0 and min(ma, mra) <= hs]]></condition>
+                    <left_speed><![CDATA[((-1) ** (ma >= hs)) * s * np.mean([j ** ((-1) ** (mu < 0)), 1])]]></left_speed>
+                    <right_speed><![CDATA[((-1) ** (ma >= hs)) * s * np.mean([j ** ((-1) ** (mu >= 0)), 1])]]></right_speed>
+                    <duration><![CDATA[s and l * 100000 * 1.0 / (v * s) or 1]]></duration>
+                </rule>
+                <rule name="Dynamic Veer" description="Veer to Destination" priority="6" scope="1" stage_complete="False">
+                    <condition><![CDATA[d > sr and k > hr and min(ma, mra) <= hs]]></condition>
+                    <left_speed><![CDATA[((-1) ** (ma >= hs)) * s * np.mean([j ** ((-1) ** (mu < 0)), 1])]]></left_speed>
+                    <right_speed><![CDATA[((-1) ** (ma >= hs)) * s * np.mean([j ** ((-1) ** (mu >= 0)), 1])]]></right_speed>
+                    <duration><![CDATA[s and l * 100000 * 1.0 / (v * s) or 1]]></duration>
+                </rule>
+            </rules>
+        </strategy>
         <strategy name="PMPY Radial" description="Radial Push Me Pull You">
             <user_terms module="term" updatable="true" extensible="true" deletable="true">
                 <term name="hs" description="home sector" expression="radians(12)" units="radians" alt_value="0.0524" alt_units="degrees" alt_expression="12"/>
@@ -436,6 +505,6 @@
         </strategy>
     </navigation_strategies>
     <pairings module="pairing" updatable="true" extensible="true" deletable="true">
-        <pairing name="Virtual/Virtual" description="Virtual mower on virtual lawn" profile="virtual" mower="virtual" strategy="Rotate and Veer" pattern="Fence" />
+        <pairing name="Virtual/Virtual" description="Virtual trapezium mower on virtual lawn" profile="virtual" mower="virtual-trap" strategy="Rotate and Veer" pattern="Fence" />
     </pairings>
 </config>

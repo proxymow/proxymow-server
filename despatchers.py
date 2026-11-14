@@ -4,7 +4,7 @@ from time import time
 import socket
 
 
-class Despatcher(object):
+class Despatcher:
     '''
         Abstract parent class that implements shared behaviour
     '''
@@ -21,7 +21,7 @@ class Despatcher(object):
         self.logger = host.comms_logger
         self.despatch_lock = excl_lock
         self.reset_stats()
-        
+
     def reset_stats(self):
         self.telemetry_recv_count = 0
         self.telemetry_succ_count = 0
@@ -29,8 +29,8 @@ class Despatcher(object):
         self.async_recv_count = 0
         self.async_succ_count = 0
         self.async_mean_elapsed = 0
-        self.sequential_failure_count = 0        
-            
+        self.sequential_failure_count = 0
+
     def fetch_telemetry(self):
         start_time = time()
         resp = self.despatch('>get_telemetry()', True) # await response
@@ -49,8 +49,8 @@ class Despatcher(object):
             self.logger.error(msg)
             tel_dict = None
             self.sequential_failure_count += 1
-            
-        if tel_dict is not None:
+
+        if tel_dict is not None and isinstance(tel_dict, dict):
             try:
                 # analogue sensors
                 # unpack raw values and match to names/factors if available
@@ -71,7 +71,7 @@ class Despatcher(object):
                     except:
                         ch_factor = 1.0
                     sensors[ch_name] = round(raw_adc * float(ch_factor), 3)
-                    
+
                 tel_dict['sensors'] = sensors
                 self.apply_wifi(tel_dict)
                 # add last-fetch time here...
@@ -82,10 +82,11 @@ class Despatcher(object):
                     e1) + ' on line ' + str(err_line))
                 tel_dict['wifi_quality'] = 0
         else:
-            self.logger.warn('utilities fetch_telemetry - Mower Offline!')
+            tel_dict = {}
+            self.logger.warning('utilities fetch_telemetry - Mower Offline!')
 
         return tel_dict
-        
+
     def fetch_pose(self):
         start_time = time()
         resp = self.despatch('>get_pose()', True)
@@ -96,10 +97,10 @@ class Despatcher(object):
             pose_json = json.loads(resp)
         else:
             msg = 'Invalid Pose Data: {}'.format(resp)
-            self.logger.warn(msg)
+            self.logger.warning(msg)
             pose_json = None
         return pose_json
-    
+
     def despatch(self, cmd, await_response=True):
         resp = None
         res = self.despatch_lock is None or self.despatch_lock.acquire(timeout=self.timeout_secs * 2) # blocks
@@ -117,7 +118,7 @@ class Despatcher(object):
                         resp = None
                         elapsed_time = 0
                         self.recv(self.timeout_secs) # flush
-            
+
                     msg = '{} resp: {} in {:.3f}secs'.format(cmd, resp, elapsed_time)
                     self.logger.info(msg)
                     if await_response and cmd is not None and cmd[0] != '>':
@@ -147,9 +148,9 @@ class Despatcher(object):
             # lock timeout - shouldn't happen!
             msg = 'despatch lock timeout'
             self.logger.warning(msg)
-        
+
         return resp
-    
+
     def is_valid(self, resp_string):
         try:
             if resp_string is not None:
@@ -160,16 +161,16 @@ class Despatcher(object):
         except json.JSONDecodeError:
             result = False
         return result
-    
+
     def close(self):
         # use for tidying up - by default does nothing
         msg = 'Despatcher closing'
         self.logger.debug(msg)
-        
+
     def connection(self):
         # provide an identification string
         pass
-    
+
     def rssi_category(self, rssi):
         try:
             rssi_index = next(i for i in range(len(self._RSSI_THRESHOLDS) - 1)
@@ -179,7 +180,7 @@ class Despatcher(object):
             cat = self._RSSI_CATEGORIES[-1]
         return cat
 
-    
+
     def __repr__(self):
         result = self.connection + '\n'
         result += '=' * len(result[:-1])
@@ -190,12 +191,12 @@ class Despatcher(object):
         result += 'async success count: {}\n'.format(self.async_succ_count)
         result += 'async mean elapsed: {:.3f}secs\n'.format(self.async_mean_elapsed)
         result += 'quality: {:.0f}%\n'.format(
-            100 * (self.telemetry_succ_count + self.async_succ_count) / 
+            100 * (self.telemetry_succ_count + self.async_succ_count) /
             (self.telemetry_recv_count + self.async_recv_count + 0.000001)
         )
         result += 'sequential failure count: {}'.format(self.sequential_failure_count)
         return result
-        
+
 class UDPDespatcher(Despatcher):
     '''
         Concrete class that implements UDP comms
@@ -212,14 +213,14 @@ class UDPDespatcher(Despatcher):
         self.timeout_secs = timeout_secs
         msg = 'UDP Despatcher initialised'
         self.logger.debug(msg)
-        
+
     def send(self, cmd):
         msg = 'UDP Despatcher sending {}'.format(cmd)
         self.logger.info(msg)
         txmsg = bytes(cmd + '\r\n', 'utf8')
         bytes_sent = self.udp_socket.sendto(txmsg, self.sock_addr)
         return bytes_sent
-    
+
     def recv(self, timeout):
         msg = 'UDP Despatcher receiving...'
         self.logger.debug(msg)
@@ -227,7 +228,7 @@ class UDPDespatcher(Despatcher):
         try:
             data, _addr = self.udp_socket.recvfrom(1024)
             resp = data.decode('utf-8')
-        except socket.timeout:
+        except TimeoutError:
             resp = None
         return resp
 
@@ -240,7 +241,7 @@ class UDPDespatcher(Despatcher):
         except Exception as e:
             msg = 'error closing UDP Despatcher: {}'.format(e)
             self.logger.error(msg)
-            
+
     def apply_wifi(self, tel_dict):
         wifi_rssi = tel_dict['rssi'] if 'rssi' in tel_dict else None  # dbm
         if wifi_rssi is not None:
@@ -253,7 +254,7 @@ class UDPDespatcher(Despatcher):
         device = self.sock_addr
         result = '{}({})'.format(self.__class__.__name__, device)
         return result
-    
+
 class BLEDespatcher(Despatcher):
     '''
         Concrete class that implements Bluetooth comms
@@ -268,25 +269,25 @@ class BLEDespatcher(Despatcher):
         self.timeout_secs = timeout_secs
         msg = 'BLE Despatcher initialised'
         self.logger.debug(msg)
-        
+
     def send(self, cmd):
         msg = 'BLE Despatcher sending {}'.format(cmd)
         self.logger.info(msg)
         self.blue_proxy.send(cmd)
         return len(cmd)
-    
+
     def recv(self, timeout):
         msg = 'BLE Despatcher receiving...'
         self.logger.debug(msg)
         data = self.blue_proxy.recv(timeout)
         return data
-    
+
     def close(self):
         # use for tidying up
         msg = 'BLE Despatcher closing...'
         self.logger.debug(msg)
         self.blue_proxy.disconnect()
-        
+
     def apply_wifi(self, tel_dict):
         # rssi unavailable on bluetooth
         tel_dict['rssi'] = 0 # so icon goes 4-bar green
@@ -301,4 +302,4 @@ class BLEDespatcher(Despatcher):
             device = 'None'
         result = '{}({})'.format(self.__class__.__name__, device)
         return result
-    
+

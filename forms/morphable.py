@@ -13,7 +13,7 @@ from html_tool_pane import HtmlToolPane
 import tool_pane_tool
 
 
-class Morphable():
+class Morphable:
     '''
 
     '''
@@ -57,8 +57,7 @@ class Morphable():
                 elem = elem.getparent()
             if klassname is None:
                 klassname = module_name.title()
-                if klassname.endswith('s'):
-                    klassname = klassname[:-1]
+                klassname = klassname.removesuffix('s')
 
             if 'module' in elem.attrib:
                 module_name = elem.attrib['module']
@@ -97,13 +96,17 @@ class Morphable():
                 spec = importlib.util.spec_from_file_location(
                     module_name, file_path)
                 module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-            except Exception as e1:
+                try:
+                    spec.loader.exec_module(module)
+                    klass = getattr(module, klass_name)
+                except Exception:
+                    # expected exception for intermediate levels 
+                    klass = None
+            except Exception as e2:
                 err_line = sys.exc_info()[-1].tb_lineno
                 cls._logger.error(
-                    'Morphable get_klass Error: ' + str(e1) + ' on line ' + str(err_line))
+                    'Morphable get_klass Error: ' + str(e2) + ' on line ' + str(err_line))
 
-            klass = getattr(module, klass_name)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             cls._logger.error(
@@ -138,7 +141,7 @@ class Morphable():
         for k, v in json_dict.items():
             if type(v) is dict:
                 cls._logger.debug(
-                    'populate sub object {0} with {1}'.format(k, v))
+                    'populate sub object {} with {}'.format(k, v))
                 sub_inst = getattr(inst, k)
                 cls.from_json_dict(sub_inst, v)
             else:
@@ -178,6 +181,8 @@ class Morphable():
             disable_typing = False
             inst = cls()
             data_dict = node.attrib
+            # offer the data to the object in case it wants to upgrade itself
+            inst.upgrade(data_dict)
             for k, v in data_dict.items():
                 typed_var = Morphable.typed_xml_att_str(v, disable_typing)
                 setattr(inst, k, typed_var)
@@ -194,14 +199,15 @@ class Morphable():
                             # nested attributed element e.g. profile > lawn
                             try:
                                 klass = cls.get_klass(var_name)
-                                child_obj = klass.from_xml(child_elem)
-                                setattr(inst, var_name, child_obj)
+                                if klass is not None:
+                                    child_obj = klass.from_xml(child_elem)
+                                    setattr(inst, var_name, child_obj)
                             except Exception:
                                 cls._logger.error(
-                                    'morphable.from_xml No klass obtainable {0} in forms'.format(var_name))
+                                    'morphable.from_xml No klass obtainable {} in forms'.format(var_name))
                     else:
                         cls._logger.debug(
-                            'morphable.from_xml element not formable {0}'.format(var_name))
+                            'morphable.from_xml element not formable {}'.format(var_name))
                 else:
                     cls._logger.debug(
                         'morphable.from_xml comment not formable')
@@ -218,7 +224,7 @@ class Morphable():
             if not k.startswith('_'):
                 fld_type = type(v)
                 self._logger.debug(
-                    'xml attribute creation: {0} {1} {2}'.format(k, v, fld_type))
+                    'xml attribute creation: {} {} {}'.format(k, v, fld_type))
                 if isinstance(v, Morphable):
                     self._logger.debug(k + ' is a morphable dataclass!')
                     child_node = v.as_xml_node()
@@ -265,10 +271,7 @@ class Morphable():
         elif dtype == 'dropdown':
             tool = tool_pane_tool.ToolPaneDropdown(fld_name, None, label, form_value, "", enabled, {
                                                    'class': 'string-tool'}, [], form_value, {})
-        elif dtype == 'int':
-            tool = tool_pane_tool.ToolPaneNumber(fld_name, None, label, unit_str, form_value, "", "", enabled, {
-                                                 "style": "text-align: right"}, pmin, pmax, pstep, form_value)
-        elif dtype == 'float':
+        elif dtype == 'int' or dtype == 'float':
             tool = tool_pane_tool.ToolPaneNumber(fld_name, None, label, unit_str, form_value, "", "", enabled, {
                                                  "style": "text-align: right"}, pmin, pmax, pstep, form_value)
         elif dtype == 'str':
@@ -301,10 +304,9 @@ class Morphable():
                         stg = getattr(this_class, fld_name)
                         if isinstance(stg, BaseSetting):
                             # enable non-pk widgets if not read-only
-                            is_pk_widget = getattr(this_class, 'pk_att_name') == fld_name if 'pk_att_name' in vars(
+                            is_pk_widget = this_class.pk_att_name == fld_name if 'pk_att_name' in vars(
                                 this_class) else False
-                            is_ro = fld_name in getattr(
-                                this_class, '_readonlys') if '_readonlys' in vars(this_class) else False
+                            is_ro = fld_name in this_class._readonlys if '_readonlys' in vars(this_class) else False
                             enab = mode != 'view' and (
                                 mode in ['create', 'duplicate'] or not is_pk_widget) and not is_ro
                             tool = stg.get_tool(fld_name, value, enab)
@@ -354,3 +356,6 @@ class Morphable():
             label = fieldname[:-8]
 
         return label, unit_name, unit_str
+
+    def upgrade(self, data_dict=None):
+        pass

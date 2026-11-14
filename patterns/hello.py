@@ -2,7 +2,7 @@ import sys
 from destination import Attitude
 
 
-def calculate_route(_fence_points_pc, _arena_width_m, _arena_length_m, _cutter_dia_m, logger, debug):
+def calculate_route(_fence_points_pc, _arena_width_m, _arena_length_m, _cutter_dia_m, logger, _debug):
 
     # calculate the route that mows Hello {World}
     fence_polygon_pts_pc = []
@@ -19,7 +19,6 @@ def calculate_route(_fence_points_pc, _arena_width_m, _arena_length_m, _cutter_d
     #     'L': [(0, 0), (0, gh), (0, 0), (gw, 0), (100, 0)],
     #     'O': [(0, 0), (gw, 0), (gw, gh), (0, gh), (0, 0), (gw, 0), (100, 0)]
     # }
-    # we now have the technology!
     advanced_text_dict = {
         'H': [
             (0, 0, Attitude.FWD_DRIVE),

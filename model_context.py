@@ -18,7 +18,7 @@ from forms.rule import Rule
 from forms.settings import MeasureSettings
 import vis_lib
 from snapshot import SnapshotGrowth
-from whittler import Whittler 
+from whittler import Whittler
 import contour_lib as cl
 
 
@@ -100,7 +100,7 @@ def scoring(host, _req_args, _req_kwargs):
     min_progress = SnapshotGrowth.POSED.value
     selected_snapshots = [
         s for s in host.snapshot_buffer.values() if s._growth.value >= min_progress]
-    host.log_debug('scoring: min progress requested: {0} {1}'.format(
+    host.log_debug('scoring: min progress requested: {} {}'.format(
         min_progress,
         [(s.ssid, s._growth.value) for s in selected_snapshots]
         )
@@ -110,11 +110,12 @@ def scoring(host, _req_args, _req_kwargs):
             scoring_snapshot = deepcopy(selected_snapshots[-1])
         except RuntimeError as re:
             host.log_error("Error with scoring_snapshot: {} {}".format(scoring_snapshot, re))
+            scoring_snapshot = selected_snapshots[-1]
         except Exception as e:
             host.log_error("Error with scoring_snapshot: {}".format(e))
             scoring_snapshot = selected_snapshots[-1]
         host.cached_scoring_snapshot = scoring_snapshot
-        host.log_debug('scoring: selected requested snapshot: {0}'.format(
+        host.log_debug('scoring: selected requested snapshot: {}'.format(
             host.cached_scoring_snapshot.ssid))
         proj_ssids = [
             p.ssid for p in host.cached_scoring_snapshot._fltrd_projections]
@@ -165,32 +166,21 @@ def scorecard(host, _req_args, _req_kwargs):
         'auto_freeze_ms': constants.UI_AUTO_FREEZE_MS
     }
 
-def contours_old(host, _req_args, _req_kwargs):
-    rnd_score_props = {k: [round(itm, 6) for itm in v] for k, v in host.score_props.items()}
-    return {
-        'cockpit_monitor_toolpane': toolpane_defs.tp_cockpit_state_1,
-        'contour_control_toolpane': toolpane_defs.CONTOUR_BTNS,
-        'contour_target_subhdr': str(rnd_score_props),
-        'auto_freeze_ms': constants.UI_AUTO_FREEZE_MS
-    }
-
 def contoursvg(host, _req_args, req_kwargs):
     contours = []
     contour_points = []
     ss_index = int(req_kwargs['ssid']) if 'ssid' in req_kwargs else -1
     if ss_index in host.snapshot_buffer:
-        locate_snapshot = host.snapshot_buffer[ss_index]    
-        # locate_snapshot = host.snapshot_buffer.latest() # latest but needs syncing with ssid
+        locate_snapshot = host.snapshot_buffer[ss_index]
         fs_contours = locate_snapshot._contours
         if len(fs_contours) > 0:
             num_pts = 16
             contours = [cl.reduce_contour_points(c_in, num_pts).astype(int) for c_in in fs_contours]
-            contour_points = [' '.join(map(str, a)) for a in np.array(np.flip(contours, axis=2)).reshape(-1, num_pts * 2)]
+            contour_points = [' '.join(map(str, p)) for p in [np.flip(c, axis=1).reshape((2, -1))[0] for c in contours]]
     return {
         'contours': contours,
         'contour_points': contour_points
         }
-    
 
 def contours(host, _req_args, _req_kwargs):
     rnd_score_props = {k: [round(itm, 6) for itm in v] for k, v in host.score_props.items()}
@@ -214,9 +204,9 @@ def navigator(host, _req_args, _req_kwargs):
     arena_length_m = host.config['arena.length_m']
     cur_strategy = host.config['current.strategy']
 
-    add_term_xpath = "navigation_strategies/strategy[@name='{0}']/user_terms".format(
+    add_term_xpath = "navigation_strategies/strategy[@name='{}']/user_terms".format(
         cur_strategy)
-    add_rule_xpath = "navigation_strategies/strategy[@name='{0}']/rules".format(
+    add_rule_xpath = "navigation_strategies/strategy[@name='{}']/rules".format(
         cur_strategy)
 
     context_dict = {
@@ -291,14 +281,14 @@ def form(host, _req_args, req_kwargs):
 
                 # POST Duplicate
                 form_object = klass.from_xml(element)
-                pk_name = getattr(klass, 'pk_att_name')
+                pk_name = klass.pk_att_name
                 pk_val = getattr(form_object, pk_name)
                 new_pk_val = pk_val
                 unique_pk = False
                 while not unique_pk:
                     new_pk_val += '-copy'
                     unique_pk = len(element.getparent().xpath(
-                        '//{0}[@{1}="{2}"]'.format(klass.__name__, pk_name, new_pk_val))) == 0
+                        '//{}[@{}="{}"]'.format(klass.__name__, pk_name, new_pk_val))) == 0
                 setattr(form_object, pk_name, new_pk_val)
 
             elif mode == 'view':
@@ -349,7 +339,7 @@ def settings(_host, _req_args, req_kwargs):
     return {
         'url': xp1
     }
-    
+
 def systerms(host, _req_args, _req_kwargs):
     html = None
     try:
@@ -430,9 +420,9 @@ def guide(host, _req_args, _req_kwargs):
             # recover jinja expressions
             tmplt_string = html_string.replace('<!--', '').replace('-->', '')
             tmplt = host.env.from_string(tmplt_string)
-            html = tmplt.render({})                
+            html = tmplt.render({})
             help_topics[fldr] = html
     return {
         'help_topics': help_topics
     }
-    
+

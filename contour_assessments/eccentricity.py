@@ -31,6 +31,6 @@ def assess(contour, _img_arr, _origin):
         MIN_ECCENTRICITY,
         MAX_ECCENTRICITY
     )
-    
+
     # return a tuple of analogue-measure, tooltip, boolean-assessment
     return ecc, tooltip, qualifies

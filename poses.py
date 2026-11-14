@@ -6,7 +6,7 @@ from math import sin, cos, degrees, isnan
 import time
 from enum import Enum, auto
 
-import geom_lib
+import geom_lib as gl
 import shared.shared_utils as su
 
 
@@ -18,11 +18,11 @@ class PoseOrigination(Enum):
     PREDICTED = auto()
 
 
-class Pose():
+class Pose:
     '''
         represents the robot location and heading
         holds tip and tail information
-        and triangular vertices
+        and polygonal vertices
         for multiple perspectives
     '''
 
@@ -31,9 +31,11 @@ class Pose():
 
     tip_offset_ym = -1
     tail_offset_ym = -1
-    target_width_m = -1
+    target_lower_base_m = -1
+    target_upper_base_m = -1
     target_length_m = -1
     target_radius_m = -1
+    target_rotation_ccw_deg = -1
     target_offset_pc = 0
     body_width_m = -1
     body_length_m = -1
@@ -49,9 +51,11 @@ class Pose():
     def init(
             cls,
             config,
-            target_width_m,
+            target_lower_base_m,
+            target_upper_base_m,
             target_length_m,
             target_radius_m,
+            target_rotation_ccw_deg,
             target_offset_pc,
             axle_track_m,
             body_width_m,
@@ -66,15 +70,16 @@ class Pose():
         '''
             Class Initialisation
 
-            target_width_m is triangular base
-            target_length_m is triangular height (tip-tail separation)
+            target_length_m is height (tip-tail separation)
 
             body_width_m, body_length_m is the robot extremities
         '''
         cls.config = config
-        cls.target_width_m = target_width_m
+        cls.target_lower_base_m = target_lower_base_m
+        cls.target_upper_base_m = target_upper_base_m
         cls.target_length_m = target_length_m
         cls.target_radius_m = target_radius_m
+        cls.target_rotation_ccw_deg = target_rotation_ccw_deg
         cls.target_offset_pc = target_offset_pc
         cls.axle_track_m = axle_track_m
         cls.tip_offset_ym = target_length_m * target_offset_pc / 100
@@ -132,11 +137,11 @@ class Pose():
 
         try:
             # calculate offset centre from tip and tail
-            cxm, cym = geom_lib.percent_along_line(
+            cxm, cym = gl.percent_along_line(
                 *tip_m, *tail_m, cls.target_offset_pc)
             # calculate heading if not passed in...
             if t_rad is None or t_rad == -1:
-                t_rad = geom_lib.get_angle_between_cartesian_points(
+                t_rad = gl.get_angle_between_cartesian_points(
                     tail_m[0], tail_m[1], tip_m[0], tip_m[1], 0)
             pose_inst = cls(cx_m=cxm, cy_m=cym, t_rad=t_rad, ssid=ssid)
             # update the measured span as main constructor applies configured dimensions
@@ -149,7 +154,7 @@ class Pose():
             msg = 'Warning: unable to create Pose from tip tail: ' + \
                 str(e) + ' on line ' + str(err_line)
             try:
-                self.logger.error(msg)
+                cls.logger.error(msg)
             except Exception:
                 print(msg)
 
@@ -187,18 +192,38 @@ class Pose():
             right_cotter_x_m = cx_m + (self.axle_track_m / 2)
             right_cotter_y_m = cy_m
 
-            # Vertices
-            # tip is v1, tail is midpoint between v2 and v3
-            tgt_width_m = self.target_width_m
-            half_tgt_width_m = tgt_width_m / 2
+            ''' Vertices
+                v1    v4
+            
+            v2            v3
+            
+                tip is midpoint between v1 & v4, tail is midpoint between v2 & v3
+            '''
+            lower_base_m = self.target_lower_base_m
+            upper_base_m = self.target_upper_base_m
+            half_low_width_m = lower_base_m / 2
+            half_upp_width_m = upper_base_m / 2
             tgt_length_m = self.target_length_m * cos(nose_tilt_rad)
 
-            # position v1 - then v2, v3 relative to v1
-            v1_x_m = cx_m
-            v1_y_m = cy_m + (self.tip_offset_ym * cos(nose_tilt_rad))
-            v2_x_m = v1_x_m - half_tgt_width_m
-            v3_x_m = v1_x_m + half_tgt_width_m
-            v2_y_m = v3_y_m = v1_y_m - (tgt_length_m * cos(nose_tilt_rad))
+            v1_x = -half_upp_width_m
+            v1_y = self.tip_offset_ym * cos(nose_tilt_rad)
+            v2_x = -half_low_width_m
+            v2_y = -self.tip_offset_ym * cos(nose_tilt_rad)
+            v3_x = half_low_width_m
+            v3_y = -self.tip_offset_ym * cos(nose_tilt_rad)
+            v4_x = half_upp_width_m
+            v4_y = self.tip_offset_ym * cos(nose_tilt_rad)
+            v = [[v1_x, v1_y], [v2_x, v2_y], [v3_x, v3_y], [v4_x, v4_y]]
+
+            # apply shape rotation
+            rot_angle = self.target_rotation_ccw_deg
+            v_rot = gl.rotate_points(v, rot_angle)
+
+            # translate to centre
+            v_rot_trans = v_rot + [cx_m, cy_m]
+
+            # unpack
+            (v1_x_m, v1_y_m), (v2_x_m, v2_y_m), (v3_x_m, v3_y_m), (v4_x_m, v4_y_m) = v_rot_trans
 
             # body corners
             half_body_width_m = self.body_width_m / 2
@@ -228,26 +253,32 @@ class Pose():
             ]
 
             # simple radius-based touch-points
-            tp12_x_m, tp12_y_m = geom_lib.get_point_adistance_along_line(
+            tp12_x_m, tp12_y_m = gl.get_point_adistance_along_line(
                 v1_x_m, v1_y_m, v2_x_m, v2_y_m, self.target_radius_m)
-            tp13_x_m, tp13_y_m = geom_lib.get_point_adistance_along_line(
-                v1_x_m, v1_y_m, v3_x_m, v3_y_m, self.target_radius_m)
-            tp21_x_m, tp21_y_m = geom_lib.get_point_adistance_along_line(
+            tp21_x_m, tp21_y_m = gl.get_point_adistance_along_line(
                 v2_x_m, v2_y_m, v1_x_m, v1_y_m, self.target_radius_m)
-            tp23_x_m, tp23_y_m = geom_lib.get_point_adistance_along_line(
+            tp23_x_m, tp23_y_m = gl.get_point_adistance_along_line(
                 v2_x_m, v2_y_m, v3_x_m, v3_y_m, self.target_radius_m)
-            tp32_x_m, tp32_y_m = geom_lib.get_point_adistance_along_line(
+            tp32_x_m, tp32_y_m = gl.get_point_adistance_along_line(
                 v3_x_m, v3_y_m, v2_x_m, v2_y_m, self.target_radius_m)
-            tp31_x_m, tp31_y_m = geom_lib.get_point_adistance_along_line(
-                v3_x_m, v3_y_m, v1_x_m, v1_y_m, self.target_radius_m)
+            tp34_x_m, tp34_y_m = gl.get_point_adistance_along_line(
+                v3_x_m, v3_y_m, v4_x_m, v4_y_m, self.target_radius_m)
+            tp43_x_m, tp43_y_m = gl.get_point_adistance_along_line(
+                v4_x_m, v4_y_m, v3_x_m, v3_y_m, self.target_radius_m)
+            tp41_x_m, tp41_y_m = gl.get_point_adistance_along_line(
+                v4_x_m, v4_y_m, v1_x_m, v1_y_m, self.target_radius_m)
+            tp14_x_m, tp14_y_m = gl.get_point_adistance_along_line(
+                v1_x_m, v1_y_m, v4_x_m, v4_y_m, self.target_radius_m)
 
             # simplified midpoints of touch-point pairs
             m12_x_m, m12_y_m = np.mean(
-                [(tp13_x_m, tp13_y_m), (tp23_x_m, tp23_y_m)], axis=0)
+                [(tp14_x_m, tp14_y_m), (tp23_x_m, tp23_y_m)], axis=0)
             m23_x_m, m23_y_m = np.mean(
-                [(tp21_x_m, tp21_y_m), (tp31_x_m, tp31_y_m)], axis=0)
-            m31_x_m, m31_y_m = np.mean(
-                [(tp32_x_m, tp32_y_m), (tp12_x_m, tp12_y_m)], axis=0)
+                [(tp21_x_m, tp21_y_m), (tp34_x_m, tp34_y_m)], axis=0)
+            m34_x_m, m34_y_m = np.mean(
+                [(tp32_x_m, tp32_y_m), (tp41_x_m, tp41_y_m)], axis=0)
+            m41_x_m, m41_y_m = np.mean(
+                [(tp43_x_m, tp43_y_m), (tp12_x_m, tp12_y_m)], axis=0)
 
             # communal rotation about centre
             # loop through all salient points and rotate them
@@ -270,7 +301,7 @@ class Pose():
                                 setattr(arena, matched_y_key, y_pt_rotated)
                         except Exception as e1:
                             err_line = sys.exc_info()[-1].tb_lineno
-                            msg = 'Pose Error: unable to rotate salient property: {0} {1} on line {2}'.format(
+                            msg = 'Pose Error: unable to rotate salient property: {} {} on line {}'.format(
                                 desc_key, e1, err_line)
                             if self.logger:
                                 self.logger.error(msg)
@@ -285,7 +316,7 @@ class Pose():
                         setattr(arena, desc_key, list(sum(pts_rotated, ())))
                     except Exception as e2:
                         err_line = sys.exc_info()[-1].tb_lineno
-                        msg = 'Pose Error: unable to rotate list: {0} {1} on line {2}'.format(
+                        msg = 'Pose Error: unable to rotate list: {} {} on line {}'.format(
                             desc_key, e2, err_line)
                         if self.logger:
                             self.logger.error(msg)
@@ -301,7 +332,7 @@ class Pose():
                         setattr(arena, desc_key, np.dstack([x_pts, y_pts])[0])
                     except Exception as e3:
                         err_line = sys.exc_info()[-1].tb_lineno
-                        msg = 'Pose Error: unable to rotate array: {0} {1} on line {2}'.format(
+                        msg = 'Pose Error: unable to rotate array: {} {} on line {}'.format(
                             desc_key, e3, err_line)
                         if self.logger:
                             self.logger.error(msg)
@@ -368,7 +399,7 @@ class Pose():
                             setattr(plan, y_desc_key, y_pt_px)
                     except Exception as e2:
                         err_line = sys.exc_info()[-1].tb_lineno
-                        msg = 'Pose Error: unable to scale salient property: {0} {1} on line {2}'.format(
+                        msg = 'Pose Error: unable to scale salient property: {} {} on line {}'.format(
                             desc_key, e2, err_line)
                         if self.logger:
                             self.logger.error(msg)
@@ -386,7 +417,7 @@ class Pose():
                             zip(x_pts_px, y_pts_px)))
                     except Exception as e3:
                         err_line = sys.exc_info()[-1].tb_lineno
-                        msg = 'Pose Error: unable to scale list: {0} {1} on line {2}'.format(
+                        msg = 'Pose Error: unable to scale list: {} {} on line {}'.format(
                             desc_key, e3, err_line)
                         if self.logger:
                             self.logger.error(msg)
@@ -486,7 +517,7 @@ class Pose():
                     'tail_y_px' in vars(cam) and
                     'tip_x_px' in vars(cam) and
                         'tip_y_px' in vars(cam)):
-                    cam.t_rad = geom_lib.get_angle_between_points(
+                    cam.t_rad = gl.get_angle_between_points(
                         cam.tail_x_px, cam.tail_y_px, cam.tip_x_px, cam.tip_y_px)
                     cam.t_deg = degrees(
                         cam.t_rad) if cam.t_rad is not None else -1
@@ -539,14 +570,14 @@ class Pose():
         lin = ang = None
 
         if other is not None:
-            lin = geom_lib.get_distance_between_points(
+            lin = gl.get_distance_between_points(
                 self.arena.c_x_m, self.arena.c_y_m, other.arena.c_x_m, other.arena.c_y_m)
-            ang = geom_lib.get_shortest_angle_between_radii(
+            ang = gl.get_shortest_angle_between_radii(
                 self.arena.t_rad, other.arena.t_rad)
         return lin, ang
 
     def as_arrow(self, length):
-        arrow_from_pose = geom_lib.get_arrow_from_pose(
+        arrow_from_pose = gl.get_arrow_from_pose(
             self.arena.c_x_m, self.arena.c_y_m, self.arena.t_rad, length)
         start = round(arrow_from_pose[0], 2), round(arrow_from_pose[1], 2)
         finish = round(arrow_from_pose[2], 2), round(arrow_from_pose[3], 2)
@@ -558,7 +589,7 @@ class Pose():
             pose_dict['c_x_m'] = round(self.arena.c_x_m, 2)
             pose_dict['c_y_m'] = round(self.arena.c_y_m, 2)
             pose_dict['t_deg'] = round(
-                self.arena.t_deg) if self.arena.t_deg is not None else -1
+                self.arena.t_deg, 1) if self.arena.t_deg is not None else -1
             pose_dict['physical_span_m'] = self.target_length_m
             pose_dict['tip_m'] = (round(self.arena.tip_x_m, 3), round(
                 self.arena.tip_y_m, 3)) if self.arena.tip_x_m is not None and self.arena.tip_y_m is not None else None
@@ -572,7 +603,7 @@ class Pose():
         return pose_dict
 
     def as_concise_str(self):
-        return '{0:.0f}@({1:.3f}, {2:.3f})'.format(
+        return '{:.1f}@({:.3f}, {:.3f})'.format(
             degrees(self.arena.t_rad) if self.arena.t_deg is not None else -1,
             self.arena.c_x_m,
             self.arena.c_y_m
@@ -583,7 +614,7 @@ class Pose():
             return the pose as a 4 character string, suitable for dictionary keying
         '''
         bucket_factor = 1  # make this big enough to swallow jitter!
-        return '{0:.0f}{1:.0f}'.format(
+        return '{:.0f}{:.0f}'.format(
             bucket_factor * (self.arena.c_x_pc // bucket_factor),
             bucket_factor * (self.arena.c_y_pc // bucket_factor)
         )
@@ -592,36 +623,36 @@ class Pose():
 
         result = ''
         try:
-            result += 'Origination: {0}'.format(self.origination.name if 'origination' in vars(
+            result += 'Origination: {}'.format(self.origination.name if 'origination' in vars(
                 self) and self.origination is not None else 'Unknown')
             if 'arena' in vars(self):
-                result += '\nArena ({0}m, {1}m) {2} deg'.format(
+                result += '\nArena ({}m, {}m) {} deg'.format(
                     round(self.arena.c_x_m, 2),
                     round(self.arena.c_y_m, 2),
                     round(self.arena.t_deg,
                           2) if self.arena.t_deg is not None else 'Unknown'
                 )
-                result += ' vertices: {0}m'.format(
+                result += ' vertices: {}m'.format(
                     [round(v, 2) for v in self.arena.vertices_m]
                 )
             if 'plan' in vars(self):
-                result += '\nPlan ({0}px, {1}px) {2} deg'.format(
+                result += '\nPlan ({}px, {}px) {} deg'.format(
                     round(self.plan.c_x_px, 2),
                     round(self.plan.c_y_px, 2),
                     round(self.plan.t_deg,
                           2) if self.plan.t_deg is not None else 'Unknown'
                 )
-                result += ' vertices: {0}px'.format(
+                result += ' vertices: {}px'.format(
                     self.plan.vertices_px
                 )
             if 'cam' in vars(self) and 'c_x_px' in vars(self.cam) and 'c_y_px' in vars(self.cam):
-                result += '\nCam ({0:.0f}px, {1:.0f}px) {2} deg'.format(
+                result += '\nCam ({:.0f}px, {:.0f}px) {} deg'.format(
                     self.cam.c_x_px,
                     self.cam.c_y_px,
                     round(self.cam.t_deg,
                           2) if self.cam.t_deg is not None else 'Unknown'
                 )
-                result += ' vertices: {0}px'.format(
+                result += ' vertices: {}px'.format(
                     self.cam.vertices_px
                 )
         except Exception as e:

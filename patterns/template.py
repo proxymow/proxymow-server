@@ -11,7 +11,7 @@ def calculate_route(fence_points_pc, _arena_width_m, _arena_length_m, _cutter_di
     try:
         fence_point_count = len(fence_points_pc)
         if calc_rte_debug:
-            logger.debug('fence_point_count: {0}'.format(fence_point_count))
+            logger.debug('fence_point_count: {}'.format(fence_point_count))
         fence_polygon_pts = []
         for i in range(fence_point_count):
             fence_polygon_pts.append(

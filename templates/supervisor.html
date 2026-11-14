@@ -22,7 +22,7 @@
 		        {% endwith %}
 		    </div>
 		    <div class="marker-wrapper">
-	    		<img id="img1" />
+	    		<img id="img1" src="icons/blank4x3.png"/>
                 <img class="marker" src="../icons/map_marker.png"></img>
 				<div id="online-annotation" class="annotate" style="transform:scale(0);">
 	    			Signal Strength
@@ -63,7 +63,7 @@
 <script src="/scripts/control-pane.js"></script>
 <script>
     //create data fetcher url, refreshRate, useCacheBuster, isFreeRunning
-    let df1 = new HttpFetcher("/metadata_json?progress=3", 3000, false); //leading
+    let df1 = new HttpFetcher("/metadata_json?progress=3", 5000, false); //leading
     //create image fetcher
     let if1 = new HttpFetcher("/arena_img?ts=", 0, true, false); //trailing
     const tpid = 'cockpitctrl';

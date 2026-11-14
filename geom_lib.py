@@ -1,8 +1,20 @@
 import sys
 from math import sqrt, pi, sin, cos, atan2, acos, degrees, ceil
-from shapely.geometry import LineString
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Polygon, box
 import numpy as np
+from enum import Enum, auto
+
+
+# turn circle failure reasons
+class TCFailureReason(Enum):
+    DEFAULT = auto()
+    ABSENT = auto()
+    NO_INTERSECTION = auto()
+    TURN_TOO_TIGHT = auto()
+    INFINITE_RADIUS = auto()
+    OVERLAPPING = auto()
+    MERGE_BEYOND_END = auto()
+    MERGE_BEYOND_LAP = auto()
 
 
 def get_angle_between_cartesian_points(tail_x, tail_y, tip_x, tip_y, default=None):
@@ -205,7 +217,7 @@ def get_circle_from_world_points(x1, y1, t1, x2, y2, pragmatic=True, debug=False
                         )
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno
-        msg = ('Error in get_circle_from_world_points: ' + 
+        msg = ('Error in get_circle_from_world_points: ' +
             str(e) + ' on line ' + str(err_line))
         if logger:
             logger.debug(msg)
@@ -228,7 +240,7 @@ def get_circle_from_world_tangents(x1, y1, t1, x2, y2, t2):
 
     # find the circle (x, y, radius) for which the 2 points are tangential
     # if t1 ~= t2 i.e. driving straight, then the radius will be very large approaching infinity
-    
+
     isx = None
     isy = None
     r = None
@@ -247,13 +259,48 @@ def get_circle_from_world_tangents(x1, y1, t1, x2, y2, t2):
         intersection = check_line_intersection(
             x1, y1, x1b, y1b, x2, y2, x2b, y2b)
 
+        if (intersection['x'] is not None and
+            intersection['y'] is not None):
+
+            # calculate radius from pythag
+            r = sqrt((intersection['x'] - x1) ** 2 + (intersection['y'] - y1) ** 2)
+
+            # convert to plain floats
+            isx = float(intersection['x'])
+            isy = float(intersection['y'])
+
+    except Exception as e:
+        err_line = sys.exc_info()[-1].tb_lineno
+        print('Error calculating circle from tangents: ' +
+              str(e) + ' on line ' + str(err_line))
+
+
+    return isx, isy, r
+
+def get_circle_from_world_pose_and_path(x, y, t, px1, py1, px2, py2):
+
+    # find the circle (x, y, radius) for which the pose trajectory and path are tangential
+
+    isx = None
+    isy = None
+    r = None
+
+    try:
+
+        # find the equation of line of the pose
+        x1b = x + sin(t)
+        y1b = y - cos(t)
+
+        intersection = check_line_intersection(
+            x, y, x1b, y1b, px1, py1, px2, py2)
+
         # calculate radius from pythag
-        r = sqrt((intersection['x'] - x1) ** 2 + (intersection['y'] - y1) ** 2)
-        
+        r = sqrt((intersection['x'] - x) ** 2 + (intersection['y'] - y) ** 2)
+
         # convert to plain floats
         isx = float(intersection['x'])
         isy = float(intersection['y'])
-        
+
     except Exception as e:
         print('Error calculating circle from tangents: ' + str(e))
 
@@ -343,8 +390,8 @@ def get_evenly_spaced_points_on_line(x1, y1, x2, y2, min_d):
                 |   <- d ->   |   <- d ->   |   <- d ->   |
         such that dist d < min_d
     '''
-    hypot = np.hypot((x2 - x1), (y2 - y1))
-    num_pts = ceil(hypot / min_d)
+    xy_hypot = np.hypot((x2 - x1), (y2 - y1))
+    num_pts = ceil(xy_hypot / min_d)
     points = []
     for i in range(1, num_pts):
         a = float(i) / num_pts  # rescale 0 < i < n --> 0 < a < 1
@@ -354,23 +401,16 @@ def get_evenly_spaced_points_on_line(x1, y1, x2, y2, min_d):
     return points
 
 
-def triangle_isoscelicity(arr, ia, ib, ic, tir):
+def polygon_isoscelicity(vertices):
     '''
-        calculates the isoscelicty factor of a triangle given its vertex indices and target isos ratio (tir)
-        f = (1 - (abs(shortest-side / longest-side - tir) / tir)) * (middle-side / longest-side)
+        calculates the isoscelicty factor of a polygon given its vertices
+        f = next-longest-side / longest_side
     '''
-    p1 = arr[ia]
-    p2 = arr[ib]
-    p3 = arr[ic]
-    s1 = np.hypot(p2[0] - p1[0], p2[1] - p1[1])
-    s2 = np.hypot(p3[0] - p2[0], p3[1] - p2[1])
-    s3 = np.hypot(p1[0] - p3[0], p1[1] - p3[1])
-    sides = [s1, s2, s3]
-    sorted_sides = sorted(sides)
-    shortest, middle, longest = sorted_sides
-    f1 = 1 - abs(((shortest / longest) - tir) / tir)
-    f2 = middle / longest
-    f = f1 * f2
+    next_vertices = np.roll(vertices, shift=-1, axis=0)
+    sides = np.linalg.norm(vertices - next_vertices, axis=1)
+    sorted_sides = np.sort(sides)
+    next_longest_leg, longest_leg = sorted_sides[1:3]
+    f = next_longest_leg / longest_leg
     return f
 
 
@@ -412,7 +452,7 @@ def distance_to_line(x, y, x1, y1, x2, y2):
             d = (((x2 - x1) * (y - y1)) - ((x - x1) * (y2 - y1))) / line_length
     except Exception:
         pass
-    return d
+    return float(d)
 
 
 def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmatic=True, debug=False, logger=None):
@@ -471,9 +511,11 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
             D = x1_offset * y2_offset - x2_offset * y1_offset  # determinant
             discriminant = (look_ahead_distance ** 2) * (dr ** 2) - D ** 2
 
-            # pragmatic solution is closest point on line if no solution exists
+            # pragmatic solution was closest point on line if no solution exists
+            # pragmatic solution is lookahead distance towards closest point on line if no solution exists
             if pragmatic:
-                sol = closest_point_on_line(x1, y1, x2, y2, x, y)
+                intersection = closest_point_on_line(x1, y1, x2, y2, x, y)
+                sol = get_point_adistance_along_line(x, y, *intersection, look_ahead_distance)
                 msg = 'line circle intersection fallback solution ({:.3f}, {:.3f})'.format(
                     *sol)
             else:
@@ -521,13 +563,13 @@ def line_circle_intersection(x, y, x1, y1, x2, y2, look_ahead_distance, pragmati
             else:
                 # no solution
                 msg = 'line circle intersection no solutions'
-                
+
             if debug:
                 if logger:
                     logger.debug(msg)
                 else:
                     print(msg)
-                
+
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno
         msg = 'Error processing line circle intersection: ' + \
@@ -587,3 +629,288 @@ def same_side_of_line(x1, y1, x2, y2, ax, ay, bx, by):
     # Given a line (x1, y1)--(x2, y2) and 2 points (ax, ay) (bx, by)
     # return True if points on same side of line
     return not(is_left_of_line(x1, y1, x2, y2, ax, ay) ^ is_left_of_line(x1, y1, x2, y2, bx, by))
+
+def rotate_points(points, angle_degrees):
+    '''
+    Rotates an array of 2D points counterclockwise about the origin (0, 0).
+    Shape of 'points' should be (N, 2) or (2,).
+    '''
+    # Convert angle to radians
+    theta = np.radians(angle_degrees)
+    c, s = np.cos(theta), np.sin(theta)
+
+    # Create the 2D rotation matrix
+    R = np.array(((c, -s),
+                  (s,  c)))
+
+    # Use the matrix multiplication operator (@)
+    # Transpose points to shape (2, N) for multiplication, then transpose back to (N, 2)
+    return (R @ np.array(points).T).T
+
+import math
+
+def find_point_at_end_of_line(x1, y1, x2, y2, d):
+    '''
+        Finds a single point at a signed perpendicular distance 'd'
+        from the end point (x2, y2) of the line segment.
+    '''
+    vx = x2 - x1
+    vy = y2 - y1
+
+    length = math.sqrt(vx**2 + vy**2)
+    if length == 0:
+        raise ValueError("The two points defining the line cannot be identical.")
+
+    # normalised perpendicular unit vector
+    perp_x = -vy / length
+    perp_y = vx / length
+
+    # calculate offset using the end point (x2, y2) as the base
+    target_x = x2 + d * perp_x
+    target_y = y2 + d * perp_y
+
+    return target_x, target_y
+
+def distance(ax, ay, bx, by):
+    return np.hypot(ax - bx, ay - by)
+
+def point_is_between(ax, ay, bx, by, cx, cy):
+    return ax <= bx <= cx and ay <= by <= cy
+
+def tangential_turn_circle(x1, y1, x2, y2, x, y, c, lax, lay):
+
+    # initialise results as not always a solution
+    failure_reason = TCFailureReason.ABSENT
+    result = None
+
+    try:
+
+        # measure perpendicular distance from robot to path
+        perp_dist = distance_to_line(x, y, x1, y1, x2, y2)
+        print('perpendicular distance from robot to path: {:.3f}'.format(perp_dist))
+
+        # find line through robot
+        mult = 1000
+        xr1 = x + (sin(c) * mult)
+        yr1 = y - (cos(c) * mult)
+        xr2 = x - (sin(c) * mult)
+        yr2 = y + (cos(c) * mult)
+
+        # find anti-clockwise heading of path
+        c2 = get_angle_between_cartesian_points(x1, y1, x2, y2)
+
+        # find intersection of robot and path
+        isctn = check_line_intersection(x1, y1, x2, y2, xr1, yr1, xr2, yr2)
+
+        parallel = not(isctn['onLine1'] or isctn['onLine2'])
+
+        if not parallel:
+
+            # calculate intersection
+            isx, isy = isctn['x'], isctn['y']
+
+            # find distance from robot to intersection
+            d = get_distance_between_points(x, y, isx, isy)
+
+            # find landing point
+            xt, yt = get_point_adistance_along_line(isx, isy, x2, y2, d)
+
+            tcx, tcy, r = get_circle_from_world_tangents(x, y, c, xt, yt, c2)
+
+            # check landing point is before lookahead?
+            land_b4_lookahead = point_is_between(x1, y1, xt, yt, lax, lay)
+
+            if not land_b4_lookahead:
+                failure_reason = TCFailureReason.MERGE_BEYOND_LAP
+            elif tcx is None or tcy is None:
+                failure_reason = TCFailureReason.OVERLAPPING
+            else:
+
+                # vectors from centre to robot and merge point
+                print('x', x, 'y', y, 'tcx', tcx, 'tcy', tcy, 'isx', isx, 'isy', isy)
+                rx = x - tcx
+                ry = y - tcy
+                mx = xt - tcx
+                my = yt - tcy
+                print('rx', rx, 'ry', ry, 'mx', mx, 'my', my)
+
+                # angle around circle
+                sector_angle = atan2(
+                    rx * my - ry * mx,
+                    rx * mx + ry * my
+                )
+                sector_portion = sector_angle / (2 * pi)
+
+                # check radius for extremes
+                if r > 10:
+                    failure_reason = TCFailureReason.INFINITE_RADIUS
+                elif abs(sector_angle) > pi/2 or r < 0.5:
+                    failure_reason = TCFailureReason.TURN_TOO_TIGHT
+
+                result = {
+                        'centre': (round(tcx, 3), round(tcy, 3)),
+                        'radius': round(r, 3),
+                        'path heading': round(degrees(c2)),
+                        'sector angle': round(degrees(sector_angle)),
+                        'sector portion': round(sector_portion, 2),
+                        'merge point': (round(xt, 3), round(yt, 3))
+                    }
+
+        else:
+            failure_reason = TCFailureReason.NO_INTERSECTION
+
+        print('turn circle outcome: ' + str(failure_reason))
+
+    except Exception as ex:
+        err_line = sys.exc_info()[-1].tb_lineno
+        print('Error in tangential_turn_circle : ' +
+                       str(ex) + ' on line ' + str(err_line))
+
+
+    return failure_reason, result
+
+def get_rot_angles_from_hdgs(t1_rad, t2_rad, offset_rad=0, reverse=False):
+    '''
+        assumes all values are radians
+        calculate:
+            headings delta
+            shortest delta (shortest way round)
+            absolute shortest delta
+        constraining results to circle
+        adding offset if necessary
+        flipping t1 if reverse is true 
+    '''
+
+    # initialise results
+    delta = 0
+    shortest_delta = 0
+    abs_shortest_delta = 0
+
+    if t1_rad is None or t2_rad is None:
+        return 0, 0, 0, 0
+
+    if offset_rad is not None:
+        t2_rad += offset_rad
+
+    if reverse:
+        t1_rad = (t1_rad + pi) % (2 * pi)
+
+    try:
+        delta = t2_rad - t1_rad # t
+        shortest_delta = ((delta + pi) % (2 * pi)) - pi # u
+        abs_shortest_delta = abs(shortest_delta)
+    except Exception as e:
+        err_line = sys.exc_info()[-1].tb_lineno
+        print('get_rotation_angles_from_headings: ' +
+                str(e) + ' on line ' + str(err_line))
+
+    return delta, shortest_delta, abs_shortest_delta, t1_rad
+
+def scale_polygon(xy_list, scale):
+    '''
+        scale a polygon supplied as x,y list of points by scale factor
+    '''
+    # split into x, y lists
+    x = xy_list[::2]
+    y = xy_list[1::2]
+    # find centroid
+    cx = np.mean(x)
+    cy = np.mean(y)
+    # find radial points around centroid - effectively translate to origin
+    rx = x - cx
+    ry = y - cy
+    # now we can scale polygon
+    srx = rx * scale
+    sry = ry * scale
+    # and translate back to original place
+    tsrx = srx + cx
+    tsry = sry + cy
+    # finally recombine to single list
+    scaled_list = np.array([tsrx, tsry]).T.flatten().tolist()
+    return scaled_list
+
+def make_antipolygons(polygon, img_width_px, img_height_px):
+
+    mid = img_height_px / 2
+
+    top_area = box(0, 0, img_width_px, mid)
+    bottom_area = box(0, mid, img_width_px, img_height_px)
+
+    top = top_area.difference(polygon)
+    bottom = bottom_area.difference(polygon)
+
+    return top, bottom
+
+def yield_polygons(geometry):
+    '''
+        Recursively yield only Polygon objects from any Shapely geometry.
+    '''
+    if isinstance(geometry, Polygon):
+        yield geometry
+    elif hasattr(geometry, 'geoms'):
+        # This handles MultiPolygon and GeometryCollection
+        for sub_geom in geometry.geoms:
+            yield from yield_polygons(sub_geom)
+    else:
+        # Optional: Handles non-polygon geometries (Points, LineStrings, etc.)
+        pass
+
+def approximate_polygon_linestring(coords, tolerance):
+    line = LineString(coords)
+    simplified = line.simplify(tolerance, preserve_topology=False)
+    coords_simplified = np.array(simplified.coords)
+    return coords_simplified
+
+class ConvexHull:
+    '''
+        A lightweight, zero-dependency drop-in replacement for scipy.spatial.ConvexHull.
+        Uses virtually zero memory and provides .vertices and .volume attributes.
+    '''
+    def __init__(self, points):
+        # Store points (as a list for indexing safety)
+        self.points = list(points)
+        self.vertices = []
+        self.volume = 0.0  # SciPy uses .volume to represent 2D Area
+        
+        self._compute_hull()
+
+    def _compute_hull(self):
+        n_points = len(self.points)
+        if n_points < 3:
+            self.vertices = list(range(n_points))
+            self.volume = 0.0
+            return
+
+        # 1. Monotone Chain Algorithm for Indices
+        indexed_points = [((p[0], p[1]), idx) for idx, p in enumerate(self.points)]
+        indexed_points.sort(key=lambda item: item[0])
+
+        def cross_product(o, a, b):
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+        lower = []
+        for ip in indexed_points:
+            while len(lower) >= 2 and cross_product(lower[-2][0], lower[-1][0], ip[0]) <= 0:
+                lower.pop()
+            lower.append(ip)
+
+        upper = []
+        for ip in reversed(indexed_points):
+            while len(upper) >= 2 and cross_product(upper[-2][0], upper[-1][0], ip[0]) <= 0:
+                upper.pop()
+            upper.append(ip)
+
+        full_hull = lower[:-1] + upper[:-1]
+        
+        # Populate vertices exactly like scipy.spatial.ConvexHull.vertices
+        self.vertices = [item[1] for item in full_hull]
+        
+        # 2. Shoelace Formula for Area (Volume)
+        n_hull = len(full_hull)
+        area = 0.0
+        for i in range(n_hull):
+            j = (i + 1) % n_hull
+            area += full_hull[i][0][0] * full_hull[j][0][1]
+            area -= full_hull[j][0][0] * full_hull[i][0][1]
+            
+        self.volume = abs(area) / 2.0

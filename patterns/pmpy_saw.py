@@ -61,14 +61,14 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
     # using exact cutter dimension does not allow for any overlap
     #     this is equivalent to an overlap factor of 1.0
     # reduce the overlap factor to overlap the cutter lanes...
-    overlap_factor = 0.60
+    overlap_factor = 0.50
     if calc_rte_debug:
         logger.debug('using overlap factor: {}'.format(overlap_factor))
     cutter_lane_width_m = cutter_dia_m * overlap_factor
     if calc_rte_debug:
         logger.debug('using a cutter lane width of: {}m'.format(
             cutter_lane_width_m))
-        
+
     # calculate saw_offset_x and saw_offset_y depending on direction
     saw_offset = 5 # percentage
     saw_offset_x = saw_offset if direction == 'H' else 0
@@ -142,11 +142,11 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
             verticals_x = np.linspace(fence_max_x_pc, fence_min_x_pc, num=num_verts)
         elif perm == 'NEH':
             horizontals_y = np.linspace(fence_max_y_pc, fence_min_y_pc, num=num_hors)
-        
+
         if calc_rte_debug:
             logger.debug(
                 'horizontal y interval: {} vertical x interval: {}'.format(
-                    np.round(horizontals_y) if direction == 'H' else '', 
+                    np.round(horizontals_y) if direction == 'H' else '',
                     np.round(verticals_x) if direction == 'V' else '')
                 )
 

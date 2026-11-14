@@ -1,8 +1,7 @@
 import time
 import threading
 import random
-import virtual.vmachine as vmachine
-from time import sleep
+from virtual import vmachine
 from math import radians, degrees, floor
 from virtual.shared_utils import calc_new_pose
 from virtual.vlogs import trace_virtual
@@ -68,7 +67,7 @@ def init():
     global adc
     global act_timer
     # make all pins outputs
-    for i in range(0, len(out_pin_names)):
+    for i in range(len(out_pin_names)):
         name = out_pin_names[i]
         num = out_pin_numbers[i]
         pin = vmachine.Pin(num, vmachine.Pin.OUT)
@@ -95,7 +94,7 @@ def stop():
     cutter(0, -1)
     deactivate(None, [left_pwm, right_pwm])
     trace_virtual('Emergency Stop Activated!')
-    
+
 def set_priority_essid(_essid):
     # Enrol in hotspot - dummy
     return 0
@@ -145,7 +144,7 @@ def activate(pwms, speeds_percent, duration_ms, axle_track_m, velocity_full_spee
     trace_virtual(msg)
 
     mower_t_deg = degrees(mower_t_rad)
-    msg = 'x[m]: {0} y[m]: {1} t[deg]: {2}'.format(
+    msg = 'x[m]: {} y[m]: {} t[deg]: {}'.format(
         mower_xm, mower_ym, mower_t_deg)
     trace_virtual(msg)
 
@@ -220,7 +219,7 @@ def activate(pwms, speeds_percent, duration_ms, axle_track_m, velocity_full_spee
         rem_duration_ms = duration_ms - initial_dur_ms
         step_count = max(floor(rem_duration_ms / MIN_STEP_DUR_MS), 1)
         partial_dur_s = rem_duration_ms / (1000 * step_count)
-        msg = 'activate step_count {0} partial_dur_s {1}'.format(
+        msg = 'activate step_count {} partial_dur_s {}'.format(
             step_count, partial_dur_s)
         trace_virtual(msg)
 
@@ -280,13 +279,13 @@ def task(
         trace_virtual('Task Finished')
     else:
         if left_speed_delta != 0 and relative_duration_ms > 0:
-            trace_virtual('Task Intermediate {0} ({1}+{2}%, {3}%)'.format(
+            trace_virtual('Task Intermediate {} ({}+{}%, {}%)'.format(
                 step_count, speed_left_percent, left_speed_delta, speed_right_percent))
         elif right_speed_delta != 0 and relative_duration_ms > 0:
-            trace_virtual('Task Intermediate {0} ({1}%, {2}+{3}%)'.format(
+            trace_virtual('Task Intermediate {} ({}%, {}+{}%)'.format(
                 step_count, speed_left_percent, speed_right_percent, right_speed_delta))
         else:
-            trace_virtual('Task Intermediate {0} ({1}%, {2}%)'.format(
+            trace_virtual('Task Intermediate {} ({}%, {}%)'.format(
                 step_count, speed_left_percent, speed_right_percent))
 
         act_timer = threading.Timer(
@@ -564,7 +563,7 @@ def cutter(addr_in, mode):
 
 def get_pose():
     # assemble pose json
-    return '[{0},{1},{2}]'.format(mower_xm, mower_ym, degrees(mower_t_rad))
+    return '[{},{},{}]'.format(mower_xm, mower_ym, degrees(mower_t_rad))
 
 def set_pose(xm_in, ym_in, thetadeg_in, axle_track_m_in=None, tyre_velocity_mps_in=None):
     global mower_xm, mower_ym, mower_t_rad, axle_track_m, tyre_velocity_mps

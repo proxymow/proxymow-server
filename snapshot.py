@@ -7,7 +7,6 @@ from math import degrees
 from poses import Pose, PoseOrigination
 import constants
 
-
 class SnapshotGrowth(Enum):
     EMPTY = 0
     IMAGED = 1
@@ -15,7 +14,7 @@ class SnapshotGrowth(Enum):
     PLANNED = 3
 
 
-class Snapshot():
+class Snapshot:
     '''
         Represents the single frame from a raw capture
     '''
@@ -33,7 +32,6 @@ class Snapshot():
             self.ssid = ssid
         self._logger = logger
         self._growth = SnapshotGrowth.EMPTY
-        self._fence_masked_img_arr = None
         self._pose = None
         self.run_elapsed_secs = 0
         self.loc_stat_count = 0
@@ -56,25 +54,25 @@ class Snapshot():
         # first log all the ssids
         if self._logger:
             self._logger.debug(
-                'Snapshot Constructor - Locate Snapshots: {0}'.format(self._container.keys()))
-            self._logger.debug('Snapshot Constructor - Poses: {0}'.format(
+                'Snapshot Constructor - Locate Snapshots: {}'.format(self._container.keys()))
+            self._logger.debug('Snapshot Constructor - Poses: {}'.format(
                 [ss._pose.as_concise_str() if ss._pose is not None else
-                 '|{0}|'.format(ss._extrapolated_pose.as_concise_str()) if ss._extrapolated_pose is not None else
+                 '|{}|'.format(ss._extrapolated_pose.as_concise_str()) if ss._extrapolated_pose is not None else
                  'None' for ss in self._container.values()]))
         # [p1, p2] => p3
         if self._logger:
             self._logger.debug('Potential Extrapolation sources: penultimate_pose => latest_pose {} {} {} => {} {} {}'.format(
-                s1, 
-                p1.as_concise_str() if p1 is not None else 'None', 
-                p1.origination if p1 is not None else '', 
-                s2, 
+                s1,
+                p1.as_concise_str() if p1 is not None else 'None',
+                p1.origination if p1 is not None else '',
+                s2,
                 p2.as_concise_str() if p2 is not None else 'None',
-                p2.origination if p2 is not None else '' 
+                p2.origination if p2 is not None else ''
                 )
             )
-        # Least restrictive without free-for-all
-        if (p1 is not None and 
-            p2 is not None and 
+        # Least restrictive, credible, without free-for-all
+        if (p1 is not None and
+            p2 is not None and
             (p1.origination == PoseOrigination.DETECTED or p2.origination == PoseOrigination.DETECTED)):
             p_start = p1
             p_finish = p2
@@ -85,8 +83,8 @@ class Snapshot():
         self.extrapolate_pose(p_start, p_finish)
 
     def set_pose(self, pose):
-        self._pose = pose
         self._growth = SnapshotGrowth.POSED
+        self._pose = pose
 
     def extrapolate_pose(self, p_start, p_finish):
 
@@ -100,40 +98,45 @@ class Snapshot():
                 if (
                     linear_displacement > constants.FROZEN_DISTANCE_THRESHOLD_METRES or
                     degrees(angular_displacement) > constants.FROZEN_ANGLE_THRESHOLD_DEGREES
-                    ): 
+                    ):
                     t1 = p_start.t_zero
                     t2 = p_finish.t_zero
                     time_displacement = round(t2 - t1, 2)
                     if self._logger:
+                        fmt_str = ('Snapshot Constructor - linear_displacement: {:.2f}m'
+                                   ' angular_displacement: {:.2f}deg'
+                                   ' time_displacement: {:.2f}secs'
+                                   )
                         self._logger.debug(
-                            'Snapshot Constructor - linear_displacement: {0:.2f}m angular_displacement: {1:.2f}deg time_displacement: {2:.2f}secs'.format(
+                            fmt_str.format(
                                 linear_displacement,
                                 degrees(angular_displacement),
-                                time_displacement)
+                                time_displacement
+                            )
                         )
                     x_displacement = p_finish.arena.c_x_m - p_start.arena.c_x_m
                     y_displacement = p_finish.arena.c_y_m - p_start.arena.c_y_m
                     if self._logger:
                         self._logger.debug(
-                            'Snapshot Constructor - calculating extrapolation displacement ({0:.2f}, {1:.2f})'.format(x_displacement, y_displacement))
+                            'Snapshot Constructor - calculating extrapolation displacement ({:.2f}, {:.2f})'.format(x_displacement, y_displacement))
                     p3_cxm = p_finish.arena.c_x_m + x_displacement
                     p3_cym = p_finish.arena.c_y_m + y_displacement
                     if self._logger:
                         self._logger.debug(
-                            'Snapshot Constructor - calculating extrapolation landing ({0:.2f}, {1:.2f})'.format(p3_cxm, p3_cym))
+                            'Snapshot Constructor - calculating extrapolation landing ({:.2f}, {:.2f})'.format(p3_cxm, p3_cym))
                     self._extrapolated_pose = Pose(
                         p3_cxm, p3_cym, p_finish.arena.t_rad)
                     self._extrapolated_pose.origination = PoseOrigination.PREDICTED
                     # project ahead
                     self._extrapolated_pose.t_zero = t2 + time_displacement
                     if self._logger:
-                        self._logger.debug('Snapshot Constructor - Posting Extrapolation {0}'.format(
+                        self._logger.debug('Snapshot Constructor - Posting Extrapolation {}'.format(
                             self._extrapolated_pose.as_concise_str()))
                 else:
                     if self._logger:
                         self._logger.debug(
                             'Snapshot Constructor - Unable to compute extrapolated pose - insufficient discrimination')
-                    self._extrapolated_pose = None            
+                    self._extrapolated_pose = None
             else:
                 if self._logger:
                     self._logger.debug(

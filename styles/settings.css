@@ -16,7 +16,8 @@ main {
 }
 #settings-form {
     width: fit-content;
-    height: fit-content;
+    height: 75vh;
+    overflow-y: auto;
     background-color: yellow;	
     padding: 4px;
 }

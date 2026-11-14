@@ -14,10 +14,10 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
     try:
 
         if calc_rte_debug:
-            logger.debug('width_m: {0}'.format(arena_width_m))
-            logger.debug('length_m: {0}'.format(arena_length_m))
+            logger.debug('width_m: {}'.format(arena_width_m))
+            logger.debug('length_m: {}'.format(arena_length_m))
             logger.debug(
-                'fence point percentages: {0}'.format(fence_points_pc))
+                'fence point percentages: {}'.format(fence_points_pc))
 
         fence_point_count = len(fence_points_pc)
         fence_polygon_pts = []
@@ -37,24 +37,24 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         centroid = geom_lib.polygon_centroid(
             [(p.x, p.y) for p in fence_points_pc])
         if calc_rte_debug:
-            logger.debug('centroid: {0}'.format(centroid))
+            logger.debug('centroid: {}'.format(centroid))
 
         # then calculate radial lengths
         radial_lengths = [np.hypot(p.x - centroid.x, p.y - centroid.y)
                           for p in fence_points_pc]
         if calc_rte_debug:
-            logger.debug('radial_lengths: {0}'.format(radial_lengths))
+            logger.debug('radial_lengths: {}'.format(radial_lengths))
 
         # find longest radial as it dictates number of circuits
         longest_radial = max(radial_lengths)
         if calc_rte_debug:
-            logger.debug('longest radial: {0}'.format(longest_radial))
+            logger.debug('longest radial: {}'.format(longest_radial))
 
         # how many lane widths are needed?
         cutter_width_pc = 100 * cutter_width_m / arena_width_m
         max_cct_count = ceil(longest_radial / cutter_width_pc)
         if calc_rte_debug:
-            logger.debug('cutter_width_m: {0} arena_width_m: {1} cutter_width_pc: {2} max_cct_count: {3}'.format(
+            logger.debug('cutter_width_m: {} arena_width_m: {} cutter_width_pc: {} max_cct_count: {}'.format(
                 cutter_width_m, arena_width_m, cutter_width_pc, max_cct_count
             ))
 

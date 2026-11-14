@@ -13,22 +13,20 @@ import io
 import os
 import tempfile
 import platform
-import gc
 import datetime
-from datetime import timezone
 import time
 from time import sleep
 from math import radians, degrees, sin, cos
 import numpy as np
 from copy import deepcopy
-from matplotlib.font_manager import findfont, FontProperties
+from shapely.geometry import Polygon
+from shapely import affinity
+
 try:
     from picamera2 import Picamera2  # @UnresolvedImport
 except ModuleNotFoundError:
     pass
-from PIL import Image, ImageFile, ImageDraw, ImageFont
-from scipy.ndimage import zoom
-from skimage.draw.draw import disk
+from PIL import Image, ImageFile, ImageDraw
 import copy
 import socket
 import sys
@@ -44,22 +42,24 @@ import mariadb
 import markdown
 
 from blue_proxy import BlueProxy
-from whittler import Whittler 
-import utilities
+from whittler import Whittler
+import utilities as ut
 import constants
 from cameras import RemoteOpticalPi
 from odometry import Movement
 from dashed_image_draw import DashedImageDraw
 import configurations
-from vis_lib import get_fence_mask_surface, \
-    grid_intersections_camera, get_polygons_from_pc, matrices_from_quad_points, \
+from vis_lib import grid_intersections_camera, \
+    get_polygons_from_pc, matrices_from_quad_points, \
     get_prospect_list, probe_prospect_list, \
-    render_projection_row, lores_contours
-from geom_lib import annot_arrow, annot_axle, distance_to_line, diff_angles
+    render_projection_row, lores_contours, draw_anti_polygons
+from geom_lib import annot_arrow, annot_axle, distance_to_line, diff_angles, \
+    scale_polygon, ConvexHull
 from utilities import trace_rules, trace_command, trace_location, \
-    LOCATION_CSV_HEADER, get_mem_stats
+    LOCATION_CSV_HEADER, get_mem_stats, get_uptime_string
 from diagram_lib import plot_excursion, plot_contour_entry_as_projection, \
     plot_projection_img
+from contour_lib import overlay_contours
 from rules_engine import RulesEngine
 import poses
 import tmplt_utils
@@ -76,7 +76,8 @@ from forms.morphable import Morphable
 from forms.rule import RuleScope
 from scanner import Scanner
 
-class MowerProxy():
+
+class MowerProxy:
 
     def __init__(self, host):
         self.host = host
@@ -94,19 +95,19 @@ class MowerProxy():
                 velocity_full_speed_mps)
         )
 
-class ProxymowServer(object):
+class ProxymowServer:
 
-    VERSION_STRING = "2.1.1"
-    
+    VERSION_STRING = "2.2.0"
+
     linux = (platform.system() == 'Linux')
 
     tmp_folder_path = tempfile.gettempdir() + os.path.sep
-    font_path = findfont(FontProperties(family=['sans-serif']))
 
     LOG_MAX_BYTES = constants.LOG_MAX_BYTES
     LOG_BACKUP_COUNT = constants.LOG_BACKUP_COUNT
 
     def __init__(self, args):
+        self.args = args
         self.debug = args.debug
         self.log_level = logging.DEBUG if self.debug else logging.WARNING
         # create formatters
@@ -128,6 +129,11 @@ class ProxymowServer(object):
             app_root_path / 'configs' / 'settings.yml').resolve().__str__()
         self.config_file_path_name = (
             app_root_path / 'configs' / 'config.xml').resolve().__str__()
+
+        if not (os.path.isfile(self.settings_file_path_name) and
+            os.path.isfile(self.config_file_path_name)):
+            cherrypy.engine.exit()
+            raise Exception('Configuration Files (config.xml & settings.yml) not found')
 
         self.image_folder_path_name = (
             work_folder_path / 'images').resolve().__str__()
@@ -176,6 +182,8 @@ class ProxymowServer(object):
         log_handler.setFormatter(log_formatter)
         self.pxm_logger.addHandler(log_handler)
         self.pxm_logger.setLevel(self.log_level)
+        # sever the link to the root handler so these don't echo to the console
+        self.pxm_logger.propagate = False
 
         # settings log
         self.settings_log = logging.getLogger('settings')
@@ -186,6 +194,7 @@ class ProxymowServer(object):
         settings_log_handler.setFormatter(log_formatter)
         self.settings_log.addHandler(settings_log_handler)
         self.settings_log.setLevel(self.log_level)
+        self.settings_log.propagate = False
 
         # comms log
         self.comms_logger = logging.getLogger('comms')
@@ -196,6 +205,7 @@ class ProxymowServer(object):
         comms_log_handler.setFormatter(log_formatter)
         self.comms_logger.addHandler(comms_log_handler)
         self.comms_logger.setLevel(self.log_level)
+        self.comms_logger.propagate = False
 
         # vision log
         self.vision_logger = logging.getLogger('vision')
@@ -206,6 +216,7 @@ class ProxymowServer(object):
         vision_log_handler.setFormatter(log_formatter)
         self.vision_logger.addHandler(vision_log_handler)
         self.vision_logger.setLevel(self.log_level)
+        self.vision_logger.propagate = False
 
         # locator log
         self.locator_logger = logging.getLogger('locator')
@@ -216,6 +227,7 @@ class ProxymowServer(object):
         locator_log_handler.setFormatter(log_formatter)
         self.locator_logger.addHandler(locator_log_handler)
         self.locator_logger.setLevel(self.log_level)
+        self.locator_logger.propagate = False
 
         # navigation log
         navigation_logger = logging.getLogger('navigation')
@@ -226,6 +238,7 @@ class ProxymowServer(object):
         navigation_log_handler.setFormatter(log_formatter)
         navigation_logger.addHandler(navigation_log_handler)
         navigation_logger.setLevel(self.log_level)
+        navigation_logger.propagate = False
 
         # last commands log
         last_cmds_logger = logging.getLogger('last-cmds')
@@ -236,6 +249,7 @@ class ProxymowServer(object):
         last_cmds_log_handler.setFormatter(log_formatter)
         last_cmds_logger.addHandler(last_cmds_log_handler)
         last_cmds_logger.setLevel(self.log_level)
+        last_cmds_logger.propagate = False
 
         # mow patterns log
         pattern_logger = logging.getLogger('mow-patterns')
@@ -246,6 +260,7 @@ class ProxymowServer(object):
         pattern_log_handler.setFormatter(log_formatter)
         pattern_logger.addHandler(pattern_log_handler)
         pattern_logger.setLevel(self.log_level)
+        pattern_logger.propagate = False
 
         # excursion log
         excursion_logger = logging.getLogger('excursion')
@@ -259,6 +274,7 @@ class ProxymowServer(object):
         excursion_log_handler.setFormatter(data_log_formatter)
         excursion_logger.addHandler(excursion_log_handler)
         excursion_logger.setLevel(logging.ERROR)  # initially logs nothing
+        excursion_logger.propagate = False
 
         # contours log
         contour_logger = logging.getLogger('contours')
@@ -272,9 +288,12 @@ class ProxymowServer(object):
         contour_log_handler.setFormatter(data_log_formatter)
         contour_logger.addHandler(contour_log_handler)
         contour_logger.setLevel(logging.ERROR)  # initially logs nothing
+        contour_logger.propagate = False
 
         self.despatcher = None
-        self.contours_buffer = deque([], 100)
+        self.contours_buffer_def_len = 100
+        self.contours_buffer_min_len = 4
+        self.contours_buffer = deque([], self.contours_buffer_def_len)
         arch_file_lst = os.listdir(self.image_folder_path_name)
         num_files = len(arch_file_lst)
         self.archive_image_count = (
@@ -309,7 +328,6 @@ class ProxymowServer(object):
             self.telem = {}
             self.cutter1_state = False
             self.cutter2_state = False
-            self.calib_image_array_cache = {}
 
             # create instances of picam2, one per camera
             try:
@@ -336,7 +354,7 @@ class ProxymowServer(object):
                     str(e) + ' on line ' + str(err_line)
                 err_msg += ' Picamera2 not available on Windows?'
                 self.log_warning(err_msg)
-                
+
             # initialise bluetooth adaptor?
             try:
                 from bleak.backends.winrt.util import allow_sta
@@ -347,7 +365,7 @@ class ProxymowServer(object):
                 # other OSes and older versions of Bleak will raise ImportError
                 # which we can safely ignore
                 pass
-                
+
             try:
                 self.blue_proxy = BlueProxy(self.comms_logger)
                 self.log(str(self.blue_proxy))
@@ -391,7 +409,7 @@ class ProxymowServer(object):
             self.snapshot_buffer = SnapshotBuffer(4)
             self.motivate_pose_buffer = deque([], 4)
 
-            self.prev_trace_locations = deque([])
+            self.prev_trace_locations = deque([], constants.KITE_TAIL_NUM_BOWS + 1)
 
             # PIL load truncated image files
             ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -403,10 +421,10 @@ class ProxymowServer(object):
             self.camera_vision_queue = queue.Queue(maxsize=-1)
             self.camera_snap_queue = queue.Queue(maxsize=-1)
             self.camera_raw_queue = queue.Queue(maxsize=-1)
-            
+
             # initialise Whittler class
             Whittler.init(self.locator_logger, constants.CONTOUR_WHITTLER_SHORT_CIRCUIT)
-            
+
             # create mower proxy
             self.shared = MowerProxy(self)
 
@@ -456,7 +474,7 @@ class ProxymowServer(object):
             arena_matrix = self.config['calib.arena_matrix']
             img_matrix = self.config['calib.img_matrix']
             strength = self.config['optical.undistort_strength']
-            zoom = self.config['optical.undistort_zoom']
+            uzoom = self.config['optical.undistort_zoom']
 
             # temporary pause for governor
             self.log('re_init pausing governor...')
@@ -469,9 +487,7 @@ class ProxymowServer(object):
             self.undistort_mapper.clear()
             self.unwarp_mapper.clear()
             self.data_mapper.clear()
-            self.log('re_init about to garbage collect...', True)  # log memory
-            collected = gc.collect()
-            self.log('re_init collected {} objects'.format(collected))
+
             self.log('re_init about to populate mappers...', True)  # log memory
 
             self.undistort_unwarp_mapper.populate(
@@ -480,7 +496,7 @@ class ProxymowServer(object):
                 display_rows,
                 matrix=img_matrix,
                 strength=strength,
-                zoom=zoom
+                zoom=uzoom
             )
             self.log('re_init populated undistort unwarp mapper')
             self.data_mapper.populate(
@@ -489,7 +505,7 @@ class ProxymowServer(object):
                 img_arr_rows,
                 matrix=arena_matrix,
                 strength=strength,
-                zoom=zoom
+                zoom=uzoom
             )
 
             self.log('re_init mappers populated', True)  # log memory
@@ -497,8 +513,10 @@ class ProxymowServer(object):
             if self.config['current.mower'] in self.config['mowers']:
 
                 robot_span_m = self.config['mower.target_length_m']
-                target_width_m = self.config['mower.target_width_m']
+                target_lower_base_m = self.config['mower.target_lower_base_m']
+                target_upper_base_m = self.config['mower.target_upper_base_m']
                 target_radius_m = self.config['mower.target_radius_m']
+                target_rotation_ccw_deg = self.config['mower.target_rotation_ccw_deg']
                 target_offset_pc = self.config['mower.target_offset_pc']
                 body_width_m = self.config['mower.body_width_m']
                 body_length_m = self.config['mower.body_length_m']
@@ -507,9 +525,11 @@ class ProxymowServer(object):
 
                 poses.Pose.init(
                     self.config,
-                    target_width_m,
+                    target_lower_base_m,
+                    target_upper_base_m,
                     robot_span_m,
                     target_radius_m,
+                    target_rotation_ccw_deg,
                     target_offset_pc,
                     axle_track_m,
                     body_width_m,
@@ -531,7 +551,9 @@ class ProxymowServer(object):
                 poses.Pose.init(
                     self.config,
                     0,
+                    0,
                     robot_span_m,
+                    0,
                     0,
                     50,
                     axle_track_m,
@@ -692,7 +714,19 @@ class ProxymowServer(object):
             fence_polygon_percent = self.config['lawn.fence']
             self.log('re_init about to construct fence polygons, data mapper {}'.format(
                 self.data_mapper), True)  # log memory
-            _outer_darkzone_polygon_m, self.outer_darkzone_polygon_px = get_polygons_from_pc(
+
+            _, self.fencezone_xyxy_px = get_polygons_from_pc(
+                fence_polygon_percent,
+                arena_width_m,
+                arena_length_m,
+                0,  # percentage growth factor
+                constants.DARK_ZONE_MIN_SEGMENT_PERCENT,
+                data_mapper=self.data_mapper,
+                logger=self.pxm_logger,
+                debug=False
+            )
+
+            _, self.outer_darkzone_xyxy_px = get_polygons_from_pc(
                 fence_polygon_percent,
                 arena_width_m,
                 arena_length_m,
@@ -702,39 +736,21 @@ class ProxymowServer(object):
                 logger=self.pxm_logger,
                 debug=False
             )
-            self.log('outer dark zone constructed')
 
-            # fence mask full-res
-            self.fence_mask_img = get_fence_mask_surface(
-                img_arr_cols,
-                img_arr_rows,
-                self.outer_darkzone_polygon_px,
-                ImageFont.truetype(self.font_path, 20),
-                like_arr=None,
-                debug=False,
-                logger=self.pxm_logger
-            )
-            # fence mask display-res
-            adr = self.config['optical.analysis_display_ratio']
-            self.fence_mask_display_img = get_fence_mask_surface(
-                display_cols,
-                display_rows,
-                [p // adr for p in self.outer_darkzone_polygon_px],
-                ImageFont.truetype(self.font_path, 20),
-                like_arr=None,
-                debug=False,
-                logger=self.pxm_logger
-            )
-            self.log('fence masks constructed')
+            # print('self.outer_darkzone_xyxy_px', self.outer_darkzone_xyxy_px)
+            self.log('fence zones constructed')
 
-            self.fence_mask_array = np.asarray(self.fence_mask_img, bool)
-            self.fence_mask_display_array = np.asarray(
-                self.fence_mask_display_img, bool)
-            if constants.DEBUG_SAVE_IMAGE_LEVEL > 0:
-                self.fence_mask_img.save(
-                    self.tmp_folder_path + os.pathsep + 'fence-mask.jpg')
-                self.fence_mask_display_img.save(
-                    self.tmp_folder_path + os.pathsep + 'fence-mask-display.jpg')
+            # group fence zone polygon list into individual points
+            fencezone_pts_px = [(self.fencezone_xyxy_px[i], self.fencezone_xyxy_px[i+1])
+                               for i in range(0, len(self.fencezone_xyxy_px), 2)]
+            # create shapely polygon
+            self.fencezone_polygon = Polygon(fencezone_pts_px)
+
+            # group darkzone polygon list into individual points
+            outer_darkzone_pts_px = [(self.outer_darkzone_xyxy_px[i], self.outer_darkzone_xyxy_px[i+1])
+                               for i in range(0, len(self.outer_darkzone_xyxy_px), 2)]
+            # create shapely polygon
+            self.outer_darkzone_polygon = Polygon(outer_darkzone_pts_px)
 
             # create viewport for windowing
             self.viewport = Viewport()
@@ -749,8 +765,9 @@ class ProxymowServer(object):
 
             self.log('re_init complete')
             if first_time:
-                print('Proxymow Server successfully started! Use CTRL-C to terminate.')
-                print('Point your browser at http://{}:{}'.format(socket.gethostname(), cherrypy.server.socket_port))
+                quit_key = 'CTRL+C' if self.linux else 'CTRL+PAUSE'
+                print('Proxymow Server successfully started! Use {} to terminate.'.format(quit_key))
+                print('Point your browser at http://{}:{}'.format(socket.gethostname(), self.args.port))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -897,7 +914,7 @@ class ProxymowServer(object):
                         sib_child_elem = element.find(sib_var_name)
                         if sib_child_elem is not None:
                             self.settings_log.info(
-                                'populate_nested_element removing redundant sibling {0}'.format(sib_child_elem.tag))
+                                'populate_nested_element removing redundant sibling {}'.format(sib_child_elem.tag))
                             element.remove(sib_child_elem)
                     repl_elem = ET.Element(k)
                     element.append(repl_elem)
@@ -906,19 +923,19 @@ class ProxymowServer(object):
             elif k in element.attrib:
                 element.set(k, str(v))
                 self.settings_log.info(
-                    'populate_nested_element replacement: att={0} = {1}'.format(k, element.attrib[k]))
+                    'populate_nested_element replacement: att={} = {}'.format(k, element.attrib[k]))
             elif element.find(k) is not None:
                 # writing item that is not an attribute - must be child cdata
-                element.find(k).text = ET.CDATA(str(v))
+                element.find(k).text = ET.CDATA(str(v))  # @UndefinedVariable
                 self.settings_log.info(
-                    'populate_nested_element: cdata element={0}'.format(k))
+                    'populate_nested_element: cdata element={}'.format(k))
             elif klass is not None and k in vars(klass()):
                 element.set(k, str(v))
                 self.settings_log.info(
-                    'populate_nested_element creation: att={0} = {1}'.format(k, element.attrib[k]))
+                    'populate_nested_element creation: att={} = {}'.format(k, element.attrib[k]))
             else:
                 self.settings_log.warning(
-                    'Error in populate_nested_element: {0} is neither attribute nor child element'.format(k))
+                    'Error in populate_nested_element: {} is neither attribute nor child element'.format(k))
 
     @cherrypy.expose
     def handle_x_PATCH(self, *args, **kwargs):
@@ -981,7 +998,7 @@ class ProxymowServer(object):
                 module_name = coll_node.attrib.get('module')
                 # look for a blueprint
                 skeleton_node = self.config.cfg_root.find(
-                    'blueprints/{0}'.format(module_name))
+                    'blueprints/{}'.format(module_name))
             elif mode == 'duplicate':
                 skeleton_node = self.config.query_xpath(key)
                 coll_node = skeleton_node.getparent()
@@ -1012,7 +1029,7 @@ class ProxymowServer(object):
                 if pre_existing_item_nodes is not None and len(pre_existing_item_nodes) > 0:
                     # raise attempt to create duplicate exception
                     raise DuplicateRecordException(
-                        '\'{0}\' Already Exists'.format(pk_val))
+                        '\'{}\' Already Exists'.format(pk_val))
                 elif extensible:
                     # insert new node
                     if skeleton_node is not None:
@@ -1240,7 +1257,7 @@ class ProxymowServer(object):
         while True:
             self.log('Virtual Mower Calling Main...')
             try:
-                vmower.main(work_folder_path)  # blocks
+                vmower.main(work_folder_path, self.log_level)  # blocks
             except Exception as e:
                 print(e)
         self.log('Virtual Mower Terminated')
@@ -1249,8 +1266,19 @@ class ProxymowServer(object):
         while True:
             try:
                 num_requests = len(self.camera_request_queue.queue)
+                num_out_items_snap = len(self.camera_snap_queue.queue)
+                num_out_items_raw = len(self.camera_raw_queue.queue)
+                num_out_items_locate = len(self.camera_locate_queue.queue)
+                num_out_items_vision = len(self.camera_vision_queue.queue)
                 self.log(
-                    'process_image get from queue[{0}] (blocks)...'.format(num_requests))
+                    'process_image get from queue[{}] (blocks)...snap:[{}] raw:[{}] locate:[{}] vision:[{}]'.format(
+                        num_requests,
+                        num_out_items_snap,
+                        num_out_items_raw,
+                        num_out_items_locate,
+                        num_out_items_vision
+                    )
+                )
                 cam_settings = {'queue': None}
                 try:
                     cam_settings = self.camera_request_queue.get(timeout=40)
@@ -1283,38 +1311,47 @@ class ProxymowServer(object):
                             'process_image get from locate queue released...')
                         self.log('process_image Obtaining Channel Arrays...')
                         try:
-                            analysis_array, disp_array = self.get_chan_arrays(
+                            analysis_array, disp_img = self.get_chan_arrays(
                                 cam_settings, grid=False, cap_display=True)
                         except Exception as e:
-                            analysis_array = disp_array = None
+                            analysis_array = disp_img = None
                             self.log_error(
                                 'process_image get_chan_arrays error:' + str(e))
                         self.log('process_image get_chan_arrays complete')
+                        num_out_items_locate = len(self.camera_locate_queue.queue)
+                        self.log(
+                            'process_image post process locate:[{}]'.format(
+                                num_out_items_locate
+                            )
+                        )
+                        while len(self.camera_locate_queue.queue) > 0:
+                            self.log('process_image flushing output queue')
+                            self.camera_locate_queue.get_nowait()
                         self.camera_locate_queue.put(
-                            (analysis_array, disp_array))
+                            (analysis_array, disp_img))
                     elif cam_settings['queue'] == 'vision':
                         self.log(
                             'process_image get from vision queue released...')
                         self.log('process_image Obtaining Channel Arrays...')
                         try:
-                            analysis_array, disp_array = self.get_chan_arrays(
+                            analysis_array, disp_img = self.get_chan_arrays(
                                 cam_settings, grid=True, cap_display=False)
                         except Exception as e:
-                            analysis_array = disp_array = None
+                            analysis_array = disp_img = None
                             self.log_error(
                                 'process_image get_chan_arrays error:' + str(e))
                         self.log('process_image get_chan_arrays complete')
                         self.camera_vision_queue.put(
-                            (analysis_array, disp_array))
+                            (analysis_array, disp_img))
                     else:
-                        self.log_error('process_image UNKNOWN queue requested {0}'.format(
+                        self.log_error('process_image UNKNOWN queue requested {}'.format(
                             cam_settings['queue']))
-                except queue.Empty as e:
+                except queue.Empty:
                     if cam_settings['queue'] is None:
                         # this is an expected exception if no requests are made
                         pass
                     else:
-                        self.log_warning('process_image {0} get from queue timed out'.format(
+                        self.log_warning('process_image {} get from queue timed out'.format(
                             cam_settings['queue']), incl_mem_stats=True)
                 except Exception as e:
                     raise (e)
@@ -1341,16 +1378,19 @@ class ProxymowServer(object):
 
             # do planning?
             if self.rules_engine is not None:
-                self.nav_plan(locate_snapshot, motivate_pose,
-                              logger, locate_timesheet)
+                try:
+                    self.nav_plan(locate_snapshot, motivate_pose,
+                                  logger, locate_timesheet)
 
-                # add snapshot to buffer
-                self.snapshot_buffer[locate_snapshot.ssid] = locate_snapshot
-
+                    # add snapshot to buffer
+                    self.snapshot_buffer[locate_snapshot.ssid] = locate_snapshot
+                except Exception as e:
+                    msg = 'unable to buffer locate snapshot: ' + str(e)
+                    logger.warning(msg)
                 msg = 'Locate Snapshots:\n'
                 for ssk in self.snapshot_buffer:
                     ss = self.snapshot_buffer[ssk]
-                    msg += '\t{0} {1} {2} |{3}|\n'.format(
+                    msg += '\t{} {} {} |{}|\n'.format(
                         ssk,
                         ss.ssid,
                         ss._pose.as_concise_str() if ss._pose is not None else 'None',
@@ -1403,8 +1443,8 @@ class ProxymowServer(object):
                 prog_compl_pc = 0
             if self.itinerary is not None and not self.itinerary.is_complete and pose is not None:
                 tgt_dest = self.itinerary.get_path_ends()[1]
-                tgt_str = '({1:.2f}, {2:.2f}) {0:.0f}%'.format(
-                    prog_compl_pc, tgt_dest.target_x, tgt_dest.target_y)
+                tgt_str = '({:.2f}, {:.2f}) {:.0f}%'.format(
+                    tgt_dest.target_x, tgt_dest.target_y, prog_compl_pc)
                 delta_x = tgt_dest.target_x - pose.arena.c_x_m
                 delta_y = tgt_dest.target_x - pose.arena.c_y_m
                 delta_str = '{:.0f}&{:.2f}'.format(
@@ -1551,15 +1591,15 @@ class ProxymowServer(object):
                         self.log(
                             'action completed destination list - turning cutters off...')
                         self.cmds.append(
-                            'direct-drive={0}'.format(direct_drive_disable_cutters))
+                            'direct-drive={}'.format(direct_drive_disable_cutters))
                         self.process_instructions()
-                        
+
                         if self.despatcher is not None:
                             self.telem = self.despatcher.fetch_telemetry()
                             self.comms_logger.debug('\n' + str(self.despatcher))
                         else:
                             self.telem = {}
-                        
+
                     if self.drive['path'] == 'Route':
                         self.config['_current.last_visited_route_node'] = None
                     # set mower to None - save battery!
@@ -1589,7 +1629,7 @@ class ProxymowServer(object):
                 progress = self.itinerary.progress(
                     (pose.arena.c_x_m, pose.arena.c_y_m))
                 prog_compl_pc = max(0, progress.completed_pc)
-                pose_str = '{0:.0f}@({1:.2f}, {2:.2f})'.format(
+                pose_str = '{:.0f}@({:.2f}, {:.2f})'.format(
                     pose.arena.t_deg, pose.arena.c_x_m, pose.arena.c_y_m)
             else:
                 prog_compl_pc = -1
@@ -1706,7 +1746,6 @@ class ProxymowServer(object):
                 penult_unturned = penult_angular_displacement_deg < constants.FROZEN_ANGLE_THRESHOLD_DEGREES
                 _unmoved = latest_unmoved and penult_unmoved
                 _unturned = latest_unturned and penult_unturned
-                # static over 3 poses - excessive?
                 # static over 2 poses
                 is_static = latest_unmoved and latest_unturned
 
@@ -1775,6 +1814,7 @@ class ProxymowServer(object):
                                     self.comms_logger.debug('\n' + str(self.despatcher))
                                 else:
                                     self.telem = {}
+                                self.log('telemetry fetched', True)
                                 self.telemetry_updated = time.time()
                                 timesheet.add('telemetry fetched')
 
@@ -1867,7 +1907,7 @@ class ProxymowServer(object):
                                         timesheet.add(
                                             'transmitting selected rule command...')
                                         arrived, resp = selected_rule.execute(self, True)  # trace
-                                        
+
                                         logger.info(
                                             'Governor rule {} [{}] executed arrived: {} response: {}'.format(
                                                 selected_rule.cmd,
@@ -1929,15 +1969,6 @@ class ProxymowServer(object):
                             # update frame time
                             cur_snapshot.run_elapsed_secs = time.time() - start_time
                         timesheet.add('locate snapshot committed')
-                        
-                        self.log("\nGarbage Objects:")
-                        for x in gc.garbage:
-                            s = str(x)
-                            self.log('\t' + type(x) + ' ' + s[:80])
-                        collected = gc.collect()
-                        self.log('governor collected {} objects'.format(collected), True) # log memory
-                        timesheet.add('garbage collected')
-
                         self.log_debug(timesheet)
 
                 except Exception as e:
@@ -1958,7 +1989,7 @@ class ProxymowServer(object):
                     Snapshot.location_stats[None] = 1
                 self.location_props['not_found_count'] += 1
                 logger.debug(
-                    'Null Pose - {0} Not Founds'.format(self.location_props['not_found_count']))
+                    'Null Pose - {} Not Founds'.format(self.location_props['not_found_count']))
                 if self.location_props['not_found_count'] > constants.NOT_FOUND_RESET_COUNT:
                     logger.debug(
                         'Null Pose - Not Founds Exceeded Threshold - Unlocking...')
@@ -1987,6 +2018,86 @@ class ProxymowServer(object):
 
         return location_stat_count, location_quality
 
+
+    def safe_shutdown(self, logger, msg):
+
+        self.rules_engine.last_n_commands.append(msg)
+        self.rules_engine.last_n_comp_commands.append(msg)
+        self.rules_engine.lclogger.info(msg)
+        if self.telem is not None and self.telem != {}:
+            try:
+                cutter1_state = self.telem['cutter1']
+                cutter2_state = self.telem['cutter2']
+            except Exception:
+                cutter1_state = cutter2_state = False
+            logger.info('safe shutdown cutter states: {} {}'.format(
+                    cutter1_state, cutter2_state))
+            # turn off cutters anyway
+            direct_drive_disable_cutters = 'cutter(0, -1)'
+            logger.info('safe shutdown - turning off cutters...')
+            self.cmds.append('direct-drive={}'.format(direct_drive_disable_cutters))
+            self.process_instructions()
+        if self.drive['path'] != None:
+            self.drive_cancel = True
+
+    def set_viewport_from_pose(self, sid, pose, array_shape, logger):
+        hsid = '{}B'.format(sid)
+
+        # tightly around body(roof)...
+        self.viewport = Viewport.from_pose_body(pose, array_shape, hsid)
+
+        # expanded viewport from pose
+        if self.viewport is not None:
+            self.viewport.resize(2.0)
+            logger.info(
+                'pxm locate getting expanded viewport from latest pose: {}'.format(
+                                    self.viewport))
+
+    def grow_viewport(self, logger):
+        if (self.viewport.origin[0] > 0 and self.viewport.origin[1] > 0 and
+            self.viewport.bottom_right[0] < 100 and
+            self.viewport.bottom_right[1] < 100 and
+            self.viewport.footprint < constants.MAXIMUM_VIEWPORT_FOOTPRINT):
+            self.viewport.resize(constants.RESIZE_VIEWPORT_FOR_ESCAPEE)
+            logger.info('pxm locate expanded viewport looking for escaped target: {}'.format(
+                    self.viewport))
+
+    def reset_viewport(self, sid, analysis_array, debug_image_level, debug_level, logger):
+        self.viewport = Viewport()  # Null Viewport
+
+        zoom_scale_factor = 4
+        lsid = '{}A'.format(sid)
+
+        # now find prospects...
+        vp_prospect_list = get_prospect_list(
+            self,
+            analysis_array,
+            zoom_scale_factor,
+            self.viewport,
+            debug_image_level,
+            debug_level,
+            logger,
+            lsid
+        )
+        # advance id marker from lo-res [A] to hi-res [B]
+        for vp in vp_prospect_list:
+            vp.index = vp.index.replace('A', 'B')
+
+        return vp_prospect_list
+
+    def constrain_viewport(self, array_shape, logger):
+        # check if viewport encroaches on darkzone - and restrict
+        vp_as_polygon = self.viewport.as_polygon(array_shape)
+        if self.outer_darkzone_polygon.contains(vp_as_polygon):
+            logger.info('constrain_viewport not necessary: Darkzone Contains Viewport')
+        elif self.outer_darkzone_polygon.intersects(vp_as_polygon):
+            itsx_polygon = self.outer_darkzone_polygon.intersection(vp_as_polygon)
+            logger.info('constrain_viewport required: Viewport Intersects Darkzone')
+            for r in (('A', 'C'), ('B', 'C')):
+                new_index = self.viewport.index.replace(*r)
+            self.viewport = Viewport.from_polygon_px(itsx_polygon, array_shape, new_index)
+
+
     def get_locate_snapshot(self, logger, timesheet=Timesheet()):
 
         self.log('In locate ' + str('-' * 80))
@@ -1996,8 +2107,8 @@ class ProxymowServer(object):
         # Number of generations of images for debugging
         debug_image_gens = constants.DEBUG_SAVE_IMAGE_GENERATIONS
         debug_level = constants.DEBUG_LOCATE_LEVEL
-        # Exclude targets beyond fence plus border
-        fence_masking = constants.FENCE_MASKING
+        # Exclude targets beyond dark zone?
+        fence_masking_mode = constants.FENCE_MASKING_MODE
         try:
             # create skeleton snapshot so we get an ssid
             locate_snapshot = Snapshot(self.snapshot_buffer, logger=logger)
@@ -2020,7 +2131,7 @@ class ProxymowServer(object):
                 timesheet.add('queueing camera request')
                 self.camera_request_queue.put(cam_settings)
                 logger.info('pxm locate getting image from queue (blocks)...')
-                analysis_array, img_array = self.camera_locate_queue.get(
+                analysis_array, disp_img = self.camera_locate_queue.get(
                     timeout=30)
                 if analysis_array is None:
                     timesheet.add('camera request complete but failed')
@@ -2036,15 +2147,14 @@ class ProxymowServer(object):
                         if check_due:
                             self.when_checked = time.time()
                         raw_img = Image.fromarray(analysis_array)
-                        disp_img = Image.fromarray(img_array)
                         if periodic_img_due:
                             raw_img.save(self.tmp_folder_path + os.path.sep + 'raw.jpg',
                                          optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
                         if archive_image_due:
                             # add to archive? will only archive images during excursions...
-                            raw_img.save(self.image_folder_path_name + os.path.sep + 'raw-{0}.jpg'.format(
+                            raw_img.save(self.image_folder_path_name + os.path.sep + 'raw-{}.jpg'.format(
                                 self.archive_image_count), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
-                            disp_img.save(self.image_folder_path_name + os.path.sep + 'disp-{0}.jpg'.format(
+                            disp_img.save(self.image_folder_path_name + os.path.sep + 'disp-{}.jpg'.format(
                                 self.archive_image_count), optimize=True, quality=constants.DEBUG_IMAGE_QUALITY)
                             self.archive_image_count = (
                                 self.archive_image_count + 1) % constants.ARCHIVE_IMAGE_MAX_COUNT
@@ -2057,102 +2167,61 @@ class ProxymowServer(object):
                             '{} animals counted'.format(len(animals)))
 
                         if len(animals) > 0:
+
                             logger.info('pxm locate spotted animal(s)')
-                            msg = 'Pausing/Cutter Off for Animals'
-                            self.rules_engine.last_n_commands.append(msg)
-                            self.rules_engine.last_n_comp_commands.append(msg)
-                            self.rules_engine.lclogger.info(msg)
-
-                            if self.telem is not None and self.telem != {}:
-                                try:
-                                    cutter1_state = self.telem['cutter1']
-                                    cutter2_state = self.telem['cutter2']
-                                except Exception:
-                                    cutter1_state = cutter2_state = False
-
-                                logger.info('animals cutter states: {} {}'.format(
-                                    cutter1_state, cutter2_state))
-
-                                # turn off cutters anyway
-                                direct_drive_disable_cutters = 'cutter(0, -1)'
-                                logger.info('animals - turning off cutters...')
-                                self.cmds.append(
-                                    'direct-drive={0}'.format(direct_drive_disable_cutters))
-                                self.process_instructions()
-                            self.drive_pause = True
+                            msg = 'Stopping/Cutter Off for Animals'
+                            self.safe_shutdown(logger, msg)
                             self.drive["state"] = 'Animals!'
 
                     # get latest snapshot for pose and windowing calculations
                     latest_snapshot = self.snapshot_buffer.latest()
+                    latest_pose = latest_snapshot._pose if latest_snapshot is not None else None
 
-                    if constants.TRACKING_VIEWPORT and (latest_snapshot is not None and latest_snapshot._pose is not None):
+                    is_pose_viewportable = constants.TRACKING_VIEWPORT and latest_pose is not None
+                    is_viewport_valid = (
+                        constants.TRACKING_VIEWPORT
+                        and self.viewport is not None
+                        and not self.viewport.isnull
+                    )
+                    vp_prospect_list = [] # default empty list
+
+                    # assemble prospect list...
+
+                    if is_pose_viewportable:
+
                         # viewport from pose
                         logger.info('pxm locate fixing viewport around valid pose...')
-                        hsid = '{0}B'.format(sid)
-                        zoom_scale_factor = 1
-                        p = latest_snapshot._pose
-
-                        # tightly around target...
-                        self.viewport = Viewport.from_pose(
-                            p, analysis_array.shape, hsid)
-
-                        # expanded viewport from pose
+                        self.set_viewport_from_pose(
+                            sid, latest_pose, analysis_array.shape, logger)
+                        if fence_masking_mode == 1:
+                            self.constrain_viewport(analysis_array.shape, logger)
+                            logger.info('pxm locate fence masking viewport constrained')
                         if self.viewport is not None:
-                            self.viewport.resize(constants.RESIZE_POSE_TO_VIEWPORT)
                             vp_prospect_list = [self.viewport]
-                            logger.info('pxm locate getting expanded viewport from latest pose: {0}'.format(
-                                self.viewport))
-                        else:
-                            vp_prospect_list = []
-                        timesheet.add('viewport prepared')
-                    elif constants.TRACKING_VIEWPORT and self.viewport is not None and not self.viewport.isnull:
+                        timesheet.add('viewport from pose prepared')
+
+                    elif is_viewport_valid:
+
                         # viewport expansion chasing escaped target
                         logger.info('pxm locate about to expand viewport looking for escaped target...')
                         logger.info('pxm locate viewport {:.0f}x{:.0f} footprint: {:.2f}%'.format(self.viewport.height, self.viewport.width, self.viewport.footprint))
                         logger.info(str(self.viewport))
-                        logger.debug('pxm locate viewport footprint memory impact: {}'.format(utilities.get_mem_stats()))  # log memory
-                        if (self.viewport.origin[0] > 0 and 
-                            self.viewport.origin[1] > 0 and
-                            self.viewport.bottom_right[0] < 100 and 
-                            self.viewport.bottom_right[1] < 100 and 
-                            self.viewport.footprint < constants.MAXIMUM_VIEWPORT_FOOTPRINT):
-                            self.viewport.resize(constants.RESIZE_VIEWPORT_FOR_ESCAPEE)
-                            logger.info('pxm locate expanded viewport looking for escaped target: {0}'.format(
-                                self.viewport))
-                            # add delay to smooth process... 
-                            sleep(1)
-                            vp_prospect_list = [self.viewport]
-                            timesheet.add('expanded viewport prepared')
-                        else:
-                            # reset viewport - reached edge...
-                            self.viewport = None
-                            vp_prospect_list = []                            
-                            logger.info('pxm locate viewport growth reached limit - reset')
-                    else:
-                        logger.info('pxm locate no viewport - null and start from scratch...')
-                        self.viewport = Viewport()  # Null Viewport
-
-                        zoom_scale_factor = 4
-                        lsid = '{0}A'.format(sid)
-
-                        # now find prospects...
-                        vp_prospect_list = get_prospect_list(
-                            self,
-                            analysis_array,
-                            zoom_scale_factor,
-                            self.viewport,
-                            debug_image_level,
-                            debug_level,
-                            logger,
-                            lsid
-                        )
-                        # advance id marker from lo-res [A] to hi-res [B]
-                        for vp in vp_prospect_list:
-                            vp.index = vp.index.replace('A', 'B')
-
+                        logger.debug('pxm locate viewport footprint memory impact: {}'.format(ut.get_mem_stats()))  # log memory
+                        self.grow_viewport(logger)
+                        if fence_masking_mode == 1:
+                            self.constrain_viewport(analysis_array.shape, logger)
+                            logger.info('pxm locate fence masking viewport constrained')
                         logger.info(
-                            'pxm locate getting mask from default all - null viewport')
-                        timesheet.add('get prospect list')
+                            'pxm locate expanded viewport looking for escaped target: {}'.format(
+                                self.viewport))
+                        vp_prospect_list = [self.viewport]
+                        timesheet.add('expanded viewport prepared')
+
+                    else:
+
+                        logger.info('pxm locate no pose or valid viewport - null and start from scratch...')
+                        vp_prospect_list = self.reset_viewport(sid, analysis_array, debug_image_level, debug_level, logger)
+                        timesheet.add('reset viewport prepared (get prospect list)')
 
                     # now we can probe the prospects in full res looking for the target...
                     prospect_viewports, all_contours, filtered_projections, pose, whittler = probe_prospect_list(
@@ -2170,18 +2239,9 @@ class ProxymowServer(object):
                     location_stat_count, location_quality = self.compile_location_stats(
                         logger, pose)
                     timesheet.add('pose stats')
-                    
-                    # images
-                    if fence_masking:
-                        fence_masked_img_arr = (
-                            img_array.T * self.fence_mask_display_array.T).T  # colour
-                    else:
-                        fence_masked_img_arr = img_array
-                    locate_snapshot._fence_masked_img_arr = fence_masked_img_arr
 
                     # manually reconstruct full array
-                    contour_bg_arr = fence_masked_img_arr
-                    locate_snapshot._source_img_arr = contour_bg_arr
+                    locate_snapshot._source_img = disp_img
                     locate_snapshot._prospect_viewports = prospect_viewports
                     locate_snapshot._growth = SnapshotGrowth.IMAGED
                     timesheet.add('images snapshotted')
@@ -2189,7 +2249,7 @@ class ProxymowServer(object):
                     # contours
                     locate_snapshot._contours = all_contours
                     locate_snapshot._whittler = whittler
-                    
+
                     # projections
                     locate_snapshot._fltrd_projections = filtered_projections
 
@@ -2203,19 +2263,7 @@ class ProxymowServer(object):
                             proj.cy,
                             proj.conf_pc
                             )
-                        )  
-                        
-                    # record extraneous sightings
-                    for p, proj in enumerate(filtered_projections):
-                        logger.debug('All Sightings {}.{} {:.0f}@({:.3f}, {:.3f}), {}%'.format(
-                            proj.ssid,
-                            p,
-                            degrees(proj.heading),
-                            proj.cx,
-                            proj.cy,
-                            proj.conf_pc
-                            )
-                        )  
+                        )
 
                     # best projection confidence
                     locate_snapshot.best_proj_conf_pc = filtered_projections[0].conf_pc if len(
@@ -2254,13 +2302,13 @@ class ProxymowServer(object):
                         pose.as_concise_str() if pose is not None else 'None',
                         locate_snapshot.best_proj_conf_pc)
                     )
-
                 timesheet.add('snapshot complete')
 
         except Empty:
             # Handle empty queue here
             err_line = sys.exc_info()[-1].tb_lineno
             logger.warning('pxm find_execute get from queue timed out on line ' + str(err_line))
+
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             logger.error('Error in pxm locate: ' + str(e) +
@@ -2275,11 +2323,9 @@ class ProxymowServer(object):
                 x1_m, y1_m, x2_m, y2_m = self.itinerary.get_current_path()[:4]
 
                 # cutter stray - lateral error from path as a proportion of cutter diameter
+                # cutter stray - lateral error from path +/-[m]
                 stray_m = distance_to_line(
                     pose.arena.c_x_m, pose.arena.c_y_m, x1_m, y1_m, x2_m, y2_m)
-                # mean
-                cutter_dia_m = self.config['mower.dimensions.cutter_dia_m']
-                cutter_stray_pc = 100 * stray_m / cutter_dia_m if cutter_dia_m > 0 else -1
                 try:
                     sensor_iter = iter(self.telem['sensors'].values())
                     battery_pc = next(sensor_iter)
@@ -2290,7 +2336,7 @@ class ProxymowServer(object):
                 conf_pc = locate_snapshot._fltrd_projections[0].conf_pc if len(
                     locate_snapshot._fltrd_projections) > 0 else 0
                 if not [v for v in (x1_m, y1_m, x2_m, y2_m) if v is None]:
-                    from_to_msg = '{0:.2f}, {1:.2f}, {2:.2f}, {3:.3f}'.format(
+                    from_to_msg = '{:.2f}, {:.2f}, {:.2f}, {:.3f}'.format(
                         x1_m, y1_m, x2_m, y2_m)
                 else:
                     from_to_msg = '-1, -1, -1, -1'
@@ -2299,10 +2345,10 @@ class ProxymowServer(object):
                     rssi = self.telem['rssi']
                 except:
                     ssid = 'None'
-                    rssi = 0 
+                    rssi = 0
                 # assemble excursion message from current pose
-                msg = '{}, {}, {}, {}, {}, {:.3f}, {:.3f}, {:.0f}, {}, {:.3f}, {:.0f}, {:.2f}, {:.2f}, {:.2f}, {}, {}'.format(
-                    datetime.datetime.now(timezone.utc),
+                msg = '{}, {}, {}, {}, {}, {:.3f}, {:.3f}, {:.0f}, {}, {:.3f}, {:.3f}, {:.2f}, {:.2f}, {:.2f}, {}, {}'.format(
+                    datetime.datetime.now(datetime.UTC),
                     locate_snapshot.ssid,
                     motivate_pose.ssid if motivate_pose is not None and 'ssid' in vars(
                         motivate_pose) else -1,
@@ -2314,7 +2360,8 @@ class ProxymowServer(object):
                     self.itinerary.progress(
                         (pose.arena.c_x_m, pose.arena.c_y_m)).completed_pc,
                     pose.arena.span_m,
-                    cutter_stray_pc,
+                    # cutter_stray_pc,
+                    stray_m,
                     battery_pc,
                     loaded_pc,
                     conf_pc,
@@ -2350,7 +2397,7 @@ class ProxymowServer(object):
                         self.db_connection.commit()
                 except Exception as e:
                     err_line = sys.exc_info()[-1].tb_lineno
-                    self.log_error('Error in db transaction: ' + 
+                    self.log_error('Error in db transaction: ' +
                                    str(e) + ' on line ' + str(err_line))
                 finally:
                     if cur:
@@ -2358,45 +2405,31 @@ class ProxymowServer(object):
                     # don't close connection...
 
                 # update visual pose history
-                if constants.VISUAL_POSE_HISTORY:
-                    adr = self.config['optical.analysis_display_ratio']
-                    max_dots = 5
-                    trace_dist_thresh = 20 # pixels
-                    trace_heading_thresh = 12 # degrees
-                    cam_y_px = pose.cam.c_y_px
-                    cam_x_px = pose.cam.c_x_px
-                    cam_theta = pose.cam.t_deg
+                if constants.KITE_TAIL_NUM_BOWS > 0:
+                    trace_dist_thresh = constants.KITE_TAIL_LINEAR_DELTA_PERCENT
+                    trace_heading_thresh = constants.KITE_TAIL_ROT_DELTA_DEGREES
+
+                    cur_x_pc = pose.arena.c_x_pc
+                    cur_y_pc = pose.arena.c_y_pc
+                    cur_theta = pose.arena.t_deg
+
                     if len(self.prev_trace_locations) > 0:
                         prev_trace_location = self.prev_trace_locations[-1]
-                        dy = prev_trace_location[0] - cam_y_px
-                        dx = prev_trace_location[1] - cam_x_px
-                        dh = prev_trace_location[2] - cam_theta
+                        dx = prev_trace_location[0] - cur_x_pc
+                        dy = prev_trace_location[1] - cur_y_pc
+                        dh = prev_trace_location[2] - cur_theta
                         adh = (dh + 180) % 360 - 180
                     else:
                         dy = dx = trace_dist_thresh # force update
-                    if np.hypot(dy, dx) > trace_dist_thresh or adh > trace_heading_thresh:
-                        # reset
-                        self.fence_mask_display_array = np.asarray(
-                            self.fence_mask_display_img, bool)
-                        # process
-                        for (prev_y_px, prev_x_px, _) in self.prev_trace_locations:
-                            row = int(prev_y_px / adr)
-                            col = int(prev_x_px / adr)
-                            rr, cc = disk((row, col), 2, shape=self.fence_mask_display_array.shape)
-                            self.fence_mask_display_array[rr, cc] = False
+                    if np.hypot(dx, dy) > trace_dist_thresh or adh > trace_heading_thresh:
                         # append
-                        self.prev_trace_locations.append((cam_y_px, cam_x_px, cam_theta))
-    
-                        # limit
-                        if len(self.prev_trace_locations) > max_dots:
-                            # remove first
-                            self.prev_trace_locations.popleft()
+                        self.prev_trace_locations.append((cur_x_pc, cur_y_pc, cur_theta))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             self.log_error('Error in update_excursion_log: ' +
-                           str(e) + ' on line ' + str(err_line) + 
-                           ' query: ' + query + 
+                           str(e) + ' on line ' + str(err_line) +
+                           ' query: ' + query +
                            ' pose: ' + pose.as_concise_str() if pose is not None else 'None')
 
     def update_drive_state(self):
@@ -2405,7 +2438,7 @@ class ProxymowServer(object):
             outstanding = self.itinerary.outstanding
             plan_only = self.itinerary.plan_only
             self.log(
-                'pxm nav_plan remaining destination count: {0}'.format(outstanding))
+                'pxm nav_plan remaining destination count: {}'.format(outstanding))
             if not self.drive_cancel:
                 self.drive["state"] = '{} {} destination{}'.format(
                     'planning' if plan_only else 'processing',
@@ -2432,7 +2465,7 @@ class ProxymowServer(object):
                     True
                 )
                 timesheet.add('build rules engine context 1')
-                
+
                 # context might need self-dependencies, so easiest to just run twice
                 self.rules_engine.build_context(
                     locate_snapshot,
@@ -2498,7 +2531,7 @@ class ProxymowServer(object):
                     speeds = str(value).split('.')
                     # update mower config
                     self.log(
-                        'process_instruction - set speeds to {0} {1}'.format(speeds[0], speeds[1]))
+                        'process_instruction - set speeds to {} {}'.format(speeds[0], speeds[1]))
                     self.config['_mower.motion.set_rotation_speed_percent'] = int(speeds[0])
                     self.config['_mower.motion.set_drive_speed_percent'] = int(speeds[1])
                 elif name == 'cancel-drive':
@@ -2514,23 +2547,23 @@ class ProxymowServer(object):
                     if ip_addr is not None and port is not None:
                         mower_cmd = '>sweep(0, 0, 0)'
                         self.log(
-                            'process_instruction - Cancel mower cmd - {0}'.format(mower_cmd))
+                            'process_instruction - Cancel mower cmd - {}'.format(mower_cmd))
                         resp = self.despatcher.despatch(mower_cmd) if self.despatcher is not None else None
                         self.log(
-                            'process_instruction - Cancel mower Response {0}'.format(resp))
+                            'process_instruction - Cancel mower Response {}'.format(resp))
                     # temporarily disable logging
                     contour_logger = logging.getLogger('contours')
                     contour_logger.setLevel(logging.WARNING)
                     excursion_logger = logging.getLogger('excursion')
                     excursion_logger.setLevel(logging.WARNING)
                 elif name == 'reset':
-                    if (self.config['mower.type'] is not None and 
+                    if (self.config['mower.type'] is not None and
                         not self.config['mower.type'].startswith('physical')):
                         # virtual and hybrids can have position reset
                         # mid-lawn
                         self.shared.set(
-                            self.config['arena.width_m'] / 2,
-                            self.config['arena.length_m'] / 2,
+                            8 * self.config['arena.width_m'] / 16,
+                            8 * self.config['arena.length_m'] / 16,
                             0,
                             self.config['mower.axle_track_m'],
                             self.config['mower.velocity_full_speed_mps']
@@ -2547,25 +2580,23 @@ class ProxymowServer(object):
                     # reset viewport
                     self.viewport = Viewport()  # Null Viewport
                     self.snapshot_buffer.clear()
-                    
+
                     # clear kite-tail trace
                     self.prev_trace_locations.clear()
-                    self.fence_mask_display_array = np.asarray(
-                        self.fence_mask_display_img, bool)
-                    
+
                     # reset scanner stats
                     self.scanner.reset_stats()
                     if self.despatcher is not None:
                         self.despatcher.reset_stats()
-                        
+
                     # re-initialise Whittler class
                     Whittler.init(self.locator_logger, constants.CONTOUR_WHITTLER_SHORT_CIRCUIT)
-                    
+
                 elif name == 'plan':
                     # values will arrive as json list
                     data_values = json.loads(value)
                     self.log(
-                        'process_instruction - Plan to {0}'.format(data_values))
+                        'process_instruction - Plan to {}'.format(data_values))
                     self.itinerary = Itinerary(self.snapshot_buffer.latest_pose(), [
                                                data_values], plan_only=True, logger=self.pxm_logger)
                     self.drive['path'] = 'Plan'
@@ -2576,7 +2607,7 @@ class ProxymowServer(object):
                     # values will arrive as json list
                     data_values = json.loads(value)
                     self.log(
-                        'process_instruction - Plan and Drive to {0}'.format(data_values))
+                        'process_instruction - Plan and Drive to {}'.format(data_values))
                     self.itinerary = Itinerary(self.snapshot_buffer.latest_pose(), [
                                                data_values], plan_only=False, logger=self.pxm_logger)
                     self.drive['path'] = 'Single'
@@ -2585,13 +2616,13 @@ class ProxymowServer(object):
                 elif name == 'drive':
                     # values will arrive as csv, or json list
                     self.log(
-                        'process_instruction - Drive to value: {0}'.format(value))
+                        'process_instruction - Drive to value: {}'.format(value))
                     if value.startswith('['):
                         data_values = json.loads(value)
                     else:
                         data_values = [
                             float(v) if v != 'None' and v != '' else None for v in value.split(',')]
-                    self.log('process_instruction - Drive to {0} {1} {2}'.format(
+                    self.log('process_instruction - Drive to {} {} {}'.format(
                         data_values[0], data_values[1], data_values[2] if len(data_values) > 2 else -1))
                     self.itinerary = Itinerary(self.snapshot_buffer.latest_pose(), [
                                                data_values], logger=self.pxm_logger)
@@ -2630,11 +2661,9 @@ class ProxymowServer(object):
                             contour_logger.setLevel(self.log_level)
                         # clear kite-tail trace
                         self.prev_trace_locations.clear()
-                        self.fence_mask_display_array = np.asarray(
-                            self.fence_mask_display_img, bool)
                     else:
                         self.log(
-                            'process_instruction - Drive around route...resume from {0}'.format(value))
+                            'process_instruction - Drive around route...resume from {}'.format(value))
                         # re-enable logs, no rotation
                         excursion_logger.setLevel(self.log_level)
                         # re-enable contour log?
@@ -2670,7 +2699,7 @@ class ProxymowServer(object):
                         last_visited = int(value)
                         if last_visited < self.itinerary.num_destinations - 1:
                             self.itinerary.dest_ptr = last_visited + 1
-                    self.log('process_instruction - Drive around {0} route nodes starting at {1}'.format(
+                    self.log('process_instruction - Drive around {} route nodes starting at {}'.format(
                         route_node_count,
                         self.itinerary.dest_ptr
                         )
@@ -2689,8 +2718,7 @@ class ProxymowServer(object):
                     display_cols = self.config['optical.display_width']
                     display_rows = self.config['optical.display_height']
                     strength = self.config['optical.undistort_strength']
-                    zoom = self.config['optical.undistort_zoom']
-                    cache_key = 'calib'
+                    uzoom = self.config['optical.undistort_zoom']
                     self.log('pxm calib camera view')
                     self.log('pxm calib placing request on queue...')
                     self.camera_request_queue.put(cam_settings)
@@ -2703,12 +2731,11 @@ class ProxymowServer(object):
                         display_cols,
                         display_rows,
                         strength=strength,
-                        zoom=zoom
+                        zoom=uzoom
                     )
 
                     out_arr = self.undistort_mapper.transform_image(img_arr)
                     img = Image.fromarray(out_arr)
-                    self.calib_image_array_cache[cache_key] = out_arr
 
                     # save calibration image
                     img.save(self.calib_img_name.format(
@@ -2720,27 +2747,27 @@ class ProxymowServer(object):
                     if ip_addr is not None and port is not None:
                         mower_cmd = '' + value
                         self.log(
-                            'process_instruction - Direct Drive {0}'.format(mower_cmd))
+                            'process_instruction - Direct Drive {}'.format(mower_cmd))
                         resp = self.despatcher.despatch(mower_cmd) if self.despatcher is not None else None
                         self.log(
-                            'process_instruction - Direct Drive {0}:{1} Response {2}'.format(ip_addr, port, resp))
+                            'process_instruction - Direct Drive {}:{} Response {}'.format(ip_addr, port, resp))
                     else:
                         self.log(
                             'unable to process direct drive instruction - No ip_addr:port')
                 elif name == 'enrol-hotspot':
                     hotspot_name = self.config['hotspot.name']
                     self.log(
-                        'process_instruction - Attempting to Enrol in Hotspot {0}...'.format(hotspot_name))
+                        'process_instruction - Attempting to Enrol in Hotspot {}...'.format(hotspot_name))
                     ip_addr = self.config['mower.ip'] if 'mower.ip' in self.config else None
                     port = self.config['mower.port'] if 'mower.port' in self.config else None
                     if ip_addr is not None and port is not None:
-                        mower_cmd = 'set_priority_essid({0})'.format(
+                        mower_cmd = 'set_priority_essid({})'.format(
                             hotspot_name)
                         self.log(
-                            'process_instruction mower cmd - {0}'.format(mower_cmd))
+                            'process_instruction mower cmd - {}'.format(mower_cmd))
                         resp = self.despatcher.despatch(mower_cmd) if self.despatcher is not None else None
                         self.log(
-                            'process_instruction - Enrol in Hotspot {0}:{1} Response {2}'.format(ip_addr, port, resp))
+                            'process_instruction - Enrol in Hotspot {}:{} Response {}'.format(ip_addr, port, resp))
                     else:
                         self.log(
                             'unable to process enrolment instruction - No ip_addr:port')
@@ -2760,7 +2787,7 @@ class ProxymowServer(object):
                     self.config.resetFence()
                 else:
                     self.log(
-                        'process_instructions - ERROR no instruction named {0}!'.format(name))
+                        'process_instructions - ERROR no instruction named {}!'.format(name))
         except (RecordNotFoundException, CollectionNotDeletableException, CollectionNotExtensibleException, CollectionNotUpdatableException, DuplicateRecordException) as e:
             raise e
         except Exception as e:
@@ -2843,24 +2870,24 @@ class ProxymowServer(object):
                 tmplt_filename = 'index.html'
             elif tmplt_route.endswith('.md'):
                 # otherwise filename is last arg
-                tmplt_filename = '{0}'.format(args[-1])
+                tmplt_filename = '{}'.format(args[-1])
                 # and route is shorter
                 tmplt_route = os.path.sep.join(args[:-1])
                 tmplt_folder_name = self.tmplt_path_name + os.path.sep + tmplt_route
             else:
                 # otherwise html filename is last arg
-                tmplt_filename = '{0}.html'.format(args[-1])
+                tmplt_filename = '{}.html'.format(args[-1])
                 # and route is shorter
                 tmplt_route = os.path.sep.join(args[:-1])
                 tmplt_folder_name = self.tmplt_path_name + os.path.sep + tmplt_route
 
-            tmplt_filepath = '{0}{1}{2}'.format(
+            tmplt_filepath = '{}{}{}'.format(
                 tmplt_folder_name, os.path.sep, tmplt_filename)
             if not os.path.isfile(tmplt_filepath):
                 tmplt_filename = tmplt_filepath
-                tmplt_filepath = '{0}'.format(os.path.sep)
+                tmplt_filepath = '{}'.format(os.path.sep)
 
-            rel_tmplt_filepath = '{0}{1}{2}'.format(
+            rel_tmplt_filepath = '{}{}{}'.format(
                 tmplt_route, os.path.sep, tmplt_filename).replace(os.path.sep, '/')
             tmplt_names = tmplt_utils.get_included_templates(
                 self.env, rel_tmplt_filepath)
@@ -3008,7 +3035,7 @@ class ProxymowServer(object):
             )
             if len(selected_snapshots) > 0:
                 locate_snapshot = selected_snapshots[-1]
-                self.log_debug('metadata_json: selected requested snapshot: {0}'.format(
+                self.log_debug('metadata_json: selected requested snapshot: {}'.format(
                     locate_snapshot.ssid))
             else:
                 self.log_debug('metadata_json: no snapshots available')
@@ -3038,8 +3065,8 @@ class ProxymowServer(object):
                     if total_stat_count == 0:
                         quality = 0
                     else:
-                        quality = total_success_count * 100 / total_stat_count 
-                    meta_dict['Telemetry']['comms_quality'] = quality 
+                        quality = total_success_count * 100 / total_stat_count
+                    meta_dict['Telemetry']['comms_quality'] = quality
             # convert to json
             resp = json.dumps(meta_dict)
 
@@ -3088,7 +3115,7 @@ class ProxymowServer(object):
                            str(ex) + ' on line ' + str(err_line))
 
         return resp.encode('utf8')
-    
+
     @cherrypy.expose
     def contours_json(self, ssid=-1, **_kwargs):
 
@@ -3098,15 +3125,15 @@ class ProxymowServer(object):
             ss_index = int(ssid)
             if ss_index in self.snapshot_buffer:
                 locate_snapshot = self.snapshot_buffer[ss_index]
-                
+
                 # render table
                 max_row_count = constants.CONTOUR_TABLE_MAX_ROWS
-                
+
                 if (locate_snapshot is not None and
                     '_whittler' in vars(locate_snapshot) and
                     locate_snapshot._whittler is not None):
                         rendered_contours = locate_snapshot._whittler.render(ss_index)
-                        
+
                 # convert to json
                 resp = json.dumps(rendered_contours[:max_row_count]).replace("NaN", "null").replace(
                     "-Infinity", "null").replace("Infinity", "null")
@@ -3147,10 +3174,10 @@ class ProxymowServer(object):
                     cur_ssid = [
                         t for t in locate_snapshot._terms if t.name == 'ssid'][0].result
                     if cur_ssid != int(ssid):
-                        self.log_debug('strategy_json ssid mismatch snapshot ssid: {0} != requested ssid: {1}\n{2}'.format(
+                        self.log_debug('strategy_json ssid mismatch snapshot ssid: {} != requested ssid: {}\n{}'.format(
                             cur_ssid, ssid, str(self.snapshot_buffer)))
                     else:
-                        self.log_debug('strategy_json ssid match snapshot ssid: {0} == requested ssid: {1}\n{2}\n\n{3}'.format(
+                        self.log_debug('strategy_json ssid match snapshot ssid: {} == requested ssid: {}\n{}\n\n{}'.format(
                             cur_ssid,
                             ssid,
                             str(list(self.snapshot_buffer)),
@@ -3172,7 +3199,7 @@ class ProxymowServer(object):
                 resp = json.dumps(tri_list)
             except Exception as ex3:
                 self.log_error(
-                    'Error in strategy_json converting terms and rules to json: ' + str(ex3))
+                    'Error in strategy_json converting terms and rules to json: ' + str(ex3) + ' ' + str(tri_list))
 
             cherrypy.response.headers['Content-Type'] = 'application/json'
 
@@ -3204,8 +3231,7 @@ class ProxymowServer(object):
             log = logging.getLogger(logname)
             filepath = log.handlers[0].baseFilename
             f = open(filepath, "r")
-            logtext = utilities.tail(f, lines=32)
-            pass
+            logtext = ut.tail(f, lines=32)
         except Exception as ex:
             err_line = sys.exc_info()[-1].tb_lineno
             self.log_error('Error in log_view: ' + str(ex) +
@@ -3218,6 +3244,7 @@ class ProxymowServer(object):
     @cherrypy.expose
     def arena_img(self, ssid=-1, **_kwargs):
         arena_stream = None
+        timesheet = Timesheet('Arena Image')
         mime_type = 'jpeg'
 
         try:
@@ -3261,16 +3288,16 @@ class ProxymowServer(object):
                 locate_snapshot = None
                 cherrypy.response.status = '204'  # No Content Warning
 
-            if locate_snapshot is not None and locate_snapshot._fence_masked_img_arr is not None:
+            # if locate_snapshot is not None and locate_snapshot._fence_masked_img_arr is not None:
+            if locate_snapshot is not None and locate_snapshot._source_img is not None:
                 cur_ssid = locate_snapshot.ssid
                 if cur_ssid != int(ssid):
                     self.log_debug(
-                        'arena_img ssid mismatch snapshot ssid: {0} != requested ssid: {1}'.format(cur_ssid, ssid))
+                        'arena_img ssid mismatch snapshot ssid: {} != requested ssid: {}'.format(cur_ssid, ssid))
                 else:
                     self.log_debug('arena_img ssid match')
 
-                img_arr = locate_snapshot._fence_masked_img_arr.astype(
-                    np.uint8)
+                img_arr = np.asarray(locate_snapshot._source_img).astype(np.uint8)
                 ssid = locate_snapshot.ssid
                 if img_arr.ndim == 3:
                     rows, cols, _chans = img_arr.shape
@@ -3282,9 +3309,10 @@ class ProxymowServer(object):
                         'arena_img, about to transform camera gray image to world arena image...')
 
                 top_arr = self.undistort_unwarp_mapper.transform_image(img_arr)
+                timesheet.add('image transformed')
 
                 # check array shapes
-                self.log('arena_img, image array {0} top array {1}'.format(
+                self.log('arena_img, image array {} top array {}'.format(
                     img_arr.shape, top_arr.shape))
 
                 # should be able to release img_arr here...
@@ -3299,6 +3327,7 @@ class ProxymowServer(object):
                 top_img_grey = Image.fromarray(top_arr)
                 top_img = top_img_grey.convert('RGB')
                 top_img_draw = DashedImageDraw(top_img, 'RGBA')
+                timesheet.add('draw canvas obtained')
 
                 arrow_fill = (0, 0, 255)  # blue
                 extrap_arrow_fill = (127, 0, 0)  # red
@@ -3320,7 +3349,7 @@ class ProxymowServer(object):
                 # draw route image |over| arena image
                 route_pc = self.config['lawn.route_pc']
                 if len(route_pc) > 0:
-                    self.log('arena_img, about to convert {0} route percentages to pixels using {1} rows and {2} cols\n{3}'.format(
+                    self.log('arena_img, about to convert {} route percentages to pixels using {} rows and {} cols\n{}'.format(
                         len(route_pc), rows, cols, ['({:.0f},{:.0f})'.format(p[0], p[1]) for p in route_pc]))
                     route_px = [(int(p[0] * cols / 100), int((100 - p[1]) * rows / 100))
                                 for p in route_pc if p[0] is not None and p[1] is not None]
@@ -3333,6 +3362,7 @@ class ProxymowServer(object):
                     for p in route_px:
                         route_img_draw.ellipse(
                             (p[0] - node_rad, p[1] - node_rad, p[0] + node_rad, p[1] + node_rad), fill=route_point)
+                timesheet.add('route image created')
 
                 # draw viewport as dotted box
                 if self.viewport is None or self.viewport.isnull:
@@ -3353,29 +3383,48 @@ class ProxymowServer(object):
                         self.config['optical.height'], self.config['optical.width']] / 100
                     arena_vp_corners_m = self.data_mapper.transform_contour(
                         corners_px_arr_yx)
-
-                    # re-box, as corners may not align
-                    min_corners = np.min(arena_vp_corners_m, axis=0).clip(0)
-                    max_corners = np.max(arena_vp_corners_m, axis=0)
-                    # closed outer corners ccw from bottom left
-                    closed_outer_corners = [
-                        (min_corners[0], min_corners[1]),
-                        (max_corners[0], min_corners[1]),
-                        (max_corners[0], max_corners[1]),
-                        (min_corners[0], max_corners[1]),
-                        (min_corners[0], min_corners[1])
-                    ]
+                    # use convex hull for consistent ordering
+                    ch_obj = ConvexHull(arena_vp_corners_m)
+                    closed_outer_corners = arena_vp_corners_m[ch_obj.vertices]
 
                 # then map arena to plan
                 x_scale = img_width_px / self.config['arena.width_m']
                 y_scale = img_height_px / self.config['arena.length_m']
                 plan_vp_corners_px = [(round(corner[0] * x_scale), round(
-                    img_height_px - (corner[1] * y_scale))) for corner in closed_outer_corners]
-                poly_lines = zip(plan_vp_corners_px, plan_vp_corners_px[1:])
+                    img_height_px - (corner[1] * y_scale))) for corner in np.vstack([closed_outer_corners, closed_outer_corners[0]])]
+                vp_polygon = Polygon(plan_vp_corners_px) # for later fence incursion annotation
+                poly_lines = zip(plan_vp_corners_px, plan_vp_corners_px[1:]) # for later viewport annotation
 
+                # overlay fence polygons?
+                if constants.FENCE_MASKING_MODE > 0:
+
+                    growth_dist_px = constants.DARK_ZONE_FENCE_BUFFER_PERCENT * img_width_px / 100
+
+                    # anti-polygons
+                    plan_fence_pts_pc = [(pt.x, 100 - pt.y) for pt in self.config['lawn.fence']]
+                    plan_fence_pts_px = np.array(plan_fence_pts_pc) * [img_width_px/100, img_height_px/100]
+                    fence_polygon = Polygon(plan_fence_pts_px)
+
+                    if self.viewport is None or self.viewport.isnull:
+                        incursed_polygon = fence_polygon
+                    else:
+                        incursed_polygon = fence_polygon.union(vp_polygon)
+
+                    # draw in transparent grey
+                    draw_anti_polygons(top_img_draw, incursed_polygon, '#80808080', logger=self.locator_logger)
+
+                    # cap style square and join style mitre
+                    fence_polygon_grown_px = fence_polygon.buffer(growth_dist_px, cap_style=3, join_style=2)
+                    draw_anti_polygons(top_img_draw, fence_polygon_grown_px, 'black', logger=self.locator_logger)
+
+                # end fence overlay
+                timesheet.add('fence polygons drawn')
+
+                # annotate viewport
                 for poly_line in poly_lines:
                     top_img_draw.dashed_line(
-                        poly_line, dash=(10, 4), fill=bbox_col, width=1)
+                        poly_line, dash=(8, 6), fill=bbox_col, width=1)
+                timesheet.add('viewport drawn')
 
                 # current time
                 self.annotate(
@@ -3398,13 +3447,25 @@ class ProxymowServer(object):
                     font,
                     time_fill,
                     top_img_draw,
-                    '{0} '.format(ssid) +
+                    '{} '.format(ssid) +
                     time.strftime('%H:%M:%S', time.localtime(
                         locate_snapshot._t_zero)),
                     1  # align right
                 )
                 adr = self.config['optical.analysis_display_ratio']
-                if locate_snapshot._pose is not None:
+                if locate_snapshot._pose is None:
+                    self.annotate(
+                        img_width_px,
+                        img_height_px,
+                        padding,
+                        line_height,
+                        font,
+                        msg_fill,
+                        top_img_draw,
+                        'Robot Not Found',
+                        2  # align centre
+                    )
+                elif constants.OVERLAY_POSE:
                     tip_x_px = locate_snapshot._pose.plan.tip_x_px / adr
                     tip_y_px = locate_snapshot._pose.plan.tip_y_px / adr
                     tail_x_px = locate_snapshot._pose.plan.tail_x_px / adr
@@ -3459,18 +3520,14 @@ class ProxymowServer(object):
                     else:
                         self.cutter2_state = False
 
-                else:
-                    self.annotate(
-                        img_width_px,
-                        img_height_px,
-                        padding,
-                        line_height,
-                        font,
-                        msg_fill,
-                        top_img_draw,
-                        'Robot Not Found',
-                        2  # align centre
-                    )
+                    # draw kite tails omitting the final dot(s)
+                    for (prev_x_pc, prev_y_pc, _) in list(self.prev_trace_locations)[:-1]:
+                        x = prev_x_pc * self.config['optical.display_width'] / 100
+                        y = (1 - (prev_y_pc / 100)) * self.config['optical.display_height']
+                        rad = 2
+                        xy = (x - rad, y - rad, x + rad, y + rad)
+                        top_img_draw.ellipse(xy, fill='black')
+
 
                 latest_extrap_pose = self.snapshot_buffer.latest_extrap_pose()
                 if latest_extrap_pose is not None and constants.OVERLAY_EXTRAPOLATED_POSE:
@@ -3480,20 +3537,21 @@ class ProxymowServer(object):
                     tail_y_px = latest_extrap_pose.plan.tail_y_px / adr
                     annot_arrow(top_img_draw, tail_x_px, tail_y_px, tip_x_px,
                                 tip_y_px, extrap_arrow_fill, extrap_arrow_outline, 3)
+                timesheet.add('pose drawn')
 
                 # add graphical user-defined symbolic annotation here...
 
                 # get a list of user-defined terms that have a colour specified...
                 try:
-                    if (self.snapshot_buffer.latest() is not None and 
-                        '_terms' in vars(self.snapshot_buffer.latest()) and 
+                    if (self.snapshot_buffer.latest() is not None and
+                        '_terms' in vars(self.snapshot_buffer.latest()) and
                         self.snapshot_buffer.latest()._terms is not None):
                         terms = self.snapshot_buffer.latest()._terms
                         graphical_terms = [
                             t for t in terms if t.colour is not None and t.colour.lower() != 'none']
                         self.log('Graphical Terms: {}'.format(
                             [(gt.name, gt.result, gt.colour) for gt in graphical_terms]))
-    
+
                         # create a dictionary of shapes keyed by colour => [coordinates]
                         shape_dict = {}
                         shape_term_dict = {}
@@ -3517,10 +3575,10 @@ class ProxymowServer(object):
                                     shape_dict[col] = [res]
                                 else:
                                     shape_dict[col] = list(res)
-    
+
                         self.log(
                             'Graphical Terms shape dictionary: {}'.format(shape_dict))
-    
+
                         # find widest text
                         tmplt = '{}: {} {}'
                         widest = ''
@@ -3531,9 +3589,9 @@ class ProxymowServer(object):
                                     gterm.name, coords[0], gterm.units)
                                 if len(text) > len(widest):
                                     widest = text
-    
+
                         line_height_px = int(font.size * 0.75)
-                        ann_font = ImageFont.truetype(self.font_path, line_height_px)
+                        ann_font = ut.load_sans_serif_font(line_height_px)
                         ann_padding = 4
                         ann_line = 1  # initialise annotation line
                         for shape_colour, coords in shape_dict.items():
@@ -3579,43 +3637,43 @@ class ProxymowServer(object):
                                     y_coord = img_height_px - (coords[1] * y_scale)
                                     x_rad = coords[2] * x_scale
                                     y_rad = coords[2] * y_scale
-                                    
+
                                     # number of points proportional to circumference
                                     num_points = int(2 * np.pi * max(x_rad, y_rad))
-    
+
                                     # generate angles
                                     theta = np.linspace(0, 2 * np.pi, num_points)
-    
+
                                     # calculate x and y coordinates
                                     raw_x = x_coord + (x_rad * np.cos(theta))
                                     raw_y = y_coord + (y_rad * np.sin(theta))
-                                    
-                                    # find extremities for mandatory inclusion so polygon closure doesn't draw over surface 
+
+                                    # find extremities for mandatory inclusion so polygon closure doesn't draw over surface
                                     min_x = np.min(raw_x)
                                     max_x = np.max(raw_x)
                                     min_y = np.min(raw_y)
                                     max_y = np.max(raw_y)
-                                    
+
                                     # assemble composite condition
                                     condition = (
-                                                    (raw_x == max_x) | 
-                                                    (raw_x == min_x) | 
-                                                    (raw_y == min_y) | 
-                                                    (raw_y == max_y) | 
-                                                    ((raw_x >= 0) & (raw_x <= img_width_px) & 
+                                                    (raw_x == max_x) |
+                                                    (raw_x == min_x) |
+                                                    (raw_y == min_y) |
+                                                    (raw_y == max_y) |
+                                                    ((raw_x >= 0) & (raw_x <= img_width_px) &
                                                      (raw_y >= 0) & (raw_y < img_height_px)
                                                     )
                                                 )
                                     # apply condition to each axis
                                     x = raw_x[condition]
-                                    y = raw_y[condition]                                
-                                    
+                                    y = raw_y[condition]
+
                                     # zip to flat list for plotting
                                     flat_points = list(np.vstack((x, y)).reshape((-1,),order='F').astype(int))
-                                    
+
                                     # draw polygon
                                     top_img_draw.polygon(flat_points, fill=None, outline=shape_colour, width=1)
-                                    
+
                                 except Exception:
                                     pass
                             elif len(coords) == 4:
@@ -3632,24 +3690,30 @@ class ProxymowServer(object):
                                 except Exception:
                                     pass
                     # end graphical user-defined symbolic annotation
+
                 except Exception as gex:
                     err_line = sys.exc_info()[-1].tb_lineno
                     self.log_error('Error in arena_img annotation: ' + str(gex) +
                                    ' on line ' + str(err_line))
+                timesheet.add('graphical annotation drawn')
 
                 # combine images
                 img = Image.blend(top_img, route_img, 0.1)
                 buffer = io.BytesIO()
                 img.save(buffer, mime_type)
                 arena_stream = buffer.getvalue()
+                timesheet.add('images combined')
+
+            cherrypy.response.headers['Content-Type'] = "image/{}".format(
+                mime_type)
+            timesheet.add('response complete')
+            self.log_debug(timesheet)
+
 
         except Exception as ex:
             err_line = sys.exc_info()[-1].tb_lineno
             self.log_error('Error in arena_img: ' + str(ex) +
                            ' on line ' + str(err_line))
-
-        cherrypy.response.headers['Content-Type'] = "image/{0}".format(
-            mime_type)
 
         return arena_stream
 
@@ -3670,21 +3734,73 @@ class ProxymowServer(object):
                 locate_snapshot = self.snapshot_buffer.latest()
 
             if (locate_snapshot is not None and
-                '_source_img_arr' in vars(locate_snapshot) and
-                locate_snapshot._source_img_arr is not None):
+                '_source_img' in vars(locate_snapshot) and
+                locate_snapshot._source_img is not None):
 
                 img_height_px = self.config['optical.height']
                 img_width_px = self.config['optical.width']
-                img_arr = locate_snapshot._source_img_arr.astype(np.uint8)
+                img_shape = (img_height_px, img_width_px)
+                adr = self.config['optical.analysis_display_ratio']
 
-                cont_img_grey = Image.fromarray(img_arr)
-                cont_img = cont_img_grey.convert('RGB')
-                cont_img_draw = DashedImageDraw(cont_img, 'RGB')
+                cont_img = locate_snapshot._source_img.convert('RGB')
+                cont_img_draw = DashedImageDraw(cont_img, 'RGBA')
                 timesheet.add('draw canvas obtained')
+
+                # overlay fence polygons?
+                if constants.FENCE_MASKING_MODE > 0:
+                    if self.viewport is not None and not self.viewport.isnull:
+                        vp_polygon = self.viewport.as_polygon(img_shape)
+                        disp_vp_polygon = affinity.scale(
+                            vp_polygon,
+                            1/adr,
+                            1/adr,
+                            origin=(0, 0)
+                        )
+                    else:
+                        vp_polygon = None
+
+                    # anti-polygons
+                    fence_polygon = self.fencezone_polygon
+                    disp_fence_polygon = affinity.scale(
+                        fence_polygon,
+                        1/adr,
+                        1/adr,
+                        origin=(0, 0)
+                    )
+
+                    if self.viewport is None or self.viewport.isnull:
+                        incursed_polygon = disp_fence_polygon
+                    else:
+                        incursed_polygon = disp_fence_polygon.union(disp_vp_polygon)
+
+                    # draw in transparent grey
+                    draw_anti_polygons(cont_img_draw, incursed_polygon, '#80808080', logger=self.locator_logger)
+
+                    dark_polygon = self.outer_darkzone_polygon
+                    disp_dark_polygon = affinity.scale(
+                        dark_polygon,
+                        1/adr,
+                        1/adr,
+                        origin=(0, 0)
+                    )
+                    draw_anti_polygons(cont_img_draw, disp_dark_polygon, 'black', logger=self.locator_logger)
+
+                # end fence overlay
+
+                # overlay contours
+                ann_font = ut.load_sans_serif_font(16)
+                adr = self.config['optical.analysis_display_ratio']
+                overlay_contours(
+                    locate_snapshot._contours,
+                    cont_img_draw,
+                    scale=(1 / adr, 1 / adr),
+                    fill_col='orange',
+                    font=ann_font
+                )
 
                 # current time
                 img_width_px, img_height_px, padding, line_height, _margin, _left_x, font = self.get_draw_metrics(
-                    img_arr)
+                    cont_img)
 
                 self.annotate(
                     0,
@@ -3706,7 +3822,7 @@ class ProxymowServer(object):
                     font,
                     'yellow',
                     cont_img_draw,
-                    '{0} '.format(ssid) +
+                    '{} '.format(ssid) +
                     time.strftime('%H:%M:%S', time.localtime(
                         locate_snapshot._t_zero)),
                     1  # align right
@@ -3729,7 +3845,8 @@ class ProxymowServer(object):
 
                 # draw viewport as dotted box?
                 if self.viewport is not None:
-                    poly_lines = self.viewport.xyxy_polylines(img_arr.shape)
+                    # poly_lines = self.viewport.xyxy_polylines(img_arr.shape)
+                    poly_lines = self.viewport.xyxy_polylines((img_height_px, img_width_px))
                     for poly_line in poly_lines:
                         p_line = [(p[0], p[1]) for p in poly_line]
                         cont_img_draw.dashed_line(
@@ -3768,7 +3885,7 @@ class ProxymowServer(object):
             except IndexError:
                 err_image = Image.new("RGBA", (240, 360))
                 err_draw = ImageDraw.Draw(err_image)
-                err_font = ImageFont.truetype(self.font_path, 12)
+                err_font = ut.load_sans_serif_font(12)
                 err_draw.text((10, 10), "No Contours Available",
                               fill='grey', font=err_font)
                 img_stream = io.BytesIO()
@@ -3819,7 +3936,7 @@ class ProxymowServer(object):
             else:
                 err_image = Image.new("RGBA", (240, 360))
                 err_draw = ImageDraw.Draw(err_image)
-                err_font = ImageFont.truetype(self.font_path, 12)
+                err_font = ut.load_sans_serif_font(12)
                 err_draw.text((10, 10), "No Contours Available",
                               fill='black', font=err_font)
                 img_stream = io.BytesIO()
@@ -3849,7 +3966,7 @@ class ProxymowServer(object):
         log_file_path = excursion_log_handler.baseFilename
         if log_file_path is not None:
             img_buf = plot_excursion(
-                log_file_path, srid, erid, crid, arrow_length_m, logger=self.pxm_logger, annotate=False)
+                log_file_path, srid, erid, crid, arrow_length_m, logger=self.pxm_logger)
             cherrypy.response.headers['Content-Type'] = "image/jpg"
             return img_buf.getvalue()
         else:
@@ -3867,7 +3984,7 @@ class ProxymowServer(object):
             self.log_debug('tracking_img: {}x{}'.format(rows, cols))
             track_img = Image.new('RGB', (cols, rows), color='black')
             track_img_draw = ImageDraw.Draw(track_img, 'RGBA')
-    
+
             # draw route over image
             route_pc = self.config['lawn.route_pc']
             if len(route_pc) > 0:
@@ -3876,26 +3993,26 @@ class ProxymowServer(object):
                     xy = (int(pt[0] * cols / 100) - radius, int((100 - pt[1]) * rows / 100) - radius,
                           int(pt[0] * cols / 100) + radius, int((100 - pt[1]) * rows / 100) + radius)
                     track_img_draw.ellipse(xy, fill='orange')
-    
+
                 route_px = [(int(p[0] * cols / 100), int((100 - p[1]) * rows / 100))
                             for p in route_pc if p[0] is not None and p[1] is not None]
                 track_img_draw.line(route_px, fill='orange',
                                     width=10, joint='curve')
                 self.log_debug('tracking_img route: {}'.format(xy))
-    
+
             # next we add the mower pose from excursion log
             # get filename
             excursion_logger = logging.getLogger('excursion')
             excursion_log_handler = excursion_logger.handlers[0]
             excursion_log_file_path = excursion_log_handler.baseFilename
             self.log_debug('tracking_img excursion_log_file_path: {}'.format(excursion_log_file_path))
-    
+
             if excursion_log_file_path is not None:
                 with open(excursion_log_file_path, 'r') as f:
                     locations = f.readlines()
                 line_count = len(locations)
                 self.log_debug('tracking_img excursion line count: {}'.format(line_count))
-                
+
                 for line_index in range(line_count):
                     line = locations[line_index]
                     cells = line.split(",")
@@ -3912,7 +4029,7 @@ class ProxymowServer(object):
                         annot_arrow(track_img_draw, p.plan.tail_x_px, p.plan.tail_y_px,
                                          p.plan.tip_x_px, p.plan.tip_y_px, outline='blue', fill='cyan')
                         self.log_debug('tracking_img: {} ({}, {})'.format(line_index, x_m, y_m))
-    
+
                     except ValueError:
                         pass  # over headings
                     except Exception as ex0:
@@ -3958,17 +4075,17 @@ class ProxymowServer(object):
                 'pxm vision_image POST instruction processed => ' + save_feedback)
             return save_feedback
         else:
-            cam_settings['queue'] = 'vision'  # 'locate' 'snap'
+            cam_settings['queue'] = 'vision'
             cam_settings['client'] = 'vision'
-            cache_key = 'vision'
             mime_type = 'jpeg'
+
             self.log('pxm vision_img placing request on queue...')
             self.camera_request_queue.put(cam_settings)
             timesheet.add('image request submitted')
             self.log('pxm vision_img getting image from raw queue (blocks)...')
             queue_delay_start = time.time()
-            analysis_array, img_array = self.camera_vision_queue.get(timeout=30)
-            self.log('pxm vision_img getting image from raw queue (blocks)... {0:.3f}secs'.format(
+            analysis_array, disp_img = self.camera_vision_queue.get(timeout=30)
+            self.log('pxm vision_img getting image from raw queue (blocks)... {:.3f}secs'.format(
                 time.time() - queue_delay_start))
             timesheet.add('image response received')
 
@@ -3978,31 +4095,28 @@ class ProxymowServer(object):
                 sizables = len(lores_contours(analysis_array, min_pt_count=1))
                 timesheet.add('lo-res contours counted')
 
-            if img_array is not None:
+            if disp_img is not None:
 
-                raw_img = Image.fromarray(img_array)
                 buffer = io.BytesIO()
-                raw_img.save(buffer, 'JPEG')
+                disp_img.save(buffer, 'JPEG')
                 img_stream = buffer.getvalue()
-
-                self.calib_image_array_cache[cache_key] = img_array
-                timesheet.add('image cached for ???')
-
             else:
                 img_stream = None
                 timesheet.add('image error')
 
-            cherrypy.response.headers['Content-Type'] = 'image/{0}'.format(
+            cherrypy.response.headers['Content-Type'] = 'image/{}'.format(
                 mime_type)
             cherrypy.response.headers['Content-Info-Revision'] = self.camera.revision
             try:
-                cherrypy.response.headers['Content-Info-Dimensions'] = '{1}x{0}'.format(
-                    *img_array.shape)
-                cherrypy.response.headers['Content-Info-Memory'] = '{0}'.format(
+                cherrypy.response.headers['Content-Info-Dimensions'] = '{}x{}'.format(
+                    *disp_img.size)
+                cherrypy.response.headers['Content-Info-Memory'] = '{}'.format(
                     get_mem_stats())
-                cherrypy.response.headers['Content-Info-ContourCount'] = '{0}'.format(
+                cherrypy.response.headers['Content-Info-Uptime'] = '{}'.format(
+                    get_uptime_string())
+                cherrypy.response.headers['Content-Info-ContourCount'] = '{}'.format(
                     sizables)
-                cherrypy.response.headers['Content-Info-RawSensor'] = '{0}'.format(
+                cherrypy.response.headers['Content-Info-RawSensor'] = '{}'.format(
                     self.camera.picam2.camera_configuration()['raw'])
 
                 cherrypy.response.headers['Content-Info-Model'] = str(
@@ -4052,7 +4166,7 @@ class ProxymowServer(object):
         display_cols = self.config['optical.display_width']
         display_rows = self.config['optical.display_height']
         strength = self.config['optical.undistort_strength']
-        zoom = self.config['optical.undistort_zoom']
+        uzoom = self.config['optical.undistort_zoom']
         mime_type = 'jpeg'
 
         self.log('pxm calib_imgs placing request on queue...')
@@ -4065,7 +4179,7 @@ class ProxymowServer(object):
             display_cols,
             display_rows,
             strength=strength,
-            zoom=zoom
+            zoom=uzoom
         )
         undist_arr = self.undistort_mapper.transform_image(img_arr)
         undist_img = Image.fromarray(undist_arr)
@@ -4139,7 +4253,7 @@ class ProxymowServer(object):
         stack_img.save(buffer, 'JPEG')
         img_stream = buffer.getvalue()
 
-        cherrypy.response.headers['Content-Type'] = "image/{0}".format(
+        cherrypy.response.headers['Content-Type'] = "image/{}".format(
             mime_type)
         cherrypy.response.headers['Content-Info-Revision'] = self.camera.revision
         try:
@@ -4179,7 +4293,7 @@ class ProxymowServer(object):
         else:
             img_stream = None
 
-        cherrypy.response.headers['Content-Type'] = "image/{0}".format(
+        cherrypy.response.headers['Content-Type'] = "image/{}".format(
             mime_type)
         cherrypy.response.headers['Content-Info-Revision'] = self.camera.revision
         try:
@@ -4217,7 +4331,7 @@ class ProxymowServer(object):
         img_arr = self.camera_raw_queue.get(timeout=15)
         timesheet.add('image returned from raw camera queue')
         self.log('pxm raw_img mean intensity: {:.3f}'.format(np.mean(img_arr)))
-        
+
         if img_arr is not None:
             if mime_type == 'raw':
                 self.log('raw_img format: ' + mime_type)
@@ -4232,7 +4346,7 @@ class ProxymowServer(object):
                 timesheet.add('image stream created')
         else:
             img_stream = None
-        cherrypy.response.headers['Content-Type'] = "image/{0}".format(
+        cherrypy.response.headers['Content-Type'] = "image/{}".format(
             mime_type)
         cherrypy.response.headers['Content-Info-Revision'] = self.camera.revision
         try:
@@ -4284,7 +4398,7 @@ class ProxymowServer(object):
             line_height = padding + font_size + padding
             margin = 10 * img_width_px // 100
             left_x = margin - padding
-            font = ImageFont.truetype(self.font_path, font_size)
+            font = ut.load_sans_serif_font(font_size)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             msg = 'Error in get_draw_metrics: ' + \
@@ -4397,7 +4511,7 @@ class ProxymowServer(object):
             self.log('get_raw_image - starting setup...' + str(cam_settings))
 
             trace, changed = self.camera.apply_settings(cam_settings)
-            self.log('get_raw_image apply to camera changed {0} trace:\n{1}'.format(
+            self.log('get_raw_image apply to camera changed {} trace:\n{}'.format(
                 changed, trace))
 
             disp_col = cam_settings['display_colour']  # True or False
@@ -4406,10 +4520,6 @@ class ProxymowServer(object):
             lawn_width_m = self.config['lawn.width_m']
             lawn_length_m = self.config['lawn.length_m']
             border_m = self.config['lawn.border_m']
-            _arena_width_m = self.config['arena.width_m']
-            _arena_length_m = self.config['arena.length_m']
-            _img_width_px = self.config['optical.width']
-            _img_height_px = self.config['optical.height']
             arena_matrix = self.config['calib.arena_matrix']
             img_arr = self.camera.snap(
                 'yuv' if analysis_chan == 'gray' and display_chan == 'gray' else 'rgb')
@@ -4419,7 +4529,7 @@ class ProxymowServer(object):
 
                 # decide if any overlays are needed...
                 virtual_mower = 'virtual_mower' in cam_settings and cam_settings['virtual_mower']
-                self.log('raw_image capture rgb virtual robot mode: {0}'.format(
+                self.log('raw_image capture rgb virtual robot mode: {}'.format(
                     virtual_mower is not None and virtual_mower))
                 annotate = (
                     'annotate' in cam_settings and cam_settings['annotate'])
@@ -4447,7 +4557,7 @@ class ProxymowServer(object):
                             self.overlay_virtual_noise(raw_draw)
 
                     if annotate and cam_settings['client'] == 'vision':
-                        font = ImageFont.truetype(self.font_path, 24)
+                        font = ut.load_sans_serif_font(24)
                         # fill colour will be interpreted as red in colour modes and white otherwise
                         raw_draw.text((raw_img.size[0] / 2, raw_img.size[1] / 2), time.strftime(
                             '%H:%M:%S.') + str(datetime.datetime.now().microsecond), fill=0, font=font)
@@ -4456,7 +4566,7 @@ class ProxymowServer(object):
                         self.log('get_raw_image - starting grid...')
                         if cam_settings['client'] == 'fence':
                             # display resolution
-                            cam_settings['resolution'] = '{0}x{1}'.format(
+                            cam_settings['resolution'] = '{}x{}'.format(
                                 display_width, display_height)
                             self.draw_grid(
                                 cam_settings,
@@ -4495,7 +4605,24 @@ class ProxymowServer(object):
 
         return img_arr
 
-    def overlay_virtual_mower(self, raw_img):
+
+    def trap_polygon_from_pose(self, p):
+        trunc_px_lst = [
+            p.cam.tp12_x_px, p.cam.tp12_y_px,
+            p.cam.m12_x_px, p.cam.m12_y_px,
+            p.cam.tp21_x_px, p.cam.tp21_y_px,
+            p.cam.tp23_x_px, p.cam.tp23_y_px,
+            p.cam.m23_x_px, p.cam.m23_y_px,
+            p.cam.tp32_x_px, p.cam.tp32_y_px,
+            p.cam.tp34_x_px, p.cam.tp34_y_px,
+            p.cam.m34_x_px, p.cam.m34_y_px,
+            p.cam.tp43_x_px, p.cam.tp43_y_px,
+            p.cam.tp41_x_px, p.cam.tp41_y_px,
+            p.cam.m41_x_px, p.cam.m41_y_px,
+            p.cam.tp14_x_px, p.cam.tp14_y_px]
+        return trunc_px_lst
+
+    def overlay_virtual_mower(self, rgb_draw):
         try:
             shared_pose = self.shared.get()
             if shared_pose is not None:
@@ -4507,10 +4634,11 @@ class ProxymowServer(object):
                         self.config['mower.axle_track_m'],
                         self.config['mower.velocity_full_speed_mps']
                     )
+                    shared_pose = self.shared.get() # re-read
                 mower_xm, mower_ym, mower_t_deg = shared_pose
                 self.log('virtual camera mower:{}'.format(shared_pose))
                 self.log(
-                    'virtual camera mower:{0:.0f}@({1:.2f}, {2:.2f})'.format(
+                    'virtual camera mower:{:.0f}@({:.2f}, {:.2f})'.format(
                         mower_t_deg, mower_xm, mower_ym)
                     )
 
@@ -4521,35 +4649,19 @@ class ProxymowServer(object):
             # construct temp pose
             p = poses.Pose(mower_xm, mower_ym, radians(
                 mower_t_deg), mapper=self.data_mapper)
-            self.log('virtual camera pose:{0:.0f}@({1:.2f}, {2:.2f})'.format(
+            self.log('virtual camera mower pose:{:.0f}@({:.2f}, {:.2f})'.format(
                 p.arena.t_deg, p.arena.c_x_m, p.arena.c_y_m))
 
             # normal
             target_rgb = 'white'  # 'white'
             target_body_rgb = '#444444'  # 'dark grey'
 
-            rgb_draw = DashedImageDraw(raw_img)
-
-            # draw body in near black et al if valid?
+            # draw body in near black if valid?
             if 'corners_px' in vars(p.cam):
                 body_px_lst = p.cam.corners_px
                 rgb_draw.polygon(body_px_lst, fill=target_body_rgb)
 
-                trunc_px_lst = (
-                    [
-                        p.cam.tp12_x_px, p.cam.tp12_y_px,
-                        p.cam.m12_x_px, p.cam.m12_y_px,
-                        p.cam.tp21_x_px, p.cam.tp21_y_px,
-
-                        p.cam.tp23_x_px, p.cam.tp23_y_px,
-                        p.cam.m23_x_px, p.cam.m23_y_px,
-                        p.cam.tp32_x_px, p.cam.tp32_y_px,
-
-                        p.cam.tp31_x_px, p.cam.tp31_y_px,
-                        p.cam.m31_x_px, p.cam.m31_y_px,
-                        p.cam.tp13_x_px, p.cam.tp13_y_px,
-                    ]
-                )
+                trunc_px_lst = self.trap_polygon_from_pose(p)
 
                 rgb_draw.polygon(trunc_px_lst, fill=target_rgb,
                                  outline=target_rgb)
@@ -4600,12 +4712,11 @@ class ProxymowServer(object):
                 ' on line ' + str(err_line)
             self.log_error(msg)
 
-    def fixed_shape(self, rgb_draw, _span_px, offset_centre_x_px, offset_centre_y_px, random_rotation=False):
+    def fixed_shape(self, rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px, n_sides=3, random_rotation=False):
         # draw fixed shape at fixed size
-        radius = 10
+        radius = span_px
         bounding_circle = int(offset_centre_x_px), int(
             offset_centre_y_px), radius
-        n_sides = 3
         rotation = random.randint(0, 360) if random_rotation else 0
         try:
             color = 255
@@ -4616,6 +4727,34 @@ class ProxymowServer(object):
             msg = 'overlay_virtual_noise around Drawing Error: ' + \
                 str(e0) + ' colours:' + str(color) + \
                 ' on line ' + str(err_line)
+            self.log_error(msg)
+
+    def fixed_pose(self, rgb_draw, mower_xm, mower_ym, mower_t_deg):
+        # draw fixed pose at fixed size
+        try:
+            # construct temp pose
+            p = poses.Pose(mower_xm, mower_ym, radians(
+                mower_t_deg), mapper=self.data_mapper)
+
+            # normal
+            target_rgb = 'white'  # 'white'
+            target_body_rgb = '#444444'  # 'dark grey'
+
+            # draw body in near black if valid?
+            if 'corners_px' in vars(p.cam):
+                body_px_lst = p.cam.corners_px
+                rgb_draw.polygon(body_px_lst, fill=target_body_rgb)
+
+                trunc_px_lst = self.trap_polygon_from_pose(p)
+
+                scaled_trunc_px_lst = scale_polygon(trunc_px_lst, 0.75)
+
+                rgb_draw.polygon(scaled_trunc_px_lst, fill=target_rgb,
+                                 outline=target_rgb)
+        except Exception as e:
+            err_line = sys.exc_info()[-1].tb_lineno
+            msg = 'overlay_virtual_noise fixed pose Drawing Error: ' + \
+                str(e) + ' on line ' + str(err_line)
             self.log_error(msg)
 
     def overlay_virtual_noise(self, rgb_draw):
@@ -4633,7 +4772,7 @@ class ProxymowServer(object):
                     p = poses.Pose(mower_xm, mower_ym, radians(mower_t_deg))
                 else:
                     p = poses.Pose(2, 2, 0)
-                    
+
                 span_px = np.hypot(
                     p.cam.tail_x_px - p.cam.tip_x_px, p.cam.tail_y_px - p.cam.tip_y_px)
                 x_base_offset, y_base_offset = 16 * span_px / 3, 12 * span_px / 3
@@ -4663,7 +4802,7 @@ class ProxymowServer(object):
                     self.fixed_shape(
                         rgb_draw, span_px, offset_centre_x_px, offset_centre_y_px)
                 elif mode == 4:
-                    for _n in range(0, 10):
+                    for _n in range(10):
                         offset_centre_x_px = random.randint(
                             0, self.config['optical.width'])
                         offset_centre_y_px = random.randint(
@@ -4690,6 +4829,8 @@ class ProxymowServer(object):
                             0, self.config['optical.display_height'] * 2)
                         self.random_ellipse(
                             rgb_draw, span_px * 4, offset_centre_x_px, offset_centre_y_px)
+                elif mode == 7:
+                    self.fixed_pose(rgb_draw, 5.15, 2.25, 135)
             if constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0:
                 width_px = self.config['optical.width'] - 1
                 height_px = self.config['optical.height'] - 1
@@ -4719,11 +4860,10 @@ class ProxymowServer(object):
         capped_display_img = None
 
         try:
-
             self.log('get_chan_arrays - starting setup...' + str(cam_settings))
             trace, changed = self.camera.apply_settings(cam_settings)
             timesheet.add('settings applied to camera')
-            self.log('get_chan_arrays apply to camera changed {0} trace:\n{1}'.format(
+            self.log('get_chan_arrays apply to camera changed {} trace:\n{}'.format(
                 changed, trace))
 
             disp_col = cam_settings['display_colour']  # True or False
@@ -4734,7 +4874,7 @@ class ProxymowServer(object):
             if self.debug:
                 if delay_secs > 0:
                     self.log_warning(
-                        'get_chan_arrays wait for camera - slept for {0} seconds'.format(delay_secs))
+                        'get_chan_arrays wait for camera - slept for {} seconds'.format(delay_secs))
                 else:
                     self.log_debug(
                         'get_chan_arrays wait for camera not required')
@@ -4742,44 +4882,49 @@ class ProxymowServer(object):
             img_arr = self.camera.snap(
                 'yuv' if display_chan == 'gray' else 'rgb')
             timesheet.add('camera snap complete')
-            
+
             if img_arr is None:
                 self.log('get_chan_arrays capture empty', incl_mem_stats=True)
             else:
                 self.log('get_chan_arrays capture complete, array shape: ' +
-                         str(img_arr.shape), incl_mem_stats=True)
-    
+                         str(img_arr.shape), incl_mem_stats=False)
+
                 # decide if any overlays are needed...
                 virtual_mower = 'virtual_mower' in cam_settings and cam_settings['virtual_mower']
                 virtual_noise = constants.VIRTUAL_NOISE > 0 or constants.VIRTUAL_OBSTACLE_LINE_WIDTH > 0
-                self.log('get_chan_arrays capture rgb virtual robot mode: {0}'.format(
+                self.log('get_chan_arrays capture rgb virtual robot mode: {}'.format(
                     virtual_mower is not None and virtual_mower))
                 annotate = (
                     'annotate' in cam_settings and cam_settings['annotate'])
                 overlaying = (virtual_mower or virtual_noise or annotate)
-    
-                rgb_img = Image.fromarray(img_arr)
+
+                if display_chan == 'col':
+                    img_arr_dims = img_arr.shape[0:2][::-1]
+                    rgb_img = Image.frombuffer("RGB", img_arr_dims, img_arr, "raw", "RGB", 0, 1)
+                elif display_chan == 'gray':
+                    rgb_img = Image.frombuffer("L", img_arr.shape[::-1], img_arr, "raw", "L", 0, 1)
+                    rgb_img.readonly = False  # Forces Pillow to mutate the actual NumPy memory buffer
+
                 self.log(
                     'get_chan_arrays rgb capture complete, array size: ' + str(img_arr.shape))
-    
+
                 if overlaying:
-    
+
+                    ovl_draw = ImageDraw.Draw(rgb_img)
+
                     if virtual_mower:
-                        self.overlay_virtual_mower(rgb_img)
-    
-                    if display_chan == 'col':
-                        ovl_draw = ImageDraw.Draw(rgb_img, 'RGB')
-                    elif display_chan == 'gray':
-                        ovl_draw = ImageDraw.Draw(rgb_img)
-    
+                        self.overlay_virtual_mower(ovl_draw)
+
                     if virtual_noise:
                         self.overlay_virtual_noise(ovl_draw)
-    
+
                     # overlaid image back to array
-                    img_arr = np.array(rgb_img)
-    
+                    # RGB images need this - don't know why...
+                    if display_chan == 'col':
+                        img_arr = np.array(rgb_img)
+
                     timesheet.add('overlay complete')
-    
+
                 if display_chan == 'gray':
                     self.log(
                         'get_chan_arrays using single grayscale image for both channels')
@@ -4790,7 +4935,7 @@ class ProxymowServer(object):
                     analysis_chan_array = np.array(
                         Image.fromarray(img_arr).convert('L'))
                     disp_chan_array = img_arr
-    
+
                 grid_ovl_img = Image.fromarray(disp_chan_array)
                 if grid:
                     timesheet.add('grid image from array')
@@ -4800,7 +4945,7 @@ class ProxymowServer(object):
                     lawn_length_m = self.config['lawn.length_m']
                     border_m = self.config['lawn.border_m']
                     arena_matrix = self.config['calib.arena_matrix']
-    
+
                     if cam_settings['client'] == 'vision':
                         self.draw_grid(
                             cam_settings,
@@ -4813,7 +4958,7 @@ class ProxymowServer(object):
                             data_mapper=self.grid_data_mapper,
                             just_periphery=True
                         )
-                    elif cam_settings['client'] == 'locate':
+                    elif cam_settings['client'] == 'locate' or cam_settings['client'] != 'calib':
                         self.draw_grid(
                             cam_settings,
                             lawn_width_m,
@@ -4825,19 +4970,7 @@ class ProxymowServer(object):
                             data_mapper=self.data_mapper,
                             just_periphery=False
                         )
-                    elif cam_settings['client'] != 'calib':
-                        self.draw_grid(
-                            cam_settings,
-                            lawn_width_m,
-                            lawn_length_m,
-                            border_m,
-                            arena_matrix,
-                            grid_ovl_draw,
-                            timesheet=timesheet,
-                            data_mapper=self.data_mapper,
-                            just_periphery=False
-                        )
-    
+
                     timesheet.add('grid drawn')
 
                 # down-size display image if necessary
@@ -4848,11 +4981,11 @@ class ProxymowServer(object):
                         (display_width, display_height), resample=Image.Resampling.LANCZOS)
                 else:
                     capped_display_img = grid_ovl_img
-                    
+
                 # apply digital shadow?
                 delta_intensity = constants.DIGITAL_SHADOW_DELTA_INTENSITY
                 if delta_intensity > 0:
-                    
+
                     # display image
                     cid_arr = np.array(capped_display_img, dtype="int32")
                     cid_halves = np.split(cid_arr, 2)
@@ -4860,13 +4993,13 @@ class ProxymowServer(object):
                     cid = np.concatenate(cid_halves)
                     cid2 = np.clip(cid, 0, 255)
                     capped_display_img = Image.fromarray(cid2.astype(np.uint8))
-                    
+
                     # analysis image
                     aca_halves = np.split(analysis_chan_array.astype(np.int32), 2)
                     aca_halves[1] -= delta_intensity
                     aca = np.concatenate(aca_halves)
                     aca2 = np.clip(aca, 0, 255)
-                    analysis_chan_array = np.uint8(aca2)                
+                    analysis_chan_array = np.uint8(aca2)
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -4875,7 +5008,7 @@ class ProxymowServer(object):
 
         self.log_debug(str(timesheet))
 
-        return analysis_chan_array, np.asarray(capped_display_img)
+        return analysis_chan_array, capped_display_img
 
     def connect(self):
         if self.db_connection is None:
@@ -4914,12 +5047,15 @@ def error_404(status, message='', traceback='', version=''):  # @UnusedVariable
 if __name__ == '__main__':
 
     linux = (platform.system() == 'Linux')  # Windows | Linux | Darwin(mac)
+    default_port = 8082
     parser = ArgumentParser(
         prog='Proxymow-Server',
         description='Automated Mower Server',
-        epilog='start the server (python proxymow.py) then point your browser at http://{}:8081'.format(
-            socket.gethostname())
+        epilog='start the server (python proxymow.py) then point your browser at http://{}:{}'.format(
+            socket.gethostname(), default_port)
     )
+    parser.add_argument('-p', '--port', nargs='?', default=default_port, type=int,
+                        help="specify a port to listen on (the default is {})".format(default_port))
     parser.add_argument('-d', '--debug', action='store_true',
                         help="enhanced logging (recommended)")
     parser.add_argument('--work_folder', nargs='?', default=None,
@@ -4946,10 +5082,26 @@ if __name__ == '__main__':
 
     cherrypy.config.update(
         {
-            'server.socket_host': '0.0.0.0', 'server.socket_port': 8082,
-            'error_page.500': error_500, 'error_page.404': error_404,
-            'log.screen': False, 'log.error_file': cherrypy_log_file_name,
-            'tools.staticdir.root': app_root_path
+            'server.socket_host': '0.0.0.0',
+            'server.socket_port': args.port,
+            'error_page.500': error_500,
+            'error_page.404': error_404,
+            'log.screen': False,
+            'log.error_file': cherrypy_log_file_name,
+            'tools.staticdir.root': app_root_path,
+
+            # 1. Throttle the concurrent threads
+            'server.thread_pool': 4,              # Match the 4 cores of the Pi Zero 2W
+            'server.thread_pool_max': -1,         # Prevents threads from scaling beyond the pool size
+
+            # 2. Strict Request Restrictions
+            'server.max_request_body_size': 1048576,  # Cap incoming payloads to 1MB (Default is 100MB)
+            'server.max_request_header_size': 8192,   # Cap headers to 8KB (Default is 512KB)
+
+            # 3. Environment optimization
+            'environment': 'production',          # Disables memory-heavy development file checkers
+            'checker.on': False,                  # Disables dev checking routines
+            'tools.log_tracebacks.on': False,     # Reduces string-building overhead in memory
         }
     )
     cherrypy.tree.mount(ProxymowServer(args), '/', cherrypy_svrconf_file_name)

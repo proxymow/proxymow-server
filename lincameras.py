@@ -10,10 +10,9 @@ from cameras import BaseCamera, USBCamera
 from forms.settings import LusbSettings, PiSettings
 import vis_lib
 from resourcesheet import Timesheet
-from utilities import await_elapsed
 
 
-class CamRes():
+class CamRes:
 
     def __init__(self, res_str='0x0'):
         res_vals = res_str.split('x')
@@ -24,7 +23,7 @@ class CamRes():
         return self.width if item == 0 else self.height
 
     def __repr__(self):
-        return '{0:.0f}x{1:.0f}'.format(self.width, self.height)
+        return '{:.0f}x{:.0f}'.format(self.width, self.height)
 
 
 class OpticalLusb(USBCamera):
@@ -54,7 +53,7 @@ class OpticalLusb(USBCamera):
             self._resolution = CamRes(value)
         elif isinstance(value, tuple):
             self._resolution = CamRes(
-                '{0:.0f}x{1:.0f}'.format(value[0], value[1]))
+                '{:.0f}x{:.0f}'.format(value[0], value[1]))
 
     @property
     def metadata(self):
@@ -83,11 +82,11 @@ class OpticalLusb(USBCamera):
                         'lusb snap {2}x{1}x{0}'.format(*img_array.shape))
                 else:
                     self.logger.debug(
-                        'lusb snap {0}x{1}'.format(*img_array.shape))
+                        'lusb snap {}x{}'.format(*img_array.shape))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            msg = ('Error in picamera II usb snap: ' + 
+            msg = ('Error in picamera II usb snap: ' +
                 str(e) + ' on line ' + str(err_line))
             if self.logger:
                 self.logger.error(msg)
@@ -115,8 +114,8 @@ class OpticalLusb(USBCamera):
             # Calculate the actual image size (accounting for rounding of the resolution)
             width_px = self.resolution.width
             height_px = self.resolution.height
-            array_width_px = width_px  # (width_px + 31) // 32 * 32
-            array_height_px = height_px  # (height_px + 15) // 16 * 16
+            array_width_px = width_px
+            array_height_px = height_px
 
             # Take a frame
             try:
@@ -174,8 +173,8 @@ class OpticalLusb(USBCamera):
 
                     if self.logger:
                         self.logger.debug(
-                            'size requested: {0},{1}'.format(width_px, height_px))
-                        self.logger.debug('array predicted: {0},{1}'.format(
+                            'size requested: {},{}'.format(width_px, height_px))
+                        self.logger.debug('array predicted: {},{}'.format(
                             array_height_px, array_width_px))
                         self.logger.debug('pc2 captured: {} {} {} {}'.format(
                             pc2_cap_arr.shape,
@@ -213,13 +212,13 @@ class OpticalLusb(USBCamera):
                     md = self.picam2.capture_metadata()
                     if self.debug and self.logger:
                         self.logger.debug(
-                            'pc2 usb capture metadata: {0}'.format(md))
+                            'pc2 usb capture metadata: {}'.format(md))
 
                     exposure_elapsed_time_ms = md['SensorTimestamp'] / 1000000
                     exposure_real_time_ms = reference_time_ms + exposure_elapsed_time_ms
                     exposure_real_time_fmtd = time.strftime(
                         '%Y-%m-%d %H:%M:%S', time.gmtime(exposure_real_time_ms / 1000))
-                    self.annotate_text = '{0}.{1:0>3}'.format(
+                    self.annotate_text = '{}.{:0>3}'.format(
                         exposure_real_time_fmtd, int((exposure_real_time_ms % 1) * 1000))
 
                     banner_height_px = height_px // 16
@@ -244,7 +243,7 @@ class OpticalLusb(USBCamera):
                 end = time.time()
                 elapsed = end - start
                 if self.debug and self.logger:
-                    self.logger.debug('Camera Snapshot time: {0:.2f} secs'.format(
+                    self.logger.debug('Camera Snapshot time: {:.2f} secs'.format(
                         elapsed))  # Time in seconds, e.g. 5.38091952400282
 
                 self.logger.debug(timesheet)
@@ -262,7 +261,7 @@ class OpticalLusb(USBCamera):
                 if not self.linux:
                     dummy_draw.text(
                         (20, 60), 'Picamera II is only available on Linux!', font_size=20)
-                dummy_draw.text((20, 110), '{0} on line {1}'.format(
+                dummy_draw.text((20, 110), '{} on line {}'.format(
                     e1, err_line), font_size=20)
                 gray_img_arr = np.array(dummy_img)
 
@@ -270,7 +269,7 @@ class OpticalLusb(USBCamera):
                 if self.debug and self.logger:
                     self.logger.debug(
                         'OpticalLusb usb capture - gray shape: {}x{}'.format(
-                          (gray_width_px, gray_height_px)
+                            gray_height_px, gray_width_px
                           )
                     )
                 # create a yuv plain grey image
@@ -278,7 +277,7 @@ class OpticalLusb(USBCamera):
                 yuv_array_size = y_array_size * 1.5
                 if self.debug and self.logger:
                     self.logger.debug(
-                        'OpticalLusb capture - yuv_array_size: {0}'.format(yuv_array_size))
+                        'OpticalLusb capture - yuv_array_size: {}'.format(yuv_array_size))
 
                 lum_img = np.zeros((array_height_px, array_width_px), np.uint8)
                 lum_img[0:gray_height_px, 0:gray_width_px] = gray_img_arr
@@ -299,7 +298,7 @@ class OpticalLusb(USBCamera):
 
             if self.debug and self.logger:
                 self.logger.debug(
-                    'OpticalLusb capture - captured in {0} seconds'.format(elapsed))
+                    'OpticalLusb capture - captured in {} seconds'.format(elapsed))
 
             return pc2_cap_arr
 
@@ -339,7 +338,7 @@ class OpticalPi(BaseCamera):
 
             # set automatic white balance
             self.awb_mode = 'off'
-            self.picam2 = picam2  # Picamera2()
+            self.picam2 = picam2
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -360,7 +359,7 @@ class OpticalPi(BaseCamera):
             self._resolution = CamRes(value)
         elif isinstance(value, tuple):
             self._resolution = CamRes(
-                '{0:.0f}x{1:.0f}'.format(value[0], value[1]))
+                '{:.0f}x{:.0f}'.format(value[0], value[1]))
 
     @property
     def metadata(self):
@@ -371,7 +370,7 @@ class OpticalPi(BaseCamera):
         result += 'resolution: ' + str(self._resolution) + '\n'
         result += 'hflip: ' + str(self.hflip) + '\n'
         result += 'vflip: ' + str(self.vflip) + '\n'
-        result += 'awb_mode: {0}'.format(self.awb_mode) + '\n'
+        result += 'awb_mode: {}'.format(self.awb_mode) + '\n'
 
         return result
 
@@ -386,16 +385,16 @@ class OpticalPi(BaseCamera):
         try:
 
             if self.debug and self.logger:
-                self.logger.debug('snap format {0}'.format(cap_fmt))
+                self.logger.debug('snap format {}'.format(cap_fmt))
 
             if self.debug and self.logger:
-                self.logger.debug('res: {0} type: {1}'.format(
+                self.logger.debug('res: {} type: {}'.format(
                     self.resolution, type(self.resolution)))
             img_width_px = self.resolution.width
             img_height_px = self.resolution.height
 
             if self.debug and self.logger:
-                self.logger.debug('snap camera resolution {0}x{1}'.format(
+                self.logger.debug('snap camera resolution {}x{}'.format(
                     img_width_px, img_height_px))
 
             if cap_fmt == 'rgb':
@@ -404,21 +403,23 @@ class OpticalPi(BaseCamera):
                 chans = 1
 
             if self.debug and self.logger:
-                self.logger.debug('snap {2}x{1}x{0}'.format(
-                    img_height_px, img_width_px, chans))
+                self.logger.debug('snap {}x{}x{}'.format(
+                    chans, img_width_px, img_height_px))
 
             # snap to array
             cam_array = self.capture(cap_fmt)
 
-            # finally crop to discard extra uninitialised pixels
-            img_array = cam_array[:img_height_px, :img_width_px]
+            if cam_array is not None:
 
-            if self.debug:
-                if chans == 3:
-                    self.logger.debug(
-                        'snap {2}x{1}x{0}'.format(*img_array.shape))
-                else:
-                    self.logger.debug('snap {0}x{1}'.format(*img_array.shape))
+                # finally crop to discard extra uninitialised pixels
+                img_array = cam_array[:img_height_px, :img_width_px]
+
+                if self.debug:
+                    if chans == 3:
+                        self.logger.debug(
+                            'snap {2}x{1}x{0}'.format(*img_array.shape))
+                    else:
+                        self.logger.debug('snap {}x{}'.format(*img_array.shape))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -428,6 +429,7 @@ class OpticalPi(BaseCamera):
                 self.logger.error(err_msg)
             else:
                 print(err_msg)
+
         return img_array
 
     def capture(self, fmt=None):
@@ -475,7 +477,8 @@ class OpticalPi(BaseCamera):
                             "format": "YUV420" if fmt == 'yuv' else "BGR888"
                         },
                         transform=trfrm,
-                        buffer_count=1  # must be one to restrict lag!
+                        buffer_count=1,  # must be one to restrict lag!
+                        display=None
                     )
 
                     # optimise config
@@ -524,7 +527,7 @@ class OpticalPi(BaseCamera):
                                     self.awb_mode)
                                 if self.debug and self.logger:
                                     self.logger.debug(
-                                        'picamera2 capture - using awb mode {0}'.format(pc2_awb_mode))
+                                        'picamera2 capture - using awb mode {}'.format(pc2_awb_mode))
                             else:
                                 pc2_awb_mode = 0  # auto
                                 if self.debug and self.logger:
@@ -539,17 +542,21 @@ class OpticalPi(BaseCamera):
                             'Starting picamera2 following change to configuration/controls')
                     self.picam2.start()
 
+                    # allow 1 to 2 seconds for Auto Exposure & White Balance to settle
+                    time.sleep(1.5)
+
                     pc2_cap_arr = self.picam2.capture_array()
+
                     if self.debug:
-                        
+
                         # Uncomment following lines for troubleshooting
                         # cap_img = Image.fromarray(pc2_cap_arr)
                         # cap_img.save(self.tmp + '/captured-{0}.jpg'.format(fmt))
 
                         if self.logger:
                             self.logger.debug(
-                                'size requested: {0},{1}'.format(width_px, height_px))
-                            self.logger.debug('pc2 captured: {0} {1} {2}'.format(
+                                'size requested: {},{}'.format(width_px, height_px))
+                            self.logger.debug('pc2 captured: {} {} {}'.format(
                                 pc2_cap_arr.shape,
                                 pc2_cap_arr[:height_px, :width_px].shape,
                                 pc2_cap_arr[:height_px,
@@ -569,7 +576,7 @@ class OpticalPi(BaseCamera):
                     exposure_real_time_ms = reference_time_ms + exposure_elapsed_time_ms
                     exposure_real_time_fmtd = time.strftime(
                         '%Y-%m-%d %H:%M:%S', time.gmtime(exposure_real_time_ms / 1000))
-                    self.annotate_text = '{0}.{1:0>3}'.format(
+                    self.annotate_text = '{}.{:0>3}'.format(
                         exposure_real_time_fmtd, int((exposure_real_time_ms % 1) * 1000))
 
                     banner_height_px = height_px // 16
@@ -598,7 +605,7 @@ class OpticalPi(BaseCamera):
                 self._elapsed = round(end - start, 3)  # seconds
                 if self.debug:
                     self.logger.debug(
-                        'OpticalPi capture - captured in {0:.2f} seconds'.format(self._elapsed))
+                        'OpticalPi capture - captured in {:.2f} seconds'.format(self._elapsed))
 
             except Exception as e1:
                 err_line = sys.exc_info()[-1].tb_lineno
@@ -613,7 +620,7 @@ class OpticalPi(BaseCamera):
                 if not self.linux:
                     dummy_draw.text(
                         (20, 60), 'Picamera is only available on Linux!', font_size=20)
-                dummy_draw.text((20, 110), '{0} on line {1}'.format(
+                dummy_draw.text((20, 110), '{} on line {}'.format(
                     e1, err_line), font_size=20)
                 gray_img_arr = np.array(dummy_img)
 
@@ -651,7 +658,7 @@ class OpticalPi(BaseCamera):
 
             if self.debug and self.logger:
                 self.logger.debug(
-                    'picamera2 capture - captured in {0} seconds'.format(elapsed))
+                    'picamera2 capture - captured in {} seconds'.format(elapsed))
 
             return pc2_cap_arr
 

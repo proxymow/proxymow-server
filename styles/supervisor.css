@@ -10,7 +10,6 @@ main {
     padding: 4px;
 }
 .figbody {
-    /* height: calc(100% - 1.5em); from figure minus (caption + padding) */
     text-align: center;
     border: 2px solid var(--pxm-highlight-grey);
 }
@@ -64,7 +63,6 @@ main {
     font-size: 0.95em;
     list-style: none;
     display: block;
-    white-space: pre;
     font-family: monospace;
 }
 #last-comp-cmds-list {
@@ -149,5 +147,4 @@ main {
         white-space: pre;
         font-family: monospace;
     }
-    
 }

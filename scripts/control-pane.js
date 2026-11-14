@@ -200,10 +200,13 @@ class ControlPane {
 
     synchronizeWidgets(stateIndex) {
         
+        const pauseWidget = getWidget(this.tpId, "PAUSE");  
         switch(stateIndex) {
             case 4:
-                // robot paused - enable step
+                // robot paused - enable step & pause
                 enableTool(this.tpId, this.btns.STEP, true);  
+                enableTool(this.tpId, this.btns.PAUSE, true);
+                pauseWidget.classList.add("depressed");
                 break;
             case 3:
                 // robot driving path - enable cancel/pause, disable yourself, drive route, mower selection, step
@@ -213,6 +216,7 @@ class ControlPane {
                 enableTool(this.tpId, this.btns.ROUTE, false);  
                 enableTool(this.tpId, this.btns.CURRENTMOWER, false);  
                 enableTool(this.tpId, this.btns.STEP, false);  
+                pauseWidget.classList.remove("depressed");
                 break;
             case 2:
                 // robot driving route - enable cancel/skip/pause, disable yourself, driveto, mower selection, step
@@ -226,6 +230,7 @@ class ControlPane {
                 enableTool(this.tpId, this.btns.DRIVE, false);  
                 enableTool(this.tpId, this.btns.CURRENTMOWER, false);  
                 enableTool(this.tpId, this.btns.STEP, false);  
+                pauseWidget.classList.remove("depressed");
                 break;
             case 13:
                 // robot idle and destination planned - enable speeds/direct drive/cutter/drive, disable pause/skip/step

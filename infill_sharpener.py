@@ -2,20 +2,18 @@ import sys
 import time
 from datetime import datetime
 import numpy as np
-from scipy.spatial import ConvexHull
 from math import degrees
-import matplotlib.patches as mpatches
 import pprint
 
 import constants
-import geom_lib
+import geom_lib as gl
 import contour_lib as cl
 from resourcesheet import Timesheet
 import utilities
 
-class Projection():
+class Projection:
     '''
-        represents the projected vertices of an isosceles target
+        represents the projected vertices of a polygonal target
         derived from infill sharpening
     '''
 
@@ -24,6 +22,8 @@ class Projection():
             ssid,
             index,
             c_raw_in,
+            num_vertices,
+            rotation_ccw_deg,
             hide_confidence=False,
             logger=None,
             debug=False
@@ -37,6 +37,8 @@ class Projection():
         self.ssid = ssid
         self.index = index
         self.c_raw_in = c_raw_in
+        self.num_vertices = num_vertices
+        self.rotation_ccw_deg = rotation_ccw_deg
         self.hide_confidence = hide_confidence
         self.logger = logger
         self.debug = debug
@@ -53,24 +55,25 @@ class Projection():
         self.conf_pc = None
         self.cx = self.cy = self.tip = self.tail = self.heading = None
         self.valid = True
+        self.mem_footprint = -1
 
         try:
             num_pts = len(c_raw_in)
             if num_pts < 3:
                 if logger:
                     logger.warning(
-                        'Invalid target contour - Incoming Points {0} < 3'.format(num_pts))
+                        'Invalid target contour - Incoming Points {} < 3'.format(num_pts))
                 raise ValueError('Invalid target contour')
             if debug and logger:
                 logger.debug(
-                    'target incoming contour point count: {0}'.format(num_pts))
+                    'target incoming contour point count: {}'.format(num_pts))
             self.timesheet.add('points counted')
 
             # incoming bounding-box centre
             self.bbcx, self.bbcy = np.min(
                 c_raw_in, axis=0) + (np.ptp(c_raw_in, axis=0) / 2)
             if debug and logger:
-                logger.debug('bounding box centre: ({0:.2f}, {1:.2f})'.format(
+                logger.debug('bounding box centre: ({:.2f}, {:.2f})'.format(
                     self.bbcx, self.bbcy))
 
             # incoming aspect
@@ -83,22 +86,17 @@ class Projection():
 
             self.aspect = min(height, width) / (max(height, width))
             if debug and logger:
-                logger.debug('aspect {0:.2f}'.format(self.aspect))
+                logger.debug('aspect {:.2f}'.format(self.aspect))
 
             # evaluate centroid
             centroid = np.mean(c_raw_in, axis=0)
             self.centroid_x, self.centroid_y = centroid
             self.timesheet.add('centroid calculated')
-            
-            # caclulate perimeter
+
+            # calculate perimeter
             self.perimeter = cl.perimeter(c_raw_in)
             self.timesheet.add('perimeter calculated')
-            
-            # point reduction?
-            # we can be quite aggressive here without much loss of accuracy
-            c_red = cl.reduce_contour_points(
-                c_raw_in, 64, auto_step=True)
-            self.timesheet.add('contour point reduction')
+
 
             # convex hull
             '''
@@ -106,30 +104,29 @@ class Projection():
                 For 2-D convex hulls, the vertices are in counterclockwise order.
                 For other dimensions, they are in input order
             '''
-            ch_obj = ConvexHull(c_red, qhull_options='QJ')
+            ch_obj = gl.ConvexHull(c_raw_in)
             num_pts = len(ch_obj.vertices)
             if debug and logger:
                 logger.debug(
-                    'convex hull vertex indices: {0}'.format(ch_obj.vertices))
-            self.c_ch = c_red[ch_obj.vertices]
+                    'convex hull vertex indices: {}'.format(ch_obj.vertices))
+            self.c_ch = c_raw_in[ch_obj.vertices]
             if debug and logger:
-                logger.debug('{0} convex hull points: {1}'.format(
+                logger.debug('{} convex hull points: {}'.format(
                     num_pts, np.round(self.c_ch, 3).tolist()))
             self.timesheet.add('convex hull')
 
             # hull area
             self.ch_area = ch_obj.volume
             if debug and logger:
-                logger.debug('ch area {0:.2f}'.format(self.ch_area))
+                logger.debug('ch area {:.2f}'.format(self.ch_area))
             self.timesheet.add('hull area calculated')
 
             # unidentified vertices
             morph_debug = debug and constants.DEBUG_LOCATE_LEVEL >= 4 # verbose
             vertices, morph_props = cl.morph_contour_to_polygon(
-                self.c_ch, 3, max_iterations=255, debug=morph_debug, logger=logger)
-            self.pyramid = '{0}|{1}|{2}|{3}'.format(
+                self.c_ch, self.num_vertices, max_iterations=255, debug=morph_debug, logger=logger)
+            self.pyramid = '{}|{}|{}'.format(
                 len(c_raw_in),
-                len(c_red),
                 len(self.c_ch),
                 len(vertices)
             )
@@ -149,123 +146,107 @@ class Projection():
             self.clusters = num_clusters if massive_cluster_count == 0 else 0
             if debug and logger:
                 logger.debug(pprint.pformat(morph_props))
-                logger.debug('cluster_info: {0}'.format(self.cluster_info))
-                logger.debug('clusters: {0}'.format(self.clusters))
+                logger.debug('cluster_info: {}'.format(self.cluster_info))
+                logger.debug('clusters: {}'.format(self.clusters))
             self.timesheet.add('morph to polygon')
 
             # derive an index for the shortest side
             vertices_1 = np.roll(vertices, 1, axis=0)
             self.side_lengths = np.linalg.norm(vertices_1 - vertices, axis=1)
             if debug and logger:
-                logger.debug('vertices: {0}'.format(vertices))
-                logger.debug('side lengths: {0}m'.format(
+                logger.debug('vertices: {}'.format(vertices))
+                logger.debug('side lengths: {}m'.format(
                     np.round(self.side_lengths, 3)))
 
             # side index
-            base_side_index = np.argmin(self.side_lengths)
-            tip_index = (base_side_index + 1) % 3
-            v2_index = (base_side_index + 2) % 3
-            v3_index = base_side_index
-            if debug and logger:
-                logger.debug('tip indices: base_side {} tip {} v2 {} v3 {}'.format(
-                    base_side_index, tip_index, v2_index, v3_index))
-            self.timesheet.add('shortest side indexing')
+            shortest_side_index = np.argmin(self.side_lengths)
 
-            # derive an index for the least infilled vertex
-            centroid = np.mean(vertices, axis=0)
-            # numpy arctan2 takes a y, x vector
-            vector_y = vertices[:, 1] - centroid[1]
-            vector_x = vertices[:, 0] - centroid[0]
-            vertex_angles_rad = np.arctan2(vector_y, vector_x)  # -pi..pi cw
-            vertex_angles_deg = np.rad2deg(vertex_angles_rad)  # -180..180 cw
-            vertex_angles_full_deg = np.mod(
-                vertex_angles_deg - 90, 360)  # 0.0..360.0 ccw
-            vertex_angles = np.rint(vertex_angles_full_deg)  # 0..360 ccw
-            if debug and logger:
-                logger.debug('vertex_angles: {0}'.format(vertex_angles))
-            try:
-                cluster_area_sums = [sum(a[1])
-                                     for a in morph_props_clusters.values()]
-                if debug and logger:
-                    logger.debug(
-                        'cluster_area_sums: {0}'.format(cluster_area_sums))
-                least_infilled_cluster_index = np.argmin(cluster_area_sums)
-                least_infilled_cluster_key = list(morph_props_clusters.keys())[
-                    least_infilled_cluster_index]
-                if debug and logger:
-                    logger.debug('least_infilled_cluster_index: {0}'.format(
-                        least_infilled_cluster_index))
-                    logger.debug('least_infilled_cluster_key: {0}'.format(
-                        least_infilled_cluster_key))
-    
-                angular_distance_from_least_infilled_to_vertex = abs(
-                    vertex_angles - least_infilled_cluster_key)
-                if debug and logger:
-                    logger.debug('angular_distance_from_least_infilled_to_vertex: {0}'.format(
-                        np.rint(angular_distance_from_least_infilled_to_vertex)))
-            except:
-                if debug and logger:
-                    logger.warning('unable to inspect - no clusters')
-                
-            # identified vertices
-            self.v1 = vertices[tip_index]
-            self.v2 = vertices[v2_index]
-            self.v3 = vertices[v3_index]
+            if self.num_vertices == 3:
+                self.v1, self.v2, self.v3 = np.roll(vertices, 2 - shortest_side_index, axis=0)
 
-            self.tip = self.v1
-            
-            # assess fit of original contour to triangle
-            self.fitness = cl.fitness(c_raw_in, [self.v1, self.v2, self.v3])
+                # universal tip
+                tip = self.v1
+
+                # hide
+                self.v4 = None
+
+            else:
+                self.v1, self.v2, self.v3, self.v4 = np.roll(vertices, -shortest_side_index, axis=0)
+
+                # universal tip
+                tip = np.mean((self.v1, self.v4), axis=0)
+
+            # universal tail
+            tail = np.mean((self.v2, self.v3), axis=0)
+
+            # reverse the target shape rotation
+            #     calculate the centre (midpoint)
+            centre = np.mean([tip, tail], axis=0)
+
+            #     shift points to the origin
+            shifted = [tip, tail] - centre
+
+            # rotate
+            rotated_shifted = gl.rotate_points(shifted, self.rotation_ccw_deg)
+
+            # shift back to the original centre
+            final_points = rotated_shifted + centre
+
+            self.tip, self.tail = final_points
+
+            if self.num_vertices == 3:
+                # assess fit of original contour to triangle
+                self.fitness = cl.fitness(c_raw_in, [self.v1, self.v2, self.v3])
+            else:
+                self.fitness = cl.fitness(c_raw_in, [self.v1, self.v2, self.v3, self.v4])
             self.timesheet.add('fitness')
-
-            # simple tail from vague vertices
-            self.tail = np.mean((self.v2, self.v3), axis=0)
 
             # publish contour not approximation
             self.contour = c_raw_in  # self.c_approx
 
             if debug and logger:
-                logger.debug('tip: ({0:.2f}, {1:.2f})'.format(
+                logger.debug('tip: ({:.2f}, {:.2f})'.format(
                     self.tip[1], self.tip[0]))
-                logger.debug('tail: ({0:.2f}, {1:.2f})'.format(
+                logger.debug('tail: ({:.2f}, {:.2f})'.format(
                     self.tail[1], self.tail[0]))
 
             # evaluate centre
-            self.cx, self.cy = np.mean([self.v1, self.tail], axis=0)
+            self.cx, self.cy = np.mean([self.tip, self.tail], axis=0)
             if debug and logger:
                 logger.debug(
-                    'simple centre: ({0:.2f}, {1:.2f})'.format(self.cx, self.cy))
+                    'simple centre: ({:.2f}, {:.2f})'.format(self.cx, self.cy))
 
             # calculate span
-            self.span = np.linalg.norm(self.tail - self.v1)
+            self.span = np.linalg.norm(self.tail - self.tip)
 
             # evaluate heading
-            self.heading = geom_lib.get_angle_between_cartesian_points(
+            self.heading = gl.get_angle_between_cartesian_points(
                 *self.tail, *self.tip)
             if debug and logger:
-                logger.debug('heading: {0:.0f} degrees'.format(
+                logger.debug('heading: {:.0f} degrees'.format(
                     degrees(self.heading)))
 
             self.timesheet.add('tip/tail/centres')
 
-            self.isoscelicity = geom_lib.triangle_isoscelicity(
-                [self.v1, self.v2, self.v3], 0, 1, 2, 0.6)
+            if self.num_vertices == 3:
+                self.isoscelicity = gl.polygon_isoscelicity(
+                    [self.v1, self.v2, self.v3])
+            else:
+                self.isoscelicity = gl.polygon_isoscelicity(
+                    [self.v1, self.v2, self.v3, self.v4])
 
             self.timesheet.add('isoscelicity')
 
-            self.area = geom_lib.triangle_area(self.v1, self.v2, self.v3)
+            self.area = gl.triangle_area(self.v1, self.v2, self.v3)
             self.solidity = self.ch_area / self.area
 
             self.timesheet.add('solidity')
 
             # calculate elapsed time
             self.elapsed_secs = time.time() - self.start_time_secs
-            
+
             # calculate memory footprint
             self.mem_footprint = utilities.getsize(self)
-            
-            # if debug and logger:
-            #     logger.debug(str(self.timesheet))            
 
         except ValueError as vex:
             self.valid = False
@@ -313,76 +294,6 @@ class Projection():
             self.elapsed_secs,
             self.mem_footprint/1e6)
         return result
-
-    def plot(self, ax):
-
-        try:
-
-            ax.plot(self.c_raw_in[:, 0], self.c_raw_in[:, 1], marker='.', markersize=6,
-                    markeredgecolor="black", markerfacecolor="pink", linestyle='None')
-            ax.plot(self.c_ch[:, 0], self.c_ch[:, 1], marker='.', markersize=10,
-                    markeredgecolor="red", markerfacecolor="none", linestyle='None')
-
-            margin_x = margin_y = 0.005
-            if self.cx is not None and self.cy is not None:
-                ax.plot(self.cx, self.cy, marker='o', markersize=8,
-                        markeredgecolor="g", markerfacecolor="None")
-                ax.plot(self.bbcx, self.bbcy, marker='o', markersize=8,
-                        markeredgecolor="b", markerfacecolor="None")
-                arx1, ary1 = geom_lib.percent_along_line(
-                    self.centroid_x, self.centroid_y, self.v1[0], self.v1[1], -50)
-                arx2, ary2 = geom_lib.percent_along_line(
-                    self.centroid_x, self.centroid_y, self.v1[0], self.v1[1], 50)
-                pose_arrow = mpatches.FancyArrowPatch(
-                    (arx1, ary1), (arx2, ary2), mutation_scale=20)
-                ax.add_patch(pose_arrow)
-                for idx in range(len(self.contour))[::4]:
-                    pt_xy = self.c_raw_in[idx]
-                    label_xy = geom_lib.percent_along_line(
-                        self.cx, self.cy, *pt_xy, 120)
-                    ax.annotate(str(
-                        idx), (label_xy[0] + margin_x, label_xy[1] + margin_y), fontsize=12, ha='center', va='center')
-
-            if self.valid:
-
-                if self.tail is not None:
-                    ax.plot(self.tail[0], self.tail[1], marker='o', markersize=16,
-                            linestyle='None', markeredgecolor="black", markerfacecolor="cyan")
-                if self.v1 is not None:
-                    ax.plot(self.v1[0], self.v1[1], marker='o', markersize=8,
-                            linestyle='None', markeredgecolor="black", markerfacecolor="red")
-                if self.v2 is not None:
-                    ax.plot(self.v2[0], self.v2[1], marker='o', markersize=8,
-                            linestyle='None', markeredgecolor="black", markerfacecolor="green")
-                if self.v3 is not None:
-                    ax.plot(self.v3[0], self.v3[1], marker='o', markersize=8,
-                            linestyle='None', markeredgecolor="black", markerfacecolor="blue")
-                if self.centroid_x is not None:
-                    ax.plot(self.centroid_x, self.centroid_y, marker='o', markersize=6,
-                            markeredgecolor="r", markerfacecolor="r", alpha=0.5)
-
-                ax.plot([self.v1[0], self.v2[0], self.v3[0], self.v1[0]], [
-                        self.v1[1], self.v2[1], self.v3[1], self.v1[1]], linestyle='dashed', color='g')
-
-            face_colour = 'white'
-            if not self.valid:
-                face_colour = 'red'
-            elif self.conf_pc < constants.SCORE_THRESHOLD:
-                face_colour = 'pink'
-            elif self.conf_pc < np.mean([100, constants.SCORE_THRESHOLD]):
-                face_colour = 'orange'
-            ax.set_title(str(self).replace('\t', '    '), wrap=False, fontsize=12,
-                         color='black' if self.valid else 'red', ha='left', loc='left')
-            ax.set_facecolor(face_colour)
-
-        except Exception as ex:
-            err_line = sys.exc_info()[-1].tb_lineno
-            msg = 'Error in target plot: ' + \
-                str(ex) + ' on line ' + str(err_line)
-            if self.logger:
-                self.logger.error(msg)
-            else:
-                print(msg)
 
     def assess(self, score_props={}):
 
@@ -497,10 +408,10 @@ class Projection():
 
             # score sums and products
             # convert score product to percentage confidence
-            self.score_product = int((self.span_score if score_props['span'][3] > 0 else 1) * 
+            self.score_product = int((self.span_score if score_props['span'][3] > 0 else 1) *
                                      (self.area_score if score_props['area'][3] > 0 else 1) *
-                                     (self.isoscelicity_score if score_props['isoscelicity'][3] > 0 else 1) * 
-                                     (self.solidity_score if score_props['solidity'][3] > 0 else 1) * 
+                                     (self.isoscelicity_score if score_props['isoscelicity'][3] > 0 else 1) *
+                                     (self.solidity_score if score_props['solidity'][3] > 0 else 1) *
                                      (self.fitness_score if score_props['fitness'][3] > 0 else 1)
                                      )
             prod_conf_pc = round(self.score_product /
@@ -583,3 +494,352 @@ class Projection():
                 score = round(bounded_scoring_proportion * weighting)
 
         return score
+
+    def plot(self, draw, to_pixel, font=None, title_offset=(5, 5)):
+        """
+        Draw the projection using Pillow.
+    
+        Parameters
+        ----------
+        draw:
+            PIL.ImageDraw.Draw object.
+    
+        to_pixel:
+            Function converting (x, y) projection coordinates into
+            (pixel_x, pixel_y).
+    
+        font:
+            Optional PIL ImageFont.
+    
+        title_offset:
+            Pixel offset used for the title.
+        """
+
+        try:
+
+            # ---------------------------------------------------------
+            # helpers
+            # ---------------------------------------------------------
+
+            def point(x, y):
+                return to_pixel(float(x), float(y))
+
+            def circle(x, y, radius_px, outline, fill=None, width=1):
+                px, py = point(x, y)
+                box = (
+                    px - radius_px,
+                    py - radius_px,
+                    px + radius_px,
+                    py + radius_px
+                )
+                draw.ellipse(
+                    box,
+                    outline=outline,
+                    fill=fill,
+                    width=width
+                )
+
+            def marker(x, y, radius_px, edge, fill):
+                circle(
+                    x,
+                    y,
+                    radius_px,
+                    outline=edge,
+                    fill=fill,
+                    width=1
+                )
+
+            def line(points, fill, width=1):
+                draw.line(
+                    [point(x, y) for x, y in points],
+                    fill=fill,
+                    width=width
+                )
+
+            def arrow(start, finish, fill, width=1, head=8):
+                """
+                Simple filled arrow equivalent to FancyArrowPatch.
+                """
+
+                x1, y1 = point(*start)
+                x2, y2 = point(*finish)
+
+                draw.line(
+                    (x1, y1, x2, y2),
+                    fill=fill,
+                    width=width
+                )
+
+                dx = x2 - x1
+                dy = y2 - y1
+
+                length = (dx * dx + dy * dy) ** 0.5
+
+                if length > 0:
+                    ux = dx / length
+                    uy = dy / length
+
+                    # perpendicular
+                    px = -uy
+                    py = ux
+
+                    # arrowhead
+                    bx = x2 - ux * head
+                    by = y2 - uy * head
+
+                    left = (
+                        bx + px * head * 0.5,
+                        by + py * head * 0.5
+                    )
+
+                    right = (
+                        bx - px * head * 0.5,
+                        by - py * head * 0.5
+                    )
+
+                    draw.polygon(
+                        [
+                            (x2, y2),
+                            left,
+                            right
+                        ],
+                        fill=fill
+                    )
+
+            # ---------------------------------------------------------
+            # incoming contour
+            # ---------------------------------------------------------
+
+            for x, y in self.c_raw_in:
+                marker(
+                    x,
+                    y,
+                    3,
+                    edge='black',
+                    fill='pink'
+                )
+
+            # ---------------------------------------------------------
+            # convex hull
+            # ---------------------------------------------------------
+
+            for x, y in self.c_ch:
+                marker(
+                    x,
+                    y,
+                    5,
+                    edge='red',
+                    fill=None
+                )
+
+            # ---------------------------------------------------------
+            # centre / pose information
+            # ---------------------------------------------------------
+
+            margin_x = 0.005
+            margin_y = 0.005
+
+            if self.cx is not None and self.cy is not None:
+
+                # original contour centroid
+                marker(
+                    self.centroid_x,
+                    self.centroid_y,
+                    4,
+                    edge='red',
+                    fill=None
+                )
+
+                # calculated centre
+                marker(
+                    self.cx,
+                    self.cy,
+                    4,
+                    edge='green',
+                    fill=None
+                )
+
+                # bounding-box centre
+                marker(
+                    self.bbcx,
+                    self.bbcy,
+                    4,
+                    edge='blue',
+                    fill=None
+                )
+
+                # pose arrow
+                arx1, ary1 = gl.percent_along_line(
+                    *self.tail, *self.tip, 25)
+                arx2, ary2 = gl.percent_along_line(
+                    *self.tip, *self.tail, 25)
+
+                arrow(
+                    (arx1, ary1),
+                    (arx2, ary2),
+                    fill='black',
+                    width=2,
+                    head=8
+                )
+
+                # contour point numbers
+                for idx in range(len(self.contour))[::4]:
+
+                    pt_xy = self.c_raw_in[idx]
+
+                    label_xy = gl.percent_along_line(
+                        self.cx,
+                        self.cy,
+                        *pt_xy,
+                        120
+                    )
+
+                    lx, ly = point(
+                        label_xy[0] + margin_x,
+                        label_xy[1] + margin_y
+                    )
+
+                    draw.text(
+                        (lx, ly),
+                        str(idx),
+                        fill='black',
+                        font=font,
+                        anchor='mm' if font else None
+                    )
+
+            # ---------------------------------------------------------
+            # identified vertices
+            # ---------------------------------------------------------
+
+            if self.valid:
+
+                if self.tip is not None:
+                    marker(
+                        self.tip[0],
+                        self.tip[1],
+                        8,
+                        edge='black',
+                        fill='cyan'
+                    )
+
+                if self.tail is not None:
+                    marker(
+                        self.tail[0],
+                        self.tail[1],
+                        8,
+                        edge='black',
+                        fill='cyan'
+                    )
+
+                if self.v1 is not None:
+                    marker(
+                        self.v1[0],
+                        self.v1[1],
+                        4,
+                        edge='black',
+                        fill='red'
+                    )
+
+                if self.v2 is not None:
+                    marker(
+                        self.v2[0],
+                        self.v2[1],
+                        4,
+                        edge='black',
+                        fill='green'
+                    )
+
+                if self.v3 is not None:
+                    marker(
+                        self.v3[0],
+                        self.v3[1],
+                        4,
+                        edge='black',
+                        fill='blue'
+                    )
+
+                if self.v4 is not None:
+                    marker(
+                        self.v4[0],
+                        self.v4[1],
+                        4,
+                        edge='black',
+                        fill='yellow'
+                    )
+
+                # centroid
+                if self.centroid_x is not None:
+
+                    marker(
+                        self.centroid_x,
+                        self.centroid_y,
+                        3,
+                        edge='red',
+                        fill='red'
+                    )
+
+                # fitted polygon
+                if self.v4 is not None:
+                    line(
+                        [
+                            self.v1,
+                            self.v2,
+                            self.v3,
+                            self.v4,
+                            self.v1
+                        ],
+                        fill='green',
+                        width=1
+                    )
+                else:
+                    line(
+                        [
+                            self.v1,
+                            self.v2,
+                            self.v3,
+                            self.v1
+                        ],
+                        fill='green',
+                        width=1
+                    )
+
+            # ---------------------------------------------------------
+            # title
+            # ---------------------------------------------------------
+
+            try:
+
+                title = str(self).replace('\t', '    ')
+
+                title_colour = (
+                    'black'
+                    if self.valid
+                    else 'red'
+                )
+
+                draw.text(
+                    title_offset,
+                    title,
+                    fill=title_colour,
+                    font=font,
+                    anchor=None
+                )
+
+            except Exception:
+                pass
+
+        except Exception as ex:
+
+            err_line = sys.exc_info()[-1].tb_lineno
+
+            msg = (
+                'Error in target plot: ' +
+                str(ex) +
+                ' on line ' +
+                str(err_line)
+            )
+
+            if self.logger:
+                self.logger.error(msg)
+            else:
+                print(msg)

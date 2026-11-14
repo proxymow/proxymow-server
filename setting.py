@@ -1,7 +1,7 @@
 import tool_pane_tool  # @UnusedImport
 
 
-class BaseSetting():
+class BaseSetting:
     def __init__(self):
         self.default = None
 
@@ -119,7 +119,7 @@ class ColorSetting(TextSetting):
 
     def get_tool(self, key, value, enab):
         return tool_pane_tool.ToolPaneString(key, self.name, self.label, self.units, self.doc, None, enab, {'type': "color"}, value, self.regex, self.msg, self.char_width)
-    
+
 class PasswordSetting(TextSetting):
     def __init__(self, label, doc, units=None, regex=None, msg=None, char_width=20, name=None):
         super().__init__(label, doc, units, regex, msg, char_width, name)

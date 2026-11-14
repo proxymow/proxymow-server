@@ -1,13 +1,15 @@
 import sys
 import numpy as np
 import re
+import time
 from skimage.measure import find_contours
+from shapely.geometry import Polygon
 
 import constants
-from utilities import get_mem_stats
+import geom_lib as gl
 
 
-class Viewport():
+class Viewport:
     '''
         represents a resolution-independent window into a larger image array
     '''
@@ -63,12 +65,38 @@ class Viewport():
         return inst
 
     @classmethod
+    def from_polygon_px(cls, polygon, shape, index=None):
+        # alternative constructor from polygon bounding box
+        top_left = np.asarray(polygon.bounds[:2][::-1])
+        bottom_right = np.asarray(polygon.bounds[-2:][::-1])
+        inst = cls.from_corners(100 * top_left / shape,
+                                100 * bottom_right / shape, index=index)
+
+        return inst
+
+    @classmethod
     def from_pose(cls, pose, shape, index=None):
         if pose is not None and pose.cam is not None and 'vertices_px' in vars(pose.cam):
             vertices_x_px = pose.cam.vertices_px[::2]
             vertices_y_px = pose.cam.vertices_px[1::2]
             left_px, top_px = min(vertices_x_px), min(vertices_y_px)
             right_px, bottom_px = max(vertices_x_px), max(vertices_y_px)
+            left_pc, top_pc = left_px * 100 / shape[1], top_px * 100 / shape[0]
+            right_pc, bottom_pc = right_px * 100 / \
+                shape[1], bottom_px * 100 / shape[0]
+            inst = cls.from_corners(
+                (top_pc, left_pc), (bottom_pc, right_pc), index=index)
+            return inst
+        else:
+            return None
+
+    @classmethod
+    def from_pose_body(cls, pose, shape, index=None):
+        if pose is not None and pose.cam is not None and 'corners_px' in vars(pose.cam):
+            corners_x_px = pose.cam.corners_px[::2]
+            corners_y_px = pose.cam.corners_px[1::2]
+            left_px, top_px = min(corners_x_px), min(corners_y_px)
+            right_px, bottom_px = max(corners_x_px), max(corners_y_px)
             left_pc, top_pc = left_px * 100 / shape[1], top_px * 100 / shape[0]
             right_pc, bottom_pc = right_px * 100 / \
                 shape[1], bottom_px * 100 / shape[0]
@@ -121,18 +149,6 @@ class Viewport():
         else:
             width = None
         return width
-
-    def xyxy_polylines(self, shape):
-        if not self.isnull:
-            ccw_closed_corner_list = [self.origin, self.bottom_left,
-                                      self.bottom_right, self.top_right, self.origin]  # y, x
-            xy_closed_corners = [
-                (c[1] * shape[1] / 100, c[0] * shape[0] / 100) for c in ccw_closed_corner_list]
-            xyxy_closed_corners = list(
-                zip(xy_closed_corners, xy_closed_corners[1:]))
-        else:
-            xyxy_closed_corners = []
-        return xyxy_closed_corners
 
     @property
     def centre(self):
@@ -199,6 +215,29 @@ class Viewport():
 
         return row_slice, col_slice
 
+    def xyxy_polylines(self, shape):
+        if not self.isnull:
+            ccw_closed_corner_list = [self.origin, self.bottom_left,
+                                      self.bottom_right, self.top_right, self.origin]  # y, x
+            xy_closed_corners = [
+                (c[1] * shape[1] / 100, c[0] * shape[0] / 100) for c in ccw_closed_corner_list]
+            xyxy_closed_corners = list(
+                zip(xy_closed_corners, xy_closed_corners[1:]))
+        else:
+            xyxy_closed_corners = []
+        return xyxy_closed_corners
+
+    def as_polygon(self, shape):
+        if not self.isnull:
+            ccw_closed_corner_list = [self.origin, self.bottom_left,
+                                      self.bottom_right, self.top_right, self.origin]  # y, x
+            xy_closed_corners = [
+                (c[1] * shape[1] / 100, c[0] * shape[0] / 100) for c in ccw_closed_corner_list]
+        else:
+            xy_closed_corners = [[], []]
+
+        return Polygon(xy_closed_corners)
+
     def slicer(self, shape):
         # a[start:stop]  # items start through stop-1
         if not self.isnull:
@@ -234,7 +273,7 @@ class Viewport():
             self.grow(height_growth, width_growth)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            print('Error in viewport scale:' + 
+            print('Error in viewport scale:' +
                   str(e) + ' on line ' + str(err_line))
 
     def grow(self, drows, dcols):
@@ -253,7 +292,7 @@ class Viewport():
                     [new_origin, new_bottom_left, new_bottom_right, new_top_right])
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            print('Error in viewport grow:' + 
+            print('Error in viewport grow:' +
                   str(e) + ' on line ' + str(err_line))
 
     def scale(self, factor):
@@ -269,7 +308,7 @@ class Viewport():
                     [new_origin, new_bottom_left, new_bottom_right, new_top_right])
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            print('Error in viewport scale:' + 
+            print('Error in viewport scale:' +
                   str(e) + ' on line ' + str(err_line))
 
     def find_contours(self, array, logger=None):
@@ -279,9 +318,8 @@ class Viewport():
         try:
             if logger is not None:
                 logger.info(
-                    'About to Find Contours - {} {}'.format(
-                        '(0, 0)' if array is None else array.shape,
-                        get_mem_stats()
+                    'About to Find Contours - {}'.format(
+                        '(0, 0)' if array is None else array.shape
                     )
                 )
 
@@ -302,19 +340,11 @@ class Viewport():
                             constants.MINIMUM_CONTOUR_THRESHOLD
                             )
                         )
-                elif self.footprint is not None and self.footprint > constants.MAXIMUM_VIEWPORT_FOOTPRINT:
-                    if logger is not None:
-                        logger.info(
-                            'Find Contours - skip as scope is too broad {:.3f}% > {:.3f}%'.format(
-                                self.footprint,
-                                constants.MAXIMUM_VIEWPORT_FOOTPRINT
-                            )
-                        )
                 else:
 
-                    # find local contours at a constant value of threshold
-                    local_contours = find_contours(array, threshold)
-    
+                    # find raw local contours at a constant value of threshold
+                    raw_local_contours = find_contours(array, threshold)
+
                     if logger is not None:
                         logger.info(
                             'Find Contours - {} {:.2f}% Max\\Range: {:.3f} Thresh: {:.3f} Whites: {} Tone: {:.6f} Num Contours: {}'.format(
@@ -324,10 +354,27 @@ class Viewport():
                                 threshold,
                                 white_pixel_count,
                                 tonal_ratio,
-                                len(local_contours)
+                                len(raw_local_contours)
                             )
                         )
-                        
+
+                    # reduce points
+                    for c_arr_raw in raw_local_contours:
+                        start_time = time.time()
+                        # approximate subdivided polygon with shapely algorithm
+                        c_arr = gl.approximate_polygon_linestring(c_arr_raw, tolerance=constants.APPROXIMATE_POLYGON_TOLERANCE)
+                        local_contours.append(c_arr)
+                        if logger:
+                            logger.info(
+                                'Contour Approximation - Threshold: {} Pre Point Count: {} Post Point Count: {} Reduction By: {:.0f}% in {:.3f}secs'.format(
+                                    constants.APPROXIMATE_POLYGON_TOLERANCE,
+                                    len(c_arr_raw),
+                                    len(c_arr),
+                                    100 * (1 - (len(c_arr) / len(c_arr_raw))),
+                                    time.time() - start_time
+                                    )
+                                )
+
                     # calculate margins
                     for c_arr in local_contours:
                         top_margin, left_margin = np.min(c_arr, axis=0)
@@ -345,7 +392,7 @@ class Viewport():
                         edginess.append(min_edginess_pc)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            print('Error in viewport find contours: ' + 
+            print('Error in viewport find contours: ' +
                   str(e) + ' on line ' + str(err_line))
             print('Error in viewport array.size:', array.shape)
 
@@ -442,7 +489,7 @@ class Viewport():
             result += ' using {:.3f}Mb'.format(sys.getsizeof(self) / 1e6)
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
-            print('Error in viewport __repr__: ' + 
+            print('Error in viewport __repr__: ' +
                   str(e) + ' on line ' + str(err_line))
             result = 'Bad Viewport'
         return result

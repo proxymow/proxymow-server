@@ -11,7 +11,7 @@ def densify(route, max_dist, logger=None, debug=False):
     try:
 
         if debug and logger is not None:
-            logger.debug('route points: {0}'.format(route))
+            logger.debug('route points: {}'.format(route))
 
         dense_route_coords = []
         starts = [(fp[0], fp[1]) for fp in route[:-1]]
@@ -22,7 +22,7 @@ def densify(route, max_dist, logger=None, debug=False):
             dist_pc = np.hypot(finish[0] - start[0], finish[1] - start[1])
             num_waypoints = ceil(dist_pc / max_dist)
             if debug and logger is not None:
-                logger.debug('{0}-{1} start: ({2:.2f},{3:.2f}) finish: ({4:.2f}, {5:.2f}) dist: {6:.2f}% num_waypoints: {7}'.format(
+                logger.debug('{}-{} start: ({:.2f},{:.2f}) finish: ({:.2f}, {:.2f}) dist: {:.2f}% num_waypoints: {}'.format(
                     lid,
                     lid + 1,
                     *start,

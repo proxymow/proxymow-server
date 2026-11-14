@@ -9,7 +9,7 @@ class Attitude(Enum):
     REV_MOW = auto()
 
 
-class Destination():
+class Destination:
     '''
         Represents a target point and the attitude towards it
     '''

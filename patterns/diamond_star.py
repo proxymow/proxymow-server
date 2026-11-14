@@ -15,10 +15,10 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
     try:
 
         if calc_rte_debug:
-            logger.debug('width_m: {0}'.format(arena_width_m))
-            logger.debug('length_m: {0}'.format(arena_length_m))
+            logger.debug('width_m: {}'.format(arena_width_m))
+            logger.debug('length_m: {}'.format(arena_length_m))
             logger.debug(
-                'fence point percentages: {0}'.format(fence_points_pc))
+                'fence point percentages: {}'.format(fence_points_pc))
 
         fence_point_count = len(fence_points_pc)
         fence_polygon_pts = []
@@ -37,7 +37,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
         centroid = geom_lib.polygon_centroid(
             [(p.x, p.y) for p in fence_points_pc])
         if calc_rte_debug:
-            logger.debug('centroid: {0}'.format(centroid))
+            logger.debug('centroid: {}'.format(centroid))
 
         # create radials over 360 degree range
         # angular increment
@@ -48,7 +48,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
         right_contacts = []
         for omega in range(0, 360, ang_inc_deg):
             if calc_rte_debug:
-                logger.debug('omega angle: {0}'.format(omega))
+                logger.debug('omega angle: {}'.format(omega))
 
             # create radial
             omega_rads = radians(omega)
@@ -57,14 +57,14 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
             radial = LineString(
                 [(centroid.x, centroid.y), (centroid.x + rx, centroid.y + ry)])
             if calc_rte_debug:
-                logger.debug('radial: {0}'.format(radial))
+                logger.debug('radial: {}'.format(radial))
 
             # find point of contact on fence that intersects with radial
             inter_line = fence_polygon.intersection(radial)
             contact = inter_line.coords[-1]
             if calc_rte_debug:
                 logger.debug(
-                    'intersection point of contact: {0}'.format(contact))
+                    'intersection point of contact: {}'.format(contact))
             contacts.append(contact)
 
             # find point of contact on inner fence that intersects with radial
@@ -72,8 +72,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
             inner_contact = inner_inter_line.coords[-1]
             if calc_rte_debug:
                 logger.debug(
-                    'inner intersection point of contact: {0}'.format(inner_contact))
-            # inner_contacts.append(inner_contact)
+                    'inner intersection point of contact: {}'.format(inner_contact))
 
             # rotate contact point cw and ccw
             ccw_line = affinity.rotate(
@@ -86,7 +85,6 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
             left_contacts.append(cw_inner_contact)
 
         # start at top
-        # route_pc.append(inner_contacts[0])
         route_pc.append(left_contacts[0])
         route_pc.append(contacts[0])
         route_pc.append(right_contacts[0])
@@ -97,10 +95,9 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
         opp_index = int((n + opp_offset - 1) % contact_count)
         for n in range(contact_count - 1):
             if calc_rte_debug:
-                logger.debug('point index: {0}'.format(n))
+                logger.debug('point index: {}'.format(n))
             if calc_rte_debug:
-                logger.debug('opposite point index:{0}'.format(opp_index))
-            # route_pc.append(inner_contacts[opp_index])
+                logger.debug('opposite point index:{}'.format(opp_index))
             route_pc.append(left_contacts[opp_index])
             route_pc.append(contacts[opp_index])
             route_pc.append(right_contacts[opp_index])
@@ -108,7 +105,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_
 
         for n, m in enumerate(route_pc):
             if calc_rte_debug:
-                logger.debug('{0} ({1:.2f}, {2:.2f})'.format(n, m[0], m[1]))
+                logger.debug('{} ({:.2f}, {:.2f})'.format(n, m[0], m[1]))
 
     except Exception as e:
         err_line = sys.exc_info()[-1].tb_lineno

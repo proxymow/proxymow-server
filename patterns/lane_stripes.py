@@ -230,8 +230,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
             err_line = sys.exc_info()[-1].tb_lineno
             if calc_rte_debug:
                 logger.debug(
-                    'exhausted space {0} on line {1}'.format(e1, err_line))
-            pass
+                    'exhausted space {} on line {}'.format(e1, err_line))
 
         # max distance between nodes 40%
         dense_route_pc = densify(route_pc, 40, logger)

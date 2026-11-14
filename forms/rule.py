@@ -26,7 +26,7 @@ class Rule(Morphable):
     pk_att_name = 'name'
 
     name = TextSetting('Rule Name', 'Name of the rule', None,
-                       '^.{6,}$', 'must have at least 6 characters', char_width=32)
+                       '^[^.]{6,}$', 'must have at least 6 alphanumeric characters', char_width=32)
     description = TextSetting(
         'Rule Description', 'Rule description', char_width=48)
     condition = ExpressionSetting(
@@ -190,11 +190,11 @@ class Rule(Morphable):
         return (
             self.scope != RuleScope.DISABLED.value and
             (
-                (self.scope == scope.value or
+                self.scope == scope.value or
                     (scope == RuleScope.ANY and self.scope in [RuleScope.STATIONARY.value, RuleScope.IN_FLIGHT.value]) or
                     (self.scope == RuleScope.ANY.value and scope in [
                      RuleScope.STATIONARY, RuleScope.IN_FLIGHT])
-                 )
+
             )
         )
 
@@ -495,9 +495,9 @@ class Rule(Morphable):
         row_attributes[hidden_col_prefix +
                        '@row_class'] = 'row-disabled' if not self.enabled else 'row-auxiliary' if self.auxiliary else ''
         row_attributes[hidden_col_prefix +
-                       '@row_title'] = '{0}'.format(self.description)
+                       '@row_title'] = '{}'.format(self.description)
 
-        xpath = "navigation_strategies/strategy[@name='{0}']/rules/rule[@name='{1}']".format(
+        xpath = "navigation_strategies/strategy[@name='{}']/rules/rule[@name='{}']".format(
             self.cur_strategy, self.name)
         klassparam = ', "AuxRule"' if self.auxiliary else ''
         action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{}", "edit"{});'.format(
@@ -514,7 +514,7 @@ class Rule(Morphable):
         dkdict[hidden_col_prefix + '@cell_style'] = 'text-align: right'
         dkdict[hidden_col_prefix +
                '@cell_class'] = 'down-arrow' if pre_obj is None else 'up-arrow' if succ_obj is None else 'up-down-arrow'
-        dkdict[hidden_col_prefix + '@cell_onclick'] = 'reposition(event, "{0}",{1},"{2}",{3},"{4}",{5})'.format(
+        dkdict[hidden_col_prefix + '@cell_onclick'] = 'reposition(event, "{}",{},"{}",{},"{}",{})'.format(
             pre_obj.name if pre_obj is not None else -1,
             pre_obj.priority if pre_obj is not None else -1,
             self.name,

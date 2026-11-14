@@ -6,8 +6,9 @@ from datatable import DataTable
 from dupe_key_dict import DupeKeyDict
 from utilities import ping_server
 from despatchers import UDPDespatcher, BLEDespatcher
+import constants
 
-class Scanner(object):
+class Scanner:
     '''
         handles background scanning for mowers
     '''
@@ -23,7 +24,7 @@ class Scanner(object):
         self.datatable = DataTable(self.col_names, self.col_dtypes)
         self.prime(self.config)
         self.last_scan = ''
-        self.bt_avail = ('blue_proxy' in vars(self.host) and 
+        self.bt_avail = ('blue_proxy' in vars(self.host) and
                          self.host.blue_proxy is not None)
 
     def prime(self, config):
@@ -52,7 +53,7 @@ class Scanner(object):
             except Exception as e:
                 err_line = sys.exc_info()[-1].tb_lineno
                 self.host.comms_logger.error('error in scanner update: {} on line: {}'.format(e, err_line))
-        
+
         is_selected = (self.host.config['current.mower'] == mower_key)
         mower_row['selected'] = is_selected
         if 'ping' not in mower_row: mower_row['ping'] = False
@@ -68,17 +69,17 @@ class Scanner(object):
                 if mower_element is None:
                     self.host.comms_logger.info('scanner removing {} mower from datatable'.format(mower_key))
                     del self.datatable[mower_key]
-    
+
             for mower_element in self.config.cfg_root.findall('.//mower'):
                 mower_key = mower_element.attrib['name']
                 # there are 2 possibilities: we have it => update, or we don't have it => insert
                 if mower_key in self.datatable:
-                    self.update(mower_element, self.datatable[mower_key]) 
+                    self.update(mower_element, self.datatable[mower_key])
                 else:
                     self.host.comms_logger.info('scanner inserting {} mower in datatable'.format(mower_key))
                     self.datatable[mower_key] = {}
                     self.update(mower_element, self.datatable[mower_key])
-                    
+
             if mode > 0:
                 # current connection?
                 mower_transport = self.host.config['mower.transport']
@@ -97,7 +98,7 @@ class Scanner(object):
                     if wrong_connection:
                         self.host.blue_proxy.disconnect()
                         self.host.comms_logger.info('scanner disconnecting...')
-                    elif self.host.despatcher.sequential_failure_count > 3:
+                    elif self.host.despatcher.sequential_failure_count > constants.BLE_SEQUENTIAL_FAILURE_LIMIT:
                         # despatches failing
                         self.host.blue_proxy.disconnect()
                         self.host.comms_logger.info('despatches failing - scanner disconnecting...')
@@ -118,13 +119,13 @@ class Scanner(object):
                             self.host.despatcher = BLEDespatcher(self.host, 10, Lock()) # timeout 10 secs, exclusive
                         except Exception as e:
                             err_line = sys.exc_info()[-1].tb_lineno
-                            self.host.comms_logger.warn('Selected mower did not connect: {} on line {}'.format(e, err_line))
+                            self.host.comms_logger.warning('Selected mower did not connect: {} on line {}'.format(e, err_line))
                     elif mower_transport == 'udp':
                         # udp and virtual mowers don't connect as such, but we need a despatcher
                         ip_addr = self.host.config['mower.ip']
                         port = self.host.config['mower.port']
                         # close existing?
-                        if (self.host.despatcher is not None and 
+                        if (self.host.despatcher is not None and
                             'sock_addr' in vars(self.host.despatcher) and
                             self.host.despatcher.sock_addr != (ip_addr, port)
                             ):
@@ -144,7 +145,7 @@ class Scanner(object):
                             # null despatcher
                             self.host.comms_logger.info('scanner nulling despatcher')
                             self.host.despatcher = None
-                            
+
                         if need_to_scan:
                             # scan for ble devices?
                             if self.bt_avail:
@@ -158,7 +159,7 @@ class Scanner(object):
                                         mower_row['advertising'] += is_advertising
                                     else:
                                         mower_row['advertising'] = 0
-                                                    
+
                             # ping loop
                             self.host.comms_logger.info('scanner pinging...')
                             cache_dict = {}
@@ -176,7 +177,7 @@ class Scanner(object):
                             self.last_scan = strftime('%H:%M:%S')
                         else:
                             self.host.comms_logger.debug('scanner no scanning needed')
-                            
+
 
                 # selected connected
                 for mower_key in self.datatable:
@@ -196,7 +197,7 @@ class Scanner(object):
             err_line = sys.exc_info()[-1].tb_lineno
             self.host.comms_logger.error('Error in scanner refresh: ' +
                            str(e) + ' on line ' + str(err_line))
-            
+
     def render(self):
         row_list = []
         try:
@@ -223,7 +224,7 @@ class Scanner(object):
 
         # conditional inclusion not permitted - a column must be populated
         row_attributes = {}
-        
+
         row_class = 'row-' + mower_row['type'].lower()
         if mower_row['selected']:
             row_class += ' row-selected'
@@ -251,7 +252,7 @@ class Scanner(object):
             else:
                 # select
                 advice_verb = 'select'
-                
+
         if advice_verb is None:
             advice = 'unable to select - no bluetooth available'
             action = None
@@ -261,8 +262,8 @@ class Scanner(object):
             prompt = "if (confirm('{}')) ".format(question)
             cmd = "sendData('PUT', 'api', 'current.mower', '{}', true);".format(
                 'None' if cancel else mower_row['name'])
-            action = prompt + cmd 
-        
+            action = prompt + cmd
+
         row_attributes[hidden_col_prefix + '@row_class'] = row_class
         row_attributes[hidden_col_prefix + '@row_title'] = advice
         row_attributes[hidden_col_prefix + '@row_ondblclick'] = action
@@ -285,32 +286,32 @@ class Scanner(object):
             dkdict[hidden_col_prefix + '@cell_class'] = None
         dkdict['Advertising'] = mower_row['advertising']
         dkdict[hidden_col_prefix + '@cell_class'] = 'cell-numeric'
-        
+
         dkdict['Connected'] = '<br />'
         if mower_row['connected']:
             dkdict[hidden_col_prefix + '@cell_class'] = 'cell-tick'
         else:
             dkdict[hidden_col_prefix + '@cell_class'] = None
-            
+
         return dkdict
-    
+
     def process(self):
         self.refresh(mode=0, need_to_scan=False)
         while True:
             need_to_scan = (
-                (self.config['current.mower'] is not None and 
-                self.config['current.mower'] != 'None') or 
+                (self.config['current.mower'] is not None and
+                self.config['current.mower'] != 'None') or
                 self.host.comms_gui_requests > 0
-            ) 
+            )
             self.refresh(mode=1, need_to_scan=need_to_scan)
             self.host.comms_gui_requests = 0 # reset
-            sleep(5)       
+            sleep(5)
 
     def reset_stats(self):
         for mower_key in self.datatable:
             mower_row = self.datatable[mower_key]
             mower_row['ping'] = False
             mower_row['advertising'] = 0
-        
+
     def __repr__(self):
         return str(self.datatable)

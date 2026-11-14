@@ -9,7 +9,7 @@ Progress = namedtuple(
     'Progress', 'completed_m completed_pc outstanding_m outstanding_pc', defaults=(-1, -1, -1, -1))
 
 
-class Itinerary(object):
+class Itinerary:
     '''
         represents a list of destinations
         navigation is focused on driving:

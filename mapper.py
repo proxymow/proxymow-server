@@ -3,10 +3,11 @@ import numpy as np
 from skimage import transform
 from scipy import interpolate
 from skimage import transform as tf
+import cv2
 import time
 
 
-class Mapper(object):
+class Mapper:
     '''
         abstract base class
     '''
@@ -102,7 +103,7 @@ class Mapper(object):
         result = coords
         pipeline = self.pipeline
         if trace:
-            msg = 'Processing coords shape {0} [{1}..{2}, {3}..{4}] through pipeline {5}'.format(
+            msg = 'Processing coords shape {} [{}..{}, {}..{}] through pipeline {}'.format(
                 coords.shape,
                 np.min(coords, axis=0)[0],
                 np.max(coords, axis=0)[0],
@@ -110,7 +111,7 @@ class Mapper(object):
                 np.max(coords, axis=0)[1],
                 pipeline
             )
-            msg += 'Coords before operations\n{0}'.format(coords)
+            msg += 'Coords before operations\n{}'.format(coords)
             if self.logger is not None:
                 self.logger.debug(msg)
             else:
@@ -128,13 +129,13 @@ class Mapper(object):
             else:
                 if operation is not None and operation.startswith('#'):
                     print(
-                        'Mapper Warning: {0} is a commented operation. Skipping...'.format(operation))
+                        'Mapper Warning: {} is a commented operation. Skipping...'.format(operation))
                 else:
                     raise Exception(
-                        'Unrecognised Pipeline Operation {0}'.format(operation))
+                        'Unrecognised Pipeline Operation {}'.format(operation))
 
             if trace:
-                msg = 'Coords after operation {0}:\n{1}'.format(
+                msg = 'Coords after operation {}:\n{}'.format(
                     operation, result)
                 if self.logger is not None:
                     self.logger.debug(msg)
@@ -243,7 +244,7 @@ class ImageMapper(Mapper):
         build_start = time.time()
         new_map = transform.warp_coords(self.get_coordinates, shape=(
             self.map_arr_rows, self.map_arr_cols), dtype=self.datatype)
-        msg = 'ImageMapper, created map, array {0} size: {1:.1f} MB [{2:.2f}, {3:.2f}, {4:.2f}, {5:.2f}] in {6:.3f} secs'.format(
+        msg = 'ImageMapper, created map, array {} size: {:.1f} MB [{:.2f}, {:.2f}, {:.2f}, {:.2f}] in {:.3f} secs'.format(
             new_map.shape,
             new_map.size * new_map.itemsize / 1e6,
             np.min(new_map[0]),
@@ -266,28 +267,49 @@ class ImageMapper(Mapper):
             out_arr = img_arr
         else:
             if img_arr.ndim == 3:
-                rows, cols, chans = img_arr.shape
-                r_arr = tf.warp(
-                    img_arr[:, :, 0], inverse_map=coord_map, output_shape=(rows, cols))
-                g_arr = tf.warp(
-                    img_arr[:, :, 1], inverse_map=coord_map, output_shape=(rows, cols))
-                b_arr = tf.warp(
-                    img_arr[:, :, 2], inverse_map=coord_map, output_shape=(rows, cols))
+                _rows, _cols, chans = img_arr.shape
+                r_arr = self.warp(
+                    img_arr[:, :, 0], inverse_map=coord_map)
+                g_arr = self.warp(
+                    img_arr[:, :, 1], inverse_map=coord_map)
+                b_arr = self.warp(
+                    img_arr[:, :, 2], inverse_map=coord_map)
                 if chans == 4:
-                    a_arr = tf.warp(
-                        img_arr[:, :, 3], inverse_map=coord_map, output_shape=(rows, cols))
+                    a_arr = self.warp(
+                        img_arr[:, :, 3], inverse_map=coord_map)
                     out_arr = np.dstack([r_arr, g_arr, b_arr, a_arr])
                 else:
                     out_arr = np.dstack([r_arr, g_arr, b_arr])
             else:
                 # grayscale
-                rows, cols = img_arr.shape
-                out_arr = tf.warp(img_arr, inverse_map=coord_map,
-                                  output_shape=(rows, cols))
+                out_arr = self.warp(img_arr, inverse_map=coord_map)
+
             if preserve_scale:
                 out_arr = out_arr * np.iinfo(img_arr.dtype).max
             if preserve_datatype:
                 out_arr = out_arr.astype(img_arr.dtype)
+        return out_arr
+    
+    def warp(self, img_arr, inverse_map):
+
+        # 1. Unpack row/col coordinates from existing map
+        map_y = inverse_map[0].astype(np.float32) # skimage row = OpenCV Y
+        map_x = inverse_map[1].astype(np.float32) # skimage col = OpenCV X
+
+        # 2. Run the ultra-low memory remap
+        # INTER_NEAREST exactly matches skimage order=0
+        output_uint8 = cv2.remap(
+            img_arr,
+            map_x,
+            map_y,
+            interpolation=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0
+        )
+
+        # 3. Match skimage's implicit order=1 behavior: Convert to float64 and scale to [0, 1]
+        out_arr = output_uint8.astype(np.float64) / 255.0
+        
         return out_arr
 
 
@@ -399,7 +421,7 @@ class DataMapper(Mapper):
                 (x_values, y_values), ygf, fill_value=-1)
 
             map_size = (self.num_samp_per_dim + (2 * self.interp_extrap)) ** 2
-            msg = 'DataMapper, created map, grid {0} size: {1:.1f} KB [{2:.2f}, {3:.2f}, {4:.2f}, {5:.2f}] in {6:.3f} secs'.format(
+            msg = 'DataMapper, created map, grid {} size: {:.1f} KB [{:.2f}, {:.2f}, {:.2f}, {:.2f}] in {:.3f} secs'.format(
                 (self.num_samp_per_dim, self.num_samp_per_dim),
                 map_size * sys.getsizeof(self.datatype.__call__()) / 1e3,
                 min(y_values),

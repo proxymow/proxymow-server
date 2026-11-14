@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import importlib.util
 import lxml.etree as ET
-from math import pi, acos
+from math import pi
 import copy
 from threading import Thread, Timer
 import numpy as np
@@ -24,7 +24,7 @@ from forms.systerm import Systerm
 from forms.point import Point
 
 
-class Config():
+class Config:
     '''
         class representing the system configuration
     '''
@@ -106,7 +106,7 @@ class Config():
                 cur_profile = None
             self.logger.debug('Config parse - current profile: ' + cur_profile)
             self.database['current.profile'] = cur_profile
-            profile_xpath = "./profiles/profile[@name='{0}']".format(
+            profile_xpath = "./profiles/profile[@name='{}']".format(
                 cur_profile)
             profile_node = self.cfg_root.find(profile_xpath)
             self.cur_profile_node = profile_node
@@ -145,10 +145,10 @@ class Config():
             rel_patt_path = 'patterns'
             abs_patt_path = (cur_script_fldr / rel_patt_path).resolve()
             self.logger.info(
-                'absolute patterns path: {0}'.format(abs_patt_path))
+                'absolute patterns path: {}'.format(abs_patt_path))
             patt_names_0 = [os.path.basename(x)[0:-3]
                             for x in abs_patt_path.glob('*.py')]
-            patt_names = [' '.join(word.title() if not word.isupper() 
+            patt_names = [' '.join(word.title() if not word.isupper()
                                    else word for word in patt_name.split(
                                        '_')) for patt_name in patt_names_0]
             patt_names.remove('Template')
@@ -157,7 +157,7 @@ class Config():
             # determine navigation strategy and mowing pattern from pairing?
             if cur_profile != self.prev_profile or cur_mower != self.prev_mower:
                 self.logger.info(
-                    'profile/mower changed - use pairings') 
+                    'profile/mower changed - use pairings')
                 pairing_xpath_tmplt = "pairings/pairing[@mower='{0}' and @profile='{1}']"
                 pairing_nodes = self.cfg_root.xpath(
                     pairing_xpath_tmplt.format(cur_mower, cur_profile))
@@ -212,7 +212,7 @@ class Config():
                             if first_strategy_node is not None:
                                 cur_strategy = first_strategy_node.attrib['name']
                                 self.logger.info(
-                                    'strategy defaulting to first: {0}'.format(cur_strategy))
+                                    'strategy defaulting to first: {}'.format(cur_strategy))
                             else:
                                 cur_strategy = None
                                 raise BaseException(
@@ -227,7 +227,7 @@ class Config():
                                 first_pattern = patt_names[0]
                                 cur_pattern = first_pattern
                                 self.logger.info(
-                                    'pattern defaulting to first: {0}'.format(cur_pattern))
+                                    'pattern defaulting to first: {}'.format(cur_pattern))
                             else:
                                 cur_pattern = None
                                 raise BaseException('No Mowing Patterns Defined')
@@ -239,7 +239,7 @@ class Config():
                         'Invalid strategy referenced in \'{}\' pairing: [{}] - defaulting to first: [{}]'.format(
                             pairing_name, cur_strategy, force_strat
                         )
-                    )                
+                    )
                     cur_strategy = force_strat
                 if cur_pattern not in patt_names:
                     force_pattern = None
@@ -247,11 +247,11 @@ class Config():
                         'Invalid pattern referenced in \'{}\' pairing: [{}] - defaulting to first: [{}]'.format(
                             pairing_name, cur_pattern, force_pattern
                         )
-                    )                
+                    )
                     cur_pattern = force_pattern
 
-                self.settings['strategy'] = cur_strategy 
-                self.settings['pattern'] = cur_pattern 
+                self.settings['strategy'] = cur_strategy
+                self.settings['pattern'] = cur_pattern
                 self.prev_profile = cur_profile
                 self.prev_mower = cur_mower
             else:
@@ -266,7 +266,7 @@ class Config():
                     self.settings['excursion'])
             else:
                 self.database['current.excursion'] = 1
-            strategy_xpath = "./navigation_strategies/strategy[@name='{0}']".format(
+            strategy_xpath = "./navigation_strategies/strategy[@name='{}']".format(
                 cur_strategy)
             strategy_node = self.cfg_root.find(strategy_xpath)
             self.cur_strategy_node = strategy_node
@@ -274,7 +274,7 @@ class Config():
             last_visited_route_node = self.settings['last_visited_route_node']
             self.database['current.last_visited_route_node'] = last_visited_route_node
 
-            mower_xpath = "./mowers/mower[@name='{0}']".format(cur_mower)
+            mower_xpath = "./mowers/mower[@name='{}']".format(cur_mower)
             mower_node = self.cfg_root.find(mower_xpath)
             self.cur_mower_node = mower_node
             if mower_node is not None:
@@ -285,7 +285,7 @@ class Config():
                 mower_ip = identity_node.attrib['ip']
                 mower_port = identity_node.attrib['port']
                 mower_type = identity_node.attrib['type']
-                self.database['mower.ip'] = mower_ip 
+                self.database['mower.ip'] = mower_ip
                 self.database['mower.port'] = int(mower_port)
                 self.database['mower.type'] = mower_type
                 if 'ble' in mower_type:
@@ -336,39 +336,95 @@ class Config():
                 body_length_m = float(dimensions_node.attrib['body_length_m'])
                 self.database['mower.body_length_m'] = body_length_m
 
-                # triangular target dimensions
-                target_width_m = float(
-                    dimensions_node.attrib['target_width_m'])
-                self.database['mower.target_width_m'] = target_width_m
-                target_length_m = float(
-                    dimensions_node.attrib['target_length_m'])
-                self.database['mower.target_length_m'] = target_length_m
+                # target dimensions
+                '''
+                    *** versions prior to 2.1.2 ***
+                    limited to triangle shapes
+                                (+)
+                                 ^
+                                 |
+                            target_length_m
+                                |
+                                v
+                    (+)---- target_width_m ----(+) target_radius_m
+                    
+                    *******************************
+                    
+                    *** version 2.1.2 and beyond ***
+                    quadrilateral collapsible to triangle
+                    
+                       (+)--target_upper_base_m--(+)
+                                 ^
+                                 |
+                            target_length_m
+                                 |
+                    |            v
+                    (+)---- target_lower_base_m ----(+) target_radius_m
+                    
+                    all rotated by target_rotation_ccw_deg
+                    
+                '''
+                if 'target_rotation_ccw_deg' in dimensions_node.attrib:
+                    target_rot_att = dimensions_node.attrib['target_rotation_ccw_deg']
+                else:
+                    target_rot_att = None
+
+                if 'target_lower_base_m' in dimensions_node.attrib:
+                    target_lower_base_att = dimensions_node.attrib['target_lower_base_m']
+                else:
+                    target_lower_base_att = None
+
+                if 'target_upper_base_m' in dimensions_node.attrib:
+                    target_upper_base_att = dimensions_node.attrib['target_upper_base_m']
+                else:
+                    target_upper_base_att = None
+
+                if 'target_width_m' in dimensions_node.attrib:
+                    target_width_att = dimensions_node.attrib['target_width_m'] # legacy
+                else:
+                    target_width_att = None
+
+                if target_lower_base_att is not None and target_upper_base_att is not None:
+                    # version 2.1.2 and beyond - quadrilateral
+                    target_lower_base_m = float(target_lower_base_att)
+                    target_upper_base_m = float(target_upper_base_att)
+
+                elif target_width_att is not None:
+                    # versions prior to 2.1.2
+                    target_width_m = float(target_width_att)
+                    # assume target_width_m => target_lower_base_m and 0 => target_upper_base_m
+                    target_lower_base_m = target_width_m
+                    target_upper_base_m = 0
+                else:
+                    # insufficient data to draw target
+                    raise Exception('Invalid Target Shape Definition')
+
+                self.database['mower.target_lower_base_m'] = target_lower_base_m
+                self.database['mower.target_upper_base_m'] = target_upper_base_m
+
+                # record the expected number of vertices
+                self.database['mower.target_num_vertices'] = 4 if target_upper_base_m > 0 else 3
+
+                if target_rot_att is not None:
+                    self.database['mower.target_rotation_ccw_deg'] = float(target_rot_att)
+                else:
+                    self.database['mower.target_rotation_ccw_deg'] = 0
+
+                target_length_att = dimensions_node.attrib['target_length_m']
+                target_length_m = float(target_length_att)
+                self.database['mower.target_length_m'] = target_length_m # all versions
+
                 target_radius_m = float(
                     dimensions_node.attrib['target_radius_m'])
-                self.database['mower.target_radius_m'] = target_radius_m
+                self.database['mower.target_radius_m'] = target_radius_m # all versions
+
                 target_offset_pc = int(
                     dimensions_node.attrib['target_offset_pc'])
                 self.database['mower.target_offset_pc'] = target_offset_pc
 
-                # calculate length of equal sides
-                leg_length_m = float(
-                    np.hypot((target_width_m / 2), target_length_m))  # isosceles
-                self.database['mower.leg_length_m'] = leg_length_m
-
                 # calculate target area m2
-                target_area_m2 = 0.5 * target_width_m * target_length_m
+                target_area_m2 = target_length_m * (target_lower_base_m + target_upper_base_m) / 2
                 self.database['mower.target_area_m2'] = target_area_m2
-
-                # target angles
-                base_angle = acos(
-                    1 - (target_width_m**2 / (2 * leg_length_m**2)))
-                vertex_angle = (pi - base_angle) / 2
-                self.database['mower.base_angle_rad'] = base_angle
-                self.database['mower.vertex_angle_rad'] = vertex_angle
-
-                # target ratio
-                target_isos_ratio = target_width_m / leg_length_m
-                self.database['mower.isos_ratio'] = target_isos_ratio
 
             else:
                 self.database['mower.dimensions.cutter1_dia_m'] = 0
@@ -379,11 +435,13 @@ class Config():
                 self.database['mower.type'] = None
                 self.database['mower.body_width_m'] = body_width_m = 0
                 self.database['mower.body_length_m'] = body_length_m = 0
-                self.database['mower.leg_length_m'] = leg_length_m = 0
                 self.database['mower.target_area_m2'] = 0
-                self.database['mower.target_width_m'] = target_width_m = 0
+                self.database['mower.target_lower_base_m'] = 0
+                self.database['mower.target_upper_base_m'] = 0
+                self.database['mower.target_num_vertices'] = 3
                 self.database['mower.target_length_m'] = target_length_m = 0
                 self.database['mower.target_radius_m'] = target_radius_m = 0
+                self.database['mower.target_rotation_ccw_deg'] = 0
                 self.database['mower.motion.set_rotation_speed_percent'] = 0
                 self.database['mower.motion.set_drive_speed_percent'] = 0
                 self.database['mower.velocity_full_speed_mps'] = 0
@@ -706,8 +764,8 @@ class Config():
             self.database['lawn.fence.metres'] = fence_m
 
             # calculate route?
-            if (cutter_dia_m is not None and 
-                cur_pattern is not None and 
+            if (cutter_dia_m is not None and
+                cur_pattern is not None and
                 cur_pattern != 'None'):
 
                 # from Current Pattern Name - obtain module_name, preserving all-upper-case acronymous phrases
@@ -755,7 +813,7 @@ class Config():
             arena_vertices_m = [(arena_centre_x_m, arena_centre_y_m),
                                 (arena_centre_x_m + (body_width_m), arena_centre_y_m),
                                 (arena_centre_x_m + (body_width_m / 2), arena_centre_y_m + body_length_m)]
-            self.logger.debug('arena_vertices_m: {0}'.format(arena_vertices_m))
+            self.logger.debug('arena_vertices_m: {}'.format(arena_vertices_m))
 
             sys_terms_container_xpath = './navigation_strategies/system_terms'
             sys_terms_cont = self.cfg_root.find(sys_terms_container_xpath)
@@ -911,6 +969,8 @@ class Config():
                       x=high_point, y=low_point)
         self.parse()
         self.schedule_save()
+        if self.callback is not None:
+            self.callback()
 
     def resetCalib(self):
 
@@ -930,6 +990,8 @@ class Config():
         ET.SubElement(calib_node, 'point', index='3', x='60', y='30')
         self.parse()
         self.schedule_save()
+        if self.callback is not None:
+            self.callback()
 
     def __contains__(self, key):
         return key in self.database
@@ -940,7 +1002,7 @@ class Config():
             result = self.database[key]
         else:
             print('Config.__getitem__() Could not find:', key, 'in database')
-            raise NameError('Config key {0} not found'.format(key))
+            raise NameError('Config key {} not found'.format(key))
 
         return result
 
@@ -976,7 +1038,7 @@ class Config():
                 else:
                     instance = klass.from_json_str(value)
                     pk_name = klass.pk_att_name
-                    item_filter = '{0}[@{1}="{2}"]'.format(
+                    item_filter = '{}[@{}="{}"]'.format(
                         module_name, pk_name, pk_val)
                     pre_existing_item_nodes = coll_node.xpath(item_filter)
                     if pre_existing_item_nodes is not None and len(pre_existing_item_nodes) == 1:
@@ -1110,7 +1172,7 @@ class Config():
                 raise MissingClassException(module_name.title())
             else:
                 pk_name = klass.pk_att_name
-                item_filter = '{0}[@{1}="{2}"]'.format(
+                item_filter = '{}[@{}="{}"]'.format(
                     module_name, pk_name, pk_val)
                 pre_existing_item_nodes = coll_node.xpath(item_filter)
                 if pre_existing_item_nodes is not None and len(pre_existing_item_nodes) == 1:
@@ -1148,7 +1210,7 @@ class Config():
 
     def add(self, key, value):
         # add item to collection, if not a duplicate
-        self.logger.info('Config adding {0} to {1}'.format(value, key))
+        self.logger.info('Config adding {} to {}'.format(value, key))
 
         commit = False
         partial_commit = False  # default
@@ -1254,7 +1316,7 @@ class Config():
                 raise MissingClassException(module_name.title())
             else:
                 pk_name = klass.pk_att_name
-                item_filter = '{0}[@{1}="{2}"]'.format(
+                item_filter = '{}[@{}="{}"]'.format(
                     module_name, pk_name, pk_val)
 
             # construct xpath to locate existing node
@@ -1348,7 +1410,7 @@ class Config():
     def promote_rule(self, index):
 
         # locate node
-        rule_xpath = "rules/rule[@index='{0}']".format(index)
+        rule_xpath = "rules/rule[@index='{}']".format(index)
         rule_node = self.cur_strategy_node.find(rule_xpath)
         if rule_node is not None:
             # locate priority
@@ -1360,7 +1422,7 @@ class Config():
             strategy_rule_priorities.sort(key=lambda r: int(r))
             above_rule_priority = strategy_rule_priorities[strategy_rule_priorities.index(
                 rule_priority) - 1]
-            above_rule_xpath = "rules/rule[@priority='{0}']".format(
+            above_rule_xpath = "rules/rule[@priority='{}']".format(
                 above_rule_priority)
             above_rule_node = self.cur_strategy_node.find(above_rule_xpath)
             self.logger.debug('Promote Rule ' +
@@ -1384,7 +1446,7 @@ class Config():
     def demote_rule(self, index):
 
         # locate node
-        rule_xpath = "rule[@index='{0}']".format(index)
+        rule_xpath = "rule[@index='{}']".format(index)
         rule_node = self.cur_strategy_node.find(rule_xpath)
         # locate priority
         rule_priority = rule_node.attrib['priority']
@@ -1395,7 +1457,7 @@ class Config():
         strategy_rule_priorities.sort(key=lambda r: int(r))
         below_rule_priority = strategy_rule_priorities[strategy_rule_priorities.index(
             rule_priority) + 1]
-        below_rule_xpath = "rule[@priority='{0}']".format(below_rule_priority)
+        below_rule_xpath = "rule[@priority='{}']".format(below_rule_priority)
         below_rule_node = self.cur_strategy_node.find(below_rule_xpath)
         self.logger.debug('Demote Rule ' + rule_priority +
                           '><' + below_rule_priority)
@@ -1412,7 +1474,7 @@ class Config():
     def delete_rule(self, name):
         # locate node
         rules_node = self.cur_strategy_node.find('rules')
-        rule_xpath = "rule[@name='{0}']".format(name)
+        rule_xpath = "rule[@name='{}']".format(name)
         rule_node = rules_node.find(rule_xpath)
         # remove node?
         if rule_node is not None:
@@ -1426,7 +1488,7 @@ class Config():
     def delete_term(self, name):
         # locate node
         terms_node = self.cur_strategy_node.find('user_terms')
-        term_xpath = "term[@name='{0}']".format(name)
+        term_xpath = "term[@name='{}']".format(name)
         term_node = terms_node.find(term_xpath)
         # remove node?
         if term_node is not None:
@@ -1440,14 +1502,14 @@ class Config():
     def get_next_in_seq(self, root_node, elem_name, att_name):
         if root_node is None:
             root_node = self.cfg_root
-        xpath = '//{0}/@{1}'.format(elem_name, att_name)
+        xpath = '//{}/@{}'.format(elem_name, att_name)
         indices = list(map(int, root_node.xpath(xpath)))
         new_index = max(indices) + 1
         return new_index
 
     def duplicate_rule(self, name):
         # locate node
-        rule_xpath = "rules/rule[@name='{0}']".format(name)
+        rule_xpath = "rules/rule[@name='{}']".format(name)
         rule_node = self.cur_strategy_node.find(rule_xpath)
         # clone node
         dupe_rule_node = copy.deepcopy(rule_node)
@@ -1531,7 +1593,7 @@ class Config():
         if len(elements) > 0:
             element = elements[0]
         return element
-    
+
     def update_query_xpath_att(self, xpath_query, att_name, new_val):
         element = None
         elements = self.cfg_root.xpath(xpath_query)

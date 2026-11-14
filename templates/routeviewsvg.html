@@ -27,9 +27,7 @@
         <!-- draw the line linking r0-r1, r1-r2, etc. plus the shadow cutter track -->
         <line class="route-line-hidden" x1="{{ x }}" y1="{{ y }}" x2="{{ nx }}" y2="{{ ny }}" stroke-width="{{cutter_width}}" pointer-events="none" />
         <!-- add marker at end if space permits -->
-        <!-- line class="route-line" marker-end={{ "url(#mkr-green-arrow)" if hyp > 60 else "none" }} x1="{{ x3 }}" y1="{{ y3 }}" x2="{{ x4 }}" y2="{{ y4 }}" pointer-events="none" / -->
         <line class="route-line" marker-end="url(#mkr-green-arrow)" x1="{{ x3 }}" y1="{{ y3 }}" x2="{{ x4 }}" y2="{{ y4 }}" pointer-events="none" />
-
         <!-- finally draw the point in order r0, r1, etc over all lines -->
         <use xlink:href="#sym-route-point-hdpc" class="route-point" id="r{{ i }}" x="{{ x }}" y="{{ y }}" />
         <!-- number the point -->

@@ -36,7 +36,7 @@ class OpticalWusb(USBCamera):
             def_height_px = self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
             if self.debug and self.logger:
                 self.logger.debug(
-                    "WinCamera capture - Frame default resolution: {0}x{1}".format(def_width_px, def_height_px))
+                    "WinCamera capture - Frame default resolution: {}x{}".format(def_width_px, def_height_px))
 
             # Obtain the requested image size
             img_width_px = int(self.resolution.split('x')[0])
@@ -89,7 +89,7 @@ class OpticalWusb(USBCamera):
                 cur_time = time.time()
                 now_fmtd = (
                     time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(cur_time)) +
-                    '.{0:0>3}'.format(int((cur_time % 1) * 1000))
+                    '.{:0>3}'.format(int((cur_time % 1) * 1000))
                 )
 
                 banner_height_px = img_height_px // 16

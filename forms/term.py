@@ -12,7 +12,7 @@ class Term(Morphable):
     _hidden = ['result', 'alt_result']
 
     name = TextSetting('Term Name', 'Name of the term', None,
-                       '^.{1,}$', 'must have at least 1 character')
+                       '^[^.]{1,}$', 'must have at least 1 alphanumeric character')
     description = TextSetting('Term Description', 'Term description')
     tooltip = TextSetting('Term Tooltip', 'Term tooltip')
     expression = ExpressionSetting(
@@ -82,18 +82,18 @@ class Term(Morphable):
         row_attributes[hidden_col_prefix +
                        '@row_class'] = 'row-{}'.format(variant.lower())
         row_attributes[hidden_col_prefix +
-                       '@row_title'] = '{0}'.format(self.tooltip if self.tooltip is not None else '')
+                       '@row_title'] = '{}'.format(self.tooltip if self.tooltip is not None else '')
 
         if variant == 'Term':
-            xpath = "navigation_strategies/strategy[@name='{0}']/user_terms/term[@name='{1}']".format(
+            xpath = "navigation_strategies/strategy[@name='{}']/user_terms/term[@name='{}']".format(
                 self._cur_strategy, self.name)
-            action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{0}");'.format(
+            action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{}");'.format(
                 xpath)
             row_attributes[hidden_col_prefix + '@row_ondblclick'] = action
         elif variant == 'Hybrid':
-            xpath = "navigation_strategies/strategy[@name='{0}']/hybrid_terms/hybrid[@name='{1}']".format(
+            xpath = "navigation_strategies/strategy[@name='{}']/hybrid_terms/hybrid[@name='{}']".format(
                 self._cur_strategy, self.name)
-            action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{0}");'.format(
+            action = 'document.getElementsByClassName("settings-form")[0].style.display="block";renderForm(null, "{}");'.format(
                 xpath)
             row_attributes[hidden_col_prefix + '@row_ondblclick'] = action
         else:
@@ -104,12 +104,12 @@ class Term(Morphable):
         dkdict['Name'] = self.name
         dkdict['Description'] = self.description
         dkdict['Expression'] = self.expression
-        dkdict['Result'] = '{0} {1}'.format(
+        dkdict['Result'] = '{} {}'.format(
             self.result if self.result is not None else '',
             self.units if self.result is not None else ''
         )
         dkdict['Alt Expression'] = self.alt_expression
-        dkdict['Alt Result'] = '{0} {1}'.format(
+        dkdict['Alt Result'] = '{} {}'.format(
             self.alt_result if self.alt_result is not None and self.alt_result != -1 else '',
             self.alt_units if self.alt_result is not None and self.alt_result != -1 else ''
         )

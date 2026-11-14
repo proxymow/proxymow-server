@@ -3,7 +3,7 @@ import threading
 import random
 
 
-class Pin():
+class Pin:
 
     OUT = 1
 
@@ -43,7 +43,7 @@ def ADC(_):
     return adc_helper
 
 
-class Timer():
+class Timer:
 
     """Dummy"""
 

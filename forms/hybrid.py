@@ -11,4 +11,4 @@ class Hybrid(Term):
 
     _hidden = ['result', 'alt_result']
     _readonlys = [pk_att_name, 'description', 'units',
-                  'alt_expression', 'alt_units', 'scope', 'user_defined']
+                  'alt_units', 'scope', 'user_defined']

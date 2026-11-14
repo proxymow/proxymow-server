@@ -12,7 +12,7 @@ class Profile(Morphable):
     '''
     pk_att_name = 'name'
     name = TextSetting('Profile Name', 'Name of the profile',
-                       None, '^.{6,}$', 'must have at least 6 characters')
+                       None, '^[^.]{6,}$', 'must have at least 6 alphanumeric characters')
     description = TextSetting('Profile Description', 'Profile description')
 
     def __init__(self, name='', description=''):

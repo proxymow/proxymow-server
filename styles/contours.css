@@ -22,6 +22,14 @@ main {
 #img1 {
     width: 100%;
 }
+.marker-wrapper {
+    height: 100%;
+    aspect-ratio: 4 / 3;
+    display: grid;
+    grid-template-columns: 100%;
+    grid-template-rows: 100%;
+    margin: auto;
+}
 #cockpitstate {
     height: 28px;
     background-color: black;

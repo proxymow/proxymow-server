@@ -2,7 +2,7 @@ import sys
 import time
 
 
-class Timesheet():
+class Timesheet:
     '''
         Represents an ordered set of absolute times
         Used to measure apportionment of time through a process
@@ -54,7 +54,7 @@ class Timesheet():
         return result
 
 
-class Timesheet2():
+class Timesheet2:
     '''
         Represents an ordered set of absolute times
         Used to measure apportionment of time through a process, or loop

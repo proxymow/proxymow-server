@@ -6,7 +6,7 @@ import configurations
 import constants
 
 
-class Sibling():
+class Sibling:
     pass
 
 
@@ -42,7 +42,6 @@ class CoreSettings(Morphable):
         child = self.__class__
         tp_config = []
         for cv_name, cv_stg in child.class_settings(sort).items():
-            # self._logger.debug('setting: {0} {1}'.format(cv_name, type(cv_stg)))
             tool = cv_stg.get_tool(cv_name, getattr(self, cv_name), True)
             if tool is not None:
                 tp_config.append(tool)
@@ -100,7 +99,7 @@ class BaseSettings(CoreSettings):
                 db_key = 'optical.' + stg_name
                 stg_value = getattr(self, stg_name)
                 self._logger.debug(
-                    'save_settings {0} = {1}'.format(db_key, stg_value))
+                    'save_settings {} = {}'.format(db_key, stg_value))
                 config[db_key] = stg_value
 
     def align_with_dict(self, qsp_dict):
@@ -128,7 +127,7 @@ class BaseSettings(CoreSettings):
         sdict = {}
         for cv_name, cv_stg in child.class_settings().items():
             self._logger.debug(
-                'get settings as dict: {0} {1}'.format(cv_name, type(cv_stg)))
+                'get settings as dict: {} {}'.format(cv_name, type(cv_stg)))
             sdict[cv_name] = getattr(self, cv_name)
         return sdict
 
@@ -138,7 +137,7 @@ class BaseSettings(CoreSettings):
         for cv_name, cv_stg in child.class_settings().items():
             cv_val = getattr(self, cv_name)
             self._logger.debug(
-                'Settings get_qs {0} {1}'.format(cv_name, cv_val))
+                'Settings get_qs {} {}'.format(cv_name, cv_val))
             qsp = cv_name + '='
             if isinstance(cv_stg, BooleanSetting):
                 qsp += '1' if cv_val else '0'

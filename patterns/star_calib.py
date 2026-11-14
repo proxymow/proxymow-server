@@ -4,7 +4,7 @@ from math import cos, sin, radians
 from shapely.geometry import LineString, Polygon
 
 
-def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m, logger, debug):
+def calculate_route(fence_points_pc, arena_width_m, arena_length_m, _cutter_dia_m, logger, debug):
 
     calc_rte_debug = debug
 
@@ -14,10 +14,10 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
     try:
 
         if calc_rte_debug:
-            logger.debug('width_m: {0}'.format(arena_width_m))
-            logger.debug('length_m: {0}'.format(arena_length_m))
+            logger.debug('width_m: {}'.format(arena_width_m))
+            logger.debug('length_m: {}'.format(arena_length_m))
             logger.debug(
-                'fence point percentages: {0}'.format(fence_points_pc))
+                'fence point percentages: {}'.format(fence_points_pc))
 
         fence_point_count = len(fence_points_pc)
         fence_polygon_pts = []
@@ -31,7 +31,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         centroid = geom_lib.polygon_centroid(
             [(p.x, p.y) for p in fence_points_pc])
         if calc_rte_debug:
-            logger.debug('centroid: {0}'.format(centroid))
+            logger.debug('centroid: {}'.format(centroid))
 
         # start  in middle
         route_pc.append((centroid.x, centroid.y))
@@ -42,7 +42,7 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         contacts = []
         for omega in range(0, 360, ang_inc_deg):
             if calc_rte_debug:
-                logger.debug('omega angle: {0}'.format(omega))
+                logger.debug('omega angle: {}'.format(omega))
 
             # create radial
             omega_rads = radians(omega)
@@ -51,14 +51,14 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
             radial = LineString(
                 [(centroid.x, centroid.y), (centroid.x + rx, centroid.y + ry)])
             if calc_rte_debug:
-                logger.debug('radial: {0}'.format(radial))
+                logger.debug('radial: {}'.format(radial))
 
             # find point of contact on fence that intersects with radial
             inter_line = fence_polygon.intersection(radial)
             contact = inter_line.coords[-1]
             if calc_rte_debug:
                 logger.debug(
-                    'intersection point of contact: {0}'.format(contact))
+                    'intersection point of contact: {}'.format(contact))
 
             contacts.append(contact)
 
@@ -71,8 +71,8 @@ def calculate_route(fence_points_pc, arena_width_m, arena_length_m, cutter_dia_m
         opp_index = int((n + opp_offset - 1) % contact_count)
         for n in range(contact_count - 1):
             if calc_rte_debug:
-                logger.debug('point index: {0}'.format(n))
-                logger.debug('opposite point index: {0}'.format(opp_index))
+                logger.debug('point index: {}'.format(n))
+                logger.debug('opposite point index: {}'.format(opp_index))
             route_pc.append(contacts[opp_index])
             opp_index = int((opp_index + opp_offset - 1) % contact_count)
 

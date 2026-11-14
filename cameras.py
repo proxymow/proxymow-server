@@ -6,14 +6,14 @@ import logging
 import numpy as np
 import requests
 from PIL import Image, ImageDraw
+from io import BytesIO
 
 import constants
 from forms.settings import VirtualSettings, PiSettings
 from setting import IntSetting, FloatSetting
-from utilities import await_elapsed
 
 
-class BaseCamera():
+class BaseCamera:
 
     def __init__(self):
         try:
@@ -24,7 +24,7 @@ class BaseCamera():
 
             self.logger = logging.getLogger('vision')
             if self.debug:
-                self.logger.debug('in BaseCamera init self is: {0}'.format(
+                self.logger.debug('in BaseCamera init self is: {}'.format(
                     type(self)
                 ))
             # create property
@@ -32,14 +32,14 @@ class BaseCamera():
                 if stg.label is not None:
                     if self.debug:
                         self.logger.debug(
-                            'adding property: {0} with default value: {1}'.format(
+                            'adding property: {} with default value: {}'.format(
                                 stg_name, stg.default)
                         )
                     try:
                         setattr(self, stg_name, stg.default)
                     except Exception as e:
                         self.logger.warning(
-                            'failed to add/set property: {0}'.format(e))
+                            'failed to add/set property: {}'.format(e))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
@@ -68,12 +68,12 @@ class BaseCamera():
             try:
                 if self.debug:
                     self.logger.debug(
-                        'camera apply new settings: {0}'.format(new_settings))
+                        'camera apply new settings: {}'.format(new_settings))
                 self.settings = new_settings
             except Exception as e:
                 err_line = sys.exc_info()[-1].tb_lineno
                 self.logger.error(
-                    'Error in camera apply new settings: {0} on line {1}'.format(e, err_line))
+                    'Error in camera apply new settings: {} on line {}'.format(e, err_line))
 
         child = self.settings.__class__
         for stg_name, stg in child.class_settings().items():
@@ -90,20 +90,20 @@ class BaseCamera():
                             'adjusting None to 0.0 for FloatSetting')
                     stg_value = 0.0
                 if self.debug:
-                    self.logger.debug('camera apply settings: {0} {1}'.format(
+                    self.logger.debug('camera apply settings: {} {}'.format(
                         stg_name, self.settings[stg_name]))
                 try:
                     cur_val = str(getattr(self, stg_name))
                     if cur_val != str(stg_value):
                         changed = True
-                        trace += 'Camera Changing {0} Setting from {1} to {2}\n'.format(
+                        trace += 'Camera Changing {} Setting from {} to {}\n'.format(
                             stg_name, cur_val, stg_value)
                         setattr(self, stg_name, stg_value)
 
                 except Exception as e:
                     err_line = sys.exc_info()[-1].tb_lineno
                     self.logger.error(
-                        'Error in camera apply setting: {0} on line {1}'.format(e, err_line))
+                        'Error in camera apply setting: {} on line {}'.format(e, err_line))
 
         if changed:
             self.logger.info('apply_settings Settings changed')
@@ -223,7 +223,7 @@ class OpticalVirtual(BaseCamera):
                 cur_time = time.time()
                 now_fmtd = (
                     time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(cur_time)) +
-                    '.{0:0>3}'.format(int((cur_time % 1) * 1000))
+                    '.{:0>3}'.format(int((cur_time % 1) * 1000))
                 )
 
                 banner_height_px = img_height_px // 16
@@ -240,7 +240,7 @@ class OpticalVirtual(BaseCamera):
                 except Exception as e:
                     err_line = sys.exc_info()[-1].tb_lineno
                     self.logger.error(
-                        'Warning in OpticalVirtual snap: {0} on line {1}'.format(e, err_line))
+                        'Warning in OpticalVirtual snap: {} on line {}'.format(e, err_line))
 
             plan_img_arr = np.array(img)
             img_arr = self._distort_mapper.transform_image(plan_img_arr)
@@ -262,12 +262,12 @@ class OpticalVirtual(BaseCamera):
             self._elapsed = round(end - start, 3)  # seconds
             if self.debug:
                 self.logger.debug(
-                    'OpticalVirtual capture - captured in {0:.2f} seconds'.format(self._elapsed))
+                    'OpticalVirtual capture - captured in {:.2f} seconds'.format(self._elapsed))
 
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             self.logger.error(
-                'Error in OpticalVirtual snap: {0} on line {1}'.format(e, err_line))
+                'Error in OpticalVirtual snap: {} on line {}'.format(e, err_line))
 
         return out_arr
 
@@ -292,32 +292,43 @@ class RemoteOpticalPi(BaseCamera):
             use the url to make a remote snap request
         '''
         img_arr = None
+        img_fmt = 'jpeg' # jpeg or raw for lossless
         try:
             # obtain settings as a query string
             qs = self.settings.get_qs()
             # override settings default 'locate' client with 'remote'
-            url = 'http://{0}/raw_img?fmt=raw&{1}&client=remote'.format(
-                self.endpoint, qs)
+            url = 'http://{}/raw_img?fmt={}&{}&client=remote'.format(
+                self.endpoint, img_fmt, qs)
             self.logger.debug(
-                'RemoteOpticalPi making raw_img request to: {0}'.format(url))
+                'RemoteOpticalPi making raw_img request to: {}'.format(url))
 
             img_width_px = int(self.settings.resolution.split('x')[0])
             img_height_px = int(self.settings.resolution.split('x')[1])
 
             req_start = time.time()
-            resp = requests.get(url, stream=True, timeout=45).raw
-            self.logger.debug('RemoteOpticalPi image returned in {0:.3f} seconds'.format(
+            resp = requests.get(url, stream=True, timeout=45)
+            self.logger.debug('RemoteOpticalPi image returned in {:.3f} seconds'.format(
                 time.time() - req_start))
-            img_arr_serial = np.asarray(bytearray(resp.read()), dtype="uint8")
+            if img_fmt == 'raw':
+                img_arr_serial = np.frombuffer(resp.raw.read(), dtype=np.uint8)
+            elif img_fmt == 'jpeg':
+                img = Image.open(BytesIO(resp.content))
+                img_arr_serial = np.array(img)
+            else:
+                self.logger.error('Invalid Image Format')
+                img_arr_serial = np.zeros(shape=(img_height_px, img_width_px), dtype=np.uint8)
+
             self.logger.debug('RemoteOpticalPi img_arr_serial: {} w: {} h: {} w*h: {}'.format(
-                img_arr_serial.shape, 
+                img_arr_serial.shape,
                 img_width_px,
                 img_height_px,
                 (img_width_px * img_height_px))
             )
 
             # resize array
-            chans = img_arr_serial.shape[0] // (img_width_px * img_height_px)
+
+            chans = img_arr_serial.shape[2] if len(img_arr_serial.shape) == 3 else 1
+
             if chans == 3:
                 img_arr = np.reshape(img_arr_serial.astype(
                     np.uint8), (img_height_px, img_width_px, 3))
@@ -332,6 +343,6 @@ class RemoteOpticalPi(BaseCamera):
         except Exception as e:
             err_line = sys.exc_info()[-1].tb_lineno
             self.logger.error(
-                'Error in RemoteOpticalPi snap: {0} on line {1}'.format(e, err_line))
+                'Error in RemoteOpticalPi snap: {} on line {}'.format(e, err_line))
 
         return img_arr

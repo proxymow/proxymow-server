@@ -2,7 +2,7 @@ import time
 
 from utilities import get_mem_usage
 
-class Timesheet():
+class Timesheet:
     '''
         Represents an ordered set of absolute times
         Used to measure apportionment of time & memory through a process
@@ -17,7 +17,7 @@ class Timesheet():
             self.checkpoints = {}
             self.memcheckpoints = {}
             self.start_time = time.time()
-            self.start_mem_mb, _, _, _ = get_mem_usage()
+            self.start_mem_mb, _, _, _, _ = get_mem_usage()
 
     def add(self, name):
         '''
@@ -25,7 +25,7 @@ class Timesheet():
         '''
         if self.setname is not None:
             self.checkpoints[name] = time.time()
-            self.memcheckpoints[name], _, _, _ = get_mem_usage() 
+            self.memcheckpoints[name], _, _, _, _ = get_mem_usage()
 
     def __repr__(self):
         if self.setname is None:
@@ -52,7 +52,7 @@ class Timesheet():
                     elapsed = v - list(self.checkpoints.values())[i - 1]
                     used_mem = list(self.memcheckpoints.values())[i] - list(self.memcheckpoints.values())[i-1]
                 result += tmplt.format(k.rjust(widest, ' '),
-                                       elapsed, 
+                                       elapsed,
                                        100 * elapsed / (total + 0.000001),
                                        used_mem
                                        )
