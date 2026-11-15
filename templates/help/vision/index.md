@@ -2,7 +2,7 @@
 
 The vision feature is used to configure the camera to get the best image of
 the lawn.  
-Different settings can be tried, before commiting. Once committed, the
+Different settings can be tried before committing. Once committed, the
 configuration will be updated and these settings will be used in all
 operations.
 

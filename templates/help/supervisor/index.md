@@ -40,7 +40,7 @@ be turned on or off.
 
 If robots are used in multiple locations, it may be necessary to _enrol_ them
 in their local hotspot.  
-Each profile can have a hotspot name specified in it's configuration, and this
+Each profile can have a hotspot name specified in its configuration, and this
 is displayed beside the Enrol button. Clicking the Enrol button will initiate
 a command to the robot requesting this hotspot be given priority.  
 
@@ -54,7 +54,7 @@ Clicking this button will shutdown the proxymow-server host, if confirmed.
 
 ### Direct Commands
 
-Direct commands are low level commands sent direct to the robot, ignoring any
+Direct commands are low level commands sent directly to the robot, ignoring any
 navigation operations in progress.
 
 ### Manual Driving Mode
@@ -62,7 +62,7 @@ navigation operations in progress.
 Manual driving operates at a higher level than Direct Commands. A destination
 can be specified by either:
 
-  * Selecting a manouvre from the Manual dropdown list e.g. Fwd 0.2
+  * Selecting a manoeuvre from the Manual dropdown list e.g. Fwd 0.2
   * Selecting an absolute location from the Manual dropdown list e.g. (1.0, 1.0)
   * Selecting a relative movement from the Manual dropdown list e.g. (-0.1, +0.1)
   * ![](/icons/map_marker.png)Double-clicking and dropping a marker on the arena view
@@ -87,6 +87,6 @@ Details include:
   * In motion status when finished(...)
 
 There is a compressed format of history list for mobile devices.  
-The list can be expnded to a full tab of the underlying log by clicking the
+The list can be expanded to a full tab of the underlying log by clicking the
 tab title link.
 

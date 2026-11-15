@@ -26,26 +26,25 @@ There are five properties of the projection that can be scored:
 
 ### Span
 
-The span is the derived distance from the base of the isosceles triangle to
-its tip.
+The span is the derived distance from the base of the target to
+its top.
 
 ### Area
 
-The area is the area of the isosceles triangle.  
+The area is the area of the target.  
   
 Both Span and Area are _scaled_ measures. Rather than entering a fixed
 setpoint, the user provides a scale factor which is multiplied by the expected
-vlaue taken from the the mower configuration.
+value taken from the mower configuration.
 
 ### Isoscelicity
 
-This is a ratio derived from the relative side lengths of the isosceles
-triangle.
+This is a ratio derived from the relative lengths of the two edges beyond the shortest edge.
 
 ### Solidity
 
-This is a ratio derived from the relative areas of the isosceles triangle and
-contour convex hull.
+This is a ratio derived from the relative areas of the contour and
+the convex hull.
 
 ### Fitness
 
@@ -63,7 +62,7 @@ There are four values for each scoring measure:
   * Upper Range
   * Maximum Score
 
-The maximumum score is an arbritrary number of points for the measure.
+The maximum score is an arbitrary number of points for the measure.
 Measures can be _weighted_ by allocating different maximum scores. The maximum
 score is awarded if the projection property matches the setpoint. The score
 reduces to zero as the projection property approaches the threshold in either
@@ -74,11 +73,11 @@ projection zero. Hence it will not be considered a viable target. The final
 confidence value for the projection is expressed as a percentage, calculated
 as:
 
+        100 * sum of the scores / sum of maximum scores
     
-    
-    100 * sum of the scores / sum of maximum scores
+Scoring measures can be disabled by allocating them a Maximum Score of zero.  
 
 When changing scoring measures the best way to validate the change is to hover
 over the relevant widget in the scorecard and check that the calculation meets
-your requirements, before commiting the change by clicking the Save button.
+your requirements, before committing the change by clicking the Save button.
 

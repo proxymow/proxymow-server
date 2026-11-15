@@ -13,7 +13,7 @@ calibration. If the lawn happens to be rectangular or square, and its four
 corners are identifiable in the image, then the lawn itself can be used as the
 calibration target. In this case the calibration dimensions will be the same
 as the lawn dimensions. If there is another rectangular shape that can be
-constructed from objets in the image, then this can be used for calibration.
+constructed from objects in the image, then this can be used for calibration.
 Otherwise, a temporary rectangular calibration target of known dimensions will
 need to be set out on the lawn. Using this surveying technique the corner
 poles can have markers at the same height as the robot's target shape,
@@ -42,7 +42,7 @@ This toolbar has controls for setting up the calibration:
 ### Calibration Dimensions
 
 There are 4 dimensions that need to be entered to specify the location and
-size of the calibration rectangle: the width and height and the X and Y
+size of the calibration rectangle: the width and length and the X and Y
 offsets in metres.
 
 ### The Capture Button
@@ -50,7 +50,7 @@ offsets in metres.
 Accurate calibration is not essential for automated mowing, however it does
 deliver better results with certain mowing patterns, like stripes. Marking out
 a calibration target can be tedious, and would need to be repeated if the
-camera position or orientation were to change, however if the clibration data
+camera position or orientation were to change, however if the calibration data
 was just lost or overwritten, then the previous calibration is still valid.
 Using the capture button, a snapshot of the undistorted camera view can be
 archived.

@@ -11,5 +11,5 @@ The feature comprises:
 ### The Header Toolbar
 
 The header toolbar provides links to call up stages from the latest excursion.
-The number of stages included in each diagram can increased.
+The number of stages included in each diagram can be increased.
 

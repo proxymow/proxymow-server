@@ -76,7 +76,7 @@ small round cables as opposed to the ribbon connector on the pi camera.
 
 ##### Windows USB
 
-This is a good camera option for testing and sytem familiarisation, but is
+This is a good camera option for testing and system familiarisation, but is
 unlikely to meet the demanding requirements for successful navigation, without
 significant lag. This stems from the underlying video frame capture mechanism.
 
@@ -87,23 +87,36 @@ Battery.
 
 #### Identity
 
-The IP Address and Port need to be entered to identify the robot mower on the
+Mowers are identified differently according to their type. The type can be selected: virtual, hybrid-udp, physical-udp, 
+hybrid-ble or physical-ble. 
+
+For udp-type mowers the IP Address and Port need to be entered, to identify the robot mower on the
 network. Virtual mowers are hosted by the Proxymow Server, so their ip address
-is 127.0.0.1 i.e. localhost. The type can be selected: virtual, hybrid or
-physical.
+is 127.0.0.1 i.e. localhost.
+
+ble-type mowers are identified by their name. 
+The Mower Name must match the name configured in and advertised by the robot. 
 
 #### Dimensions
 
-The Target Width and Height refers to the base and the span of the idealised
-isosceles triangle enclosing the target shape. The Target Radius refers to the
-radius of the circle, centred on the vertices, that defines the truncation
-points. It is only used by Virtual mowers. The Target Offset is necessary for
-robots where the target is not centred on the turning point, i.e. the centre
-of the Axle Track. This is normally 50%. The diameters of up to two cutters
-can be configured. Mowing Patterns will be supplied with the mean diameter.
-The Body Width and Body Length are not used by the vision system, only the
-Target dimensions, however they are used for Virtual mowers to provide
-background contrast to the target.
+The target dimensions are based on a trapezoid shape.
+
+The Target Lower Base and Target Upper Base being the lengths of the parallel edges, 
+and the Target Height being the distance between the parallel edges. This enables 
+the legacy isosceles triangle shape to be defined by collapsing the Target Upper Base to zero.
+
+The Target Radius refers to the radius of the circle, centred on the vertices, 
+that defines the truncation points. 
+
+The Target Rotation is the amount the upright trapezoid has been rotated to better fit the body aspect. 
+
+The Target Offset is necessary for robots where the target is not centred on the turning point, 
+i.e. the centre of the Axle Track. This is normally 50%. 
+
+The diameters of up to two cutters can be configured. Mowing Patterns will be supplied with the mean diameter.
+
+The Body Width and Body Length are used by the vision system, to provide an initial 
+viewport when tracking the target.
 
 #### Motion
 
@@ -125,7 +138,7 @@ represented by the battery icon, 0..100%.
 
 ### Navigation Strategies
 
-Strategy desciption, Terms and Rules can be managed here, but the best way to
+Strategy description, Terms and Rules can be managed here, but the best way to
 make changes is within the context of the Navigation feature.
 
 ### Pairings
