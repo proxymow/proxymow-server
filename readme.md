@@ -22,18 +22,17 @@ Ensure all pre-requisite software is installed...
 ```
 cd proxymow-server/setup 
 sudo chmod +x requirements.sh
-./requirements.sh
+sudo ./requirements.sh
 ```
 you will be prompted for your pi user password.
 
-When script has finished (20mins?/coffee) reboot pi...
+When script has finished (60mins?/coffee/lunch) reboot pi...
 ```
 sudo reboot
 ```
-Change directory to the installation directory and start server...
+Using python from the virtual environment, start the server...
 ```
-cd proxymow-server
-python proxymow.py  
+/home/pi/pxm-venv/bin/python /home/pi/proxymow-server/proxymow.py  
 ```
 Browse to displayed url.
 
