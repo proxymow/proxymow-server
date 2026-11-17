@@ -148,11 +148,6 @@ DARK_ZONE_MIN_SEGMENT_PERCENT = 1.75
 MINIMUM_CONTOUR_THRESHOLD = 0.01
 
 '''
-    MAXIMUM_VIEWPORT_FOOTPRINT - maximum footprint area (0..100%) above which viewports can't be mower 
-'''
-MAXIMUM_VIEWPORT_FOOTPRINT = 2.5
-
-'''
     APPROXIMATE_POLYGON_TOLERANCE - tolerance for reducing contour point count 
 '''
 APPROXIMATE_POLYGON_TOLERANCE = 0.1
@@ -271,9 +266,9 @@ THROTTLE_VIRTUAL_CAMERA_SNAP_SECS = 1.0 # 1.5 to simulate usb camera speeds
 RESET_LAST_VISITED_NODE_ON_PROFILE_CHANGE = False
 
 '''
-    RESIZE_POSE_TO_VIEWPORT - scale factor to grow pose extent to tracking viewport
+    MAXIMUM_VIEWPORT_FOOTPRINT - maximum footprint area (0..100%) above which viewports can't be mower 
 '''
-RESIZE_POSE_TO_VIEWPORT = 5.0
+MAXIMUM_VIEWPORT_FOOTPRINT = 2.5
 
 '''
     RESIZE_VIEWPORT_FOR_ESCAPEE - scale factor to grow viewport searching for escaped target
