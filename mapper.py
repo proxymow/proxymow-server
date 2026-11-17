@@ -2,7 +2,6 @@ import sys
 import numpy as np
 from skimage import transform
 from scipy import interpolate
-from skimage import transform as tf
 import cv2
 import time
 
