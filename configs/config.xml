@@ -300,7 +300,7 @@
         </strategy>
         <strategy name="Merging Push Me Pull You Saw" description="path hugging shuttle saw">
             <user_terms module="term" updatable="true" extensible="true" deletable="true">
-                <term name="hs" description="home sector" expression="radians(9)" units="radians" alt_units="degrees" alt_expression="9" tooltip="sets the threshold between sweeping and rotating"/>
+                <term name="hs" description="home sector" expression="radians(12)" units="radians" alt_units="degrees" alt_expression="12" tooltip="sets the threshold between sweeping and rotating"/>
                 <term name="hr" description="home radius" units="metres" expression="0.15" alt_expression="None" alt_units="" tooltip="defines the target circle for stage completion"/>
                 <term name="sr" description="static radius" units="metres" expression="1.0" alt_expression="None" alt_units="" tooltip="defines the circle within which in-flight rules are ignored"/>
                 <term name="via" description="path annotation" units="" expression="(x1,y1,x2,y2)" alt_expression="None" alt_units="" colour="blue"/>
@@ -314,7 +314,7 @@
                 <term name="lap annot" description="look ahead point" expression="lap" result="None" units="" alt_expression="" alt_units="" colour="aqua"/>
             </user_terms>
             <hybrid_terms module="hybrid" updatable="true" extensible="false" deletable="false">
-                <hybrid name="lad" description="look ahead distance" units="metres" expression="0.25" alt_expression="None" alt_units="" tooltip="tune this to balance tracking with expedience"/>
+                <hybrid name="lad" description="look ahead distance" units="metres" expression="0.5" alt_expression="None" alt_units="" tooltip="tune this to balance tracking with expedience"/>
             </hybrid_terms>
             <rules module="rule" updatable="true" extensible="true" deletable="true" orderable="true">
                 <rule name="Stage Terminator" description="Stage Terminator" priority="0" scope="0" stage_complete="True">
