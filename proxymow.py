@@ -2322,7 +2322,6 @@ class ProxymowServer:
             if self.itinerary is not None:
                 x1_m, y1_m, x2_m, y2_m = self.itinerary.get_current_path()[:4]
 
-                # cutter stray - lateral error from path as a proportion of cutter diameter
                 # cutter stray - lateral error from path +/-[m]
                 stray_m = distance_to_line(
                     pose.arena.c_x_m, pose.arena.c_y_m, x1_m, y1_m, x2_m, y2_m)
@@ -2360,7 +2359,6 @@ class ProxymowServer:
                     self.itinerary.progress(
                         (pose.arena.c_x_m, pose.arena.c_y_m)).completed_pc,
                     pose.arena.span_m,
-                    # cutter_stray_pc,
                     stray_m,
                     battery_pc,
                     loaded_pc,
@@ -3392,6 +3390,7 @@ class ProxymowServer:
                 y_scale = img_height_px / self.config['arena.length_m']
                 plan_vp_corners_px = [(round(corner[0] * x_scale), round(
                     img_height_px - (corner[1] * y_scale))) for corner in np.vstack([closed_outer_corners, closed_outer_corners[0]])]
+                self.log_debug('plan viewport corners[px]: {}'.format(plan_vp_corners_px))
                 vp_polygon = Polygon(plan_vp_corners_px) # for later fence incursion annotation
                 poly_lines = zip(plan_vp_corners_px, plan_vp_corners_px[1:]) # for later viewport annotation
 
